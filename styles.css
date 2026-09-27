@@ -466,7 +466,11 @@ body:not(.home) .nav{background:rgba(10,8,7,.72);backdrop-filter:blur(12px);-web
 .bcard-img{display:block;aspect-ratio:2/3;overflow:hidden;background:#000}
 .bcard-img img{width:100%;height:100%;object-fit:cover;transition:transform .9s var(--ease)}
 .bcard:hover .bcard-img img{transform:scale(1.04)}
-.bcard-brass .bcard-img img{object-position:40% 50%;filter:sepia(.25) contrast(1.05)}
+.bcard-brass .bcard-img{position:relative;display:flex;align-items:center;justify-content:center;isolation:isolate;background:#120c06}
+.bcard-brass .bcard-img::before{content:"";position:absolute;inset:-24px;z-index:-1;background:url("images/rusty-stack-game.jpg") center/cover;filter:blur(16px) brightness(.5) sepia(.5)}
+.bcard-brass .bcard-img img{position:relative;height:auto;object-fit:contain;filter:sepia(.25) contrast(1.05);box-shadow:0 14px 34px -10px #000}
+.bcard-brass .soon{top:.9rem;right:-3.1rem;font-size:.6rem;padding:.4rem 3rem}
+@media (max-width:460px){.bcard-brass .soon{top:.7rem;right:-2.4rem;font-size:.48rem;letter-spacing:.14em;padding:.28rem 3rem}}
 .bcard-text{display:flex;flex-direction:column;gap:.35rem;padding:1.1rem 1.2rem 1.3rem;flex:1;min-width:0}
 .bcard-genre{font-size:.66rem;letter-spacing:.2em;text-transform:uppercase;font-weight:700;color:var(--fire2)}
 .bcard-title{font-size:1.6rem;line-height:1.05;font-weight:400}
