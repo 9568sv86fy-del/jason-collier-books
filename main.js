@@ -116,3 +116,26 @@ document.querySelectorAll('.excerpt').forEach((ex, i) => {
   b.onclick = () => { const o = ex.classList.toggle('open'); b.setAttribute('aria-expanded', o); b.textContent = o ? 'Show less ↑' : 'Continue reading ↓'; };
   ex.appendChild(b);
 });
+
+/* First Pulse audiobook: one video, seven parts, auto-advance */
+(() => {
+  const v = document.getElementById('ab-video');
+  if (!v) return;
+  const parts = [...document.querySelectorAll('.ab-part')];
+  const title = document.getElementById('ab-title');
+  let cur = 0;
+  function load(i, autoplay) {
+    if (i < 0 || i >= parts.length) return;
+    cur = i;
+    const b = parts[i];
+    parts.forEach((p, j) => { p.classList.toggle('on', j === i); if (j === i) p.setAttribute('aria-current', 'true'); else p.removeAttribute('aria-current'); });
+    v.poster = b.dataset.poster;
+    v.src = b.dataset.src;
+    v.setAttribute('aria-label', b.dataset.title);
+    if (title) title.textContent = b.dataset.title;
+    v.load();
+    if (autoplay) { const pr = v.play(); if (pr && pr.catch) pr.catch(() => {}); }
+  }
+  parts.forEach((b, i) => b.addEventListener('click', () => load(i, true)));
+  v.addEventListener('ended', () => { if (cur < parts.length - 1) load(cur + 1, true); });
+})();
