@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Paintings &amp; Photography | Jason Collier</title>
+<meta name="description" content="Paintings, drawings, and photography by Jason Collier.">
+<meta property="og:title" content="Paintings &amp; Photography | Jason Collier">
+<meta property="og:image" content="media/art-slideshow-poster.jpg">
+<link rel="icon" href="data:,">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;700;900&family=Rye&family=Orbitron:wght@500;700;900&family=Cormorant+Garamond:ital,wght@0,500;1,500&family=Inter:wght@400;500;600;700&family=IM+Fell+English+SC&family=Special+Elite&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body class="page-art">
+<div class="grain" aria-hidden="true"></div>
+
+<header class="nav" id="nav">
+  <a class="brand" href="index.html" aria-label="Jason Collier, home">J<span>·</span>C</a>
+  <button class="nav-toggle" type="button" aria-expanded="false" aria-controls="site-nav" aria-label="Menu"><span></span><span></span><span></span></button>
+  <nav id="site-nav" aria-label="Main">
+    <a href="index.html">Home</a>
+    <a href="jang-and-tom.html">Jang &amp; Tom</a>
+    <a href="first-pulse.html">First Pulse</a>
+    <a href="old-man-on-the-mountain.html">Old Man</a>
+    <a href="rusty-stack.html">Rusty Stack</a>
+    <a href="audiobooks.html">Audiobooks</a>
+    <a href="art.html" class="on" aria-current="page">Art</a>
+    <a href="about.html">About</a>
+  </nav>
+</header>
+
+<main id="top">
+<!-- ============ JASON'S OWN WORK: PAINTINGS & PHOTOGRAPHY ============ -->
+<section class="own" id="own-work">
+  <div class="own-inner">
+    <div class="own-head">
+      <p class="kicker reveal">Jason’s own work</p>
+      <h2 class="reveal">Paintings &amp; Photography</h2>
+      <p class="reveal">Away from the keyboard, Jason paints, draws, and takes pictures.</p>
+    </div>
+    <figure class="own-video reveal">
+      <video controls playsinline preload="metadata" poster="media/art-slideshow-poster.jpg" width="1280" height="720" aria-label="Slideshow of Jason Collier’s paintings and drawings">
+        <source src="media/art-slideshow.mp4" type="video/mp4">
+        <a href="media/art-slideshow.mp4">Watch the slideshow of Jason’s paintings and drawings</a>
+      </video>
+      <figcaption>Paintings and drawings by Jason Collier</figcaption>
+    </figure>
+
+    <!-- PAINTING STILLS: on hold until the user confirms them (see /workspace/x-art/contact-sheet.jpg).
+    <h3 class="own-sub">Paintings &amp; Drawings</h3>
+    <div class="photo-grid">
+      <figure class="photo-item"><img src="images/own-art/art-01.jpg" alt="Painting by Jason Collier" loading="lazy"><figcaption>Painting by Jason Collier</figcaption></figure>
+      ... art-02 to art-08 ...
+    </div>
+    -->
+
+    <h3 class="own-sub reveal">Photography</h3>
+    <div class="photo-grid reveal">
+      <figure class="photo-item"><img src="images/photos/koi-pond.jpg" alt="Koi swimming in a pond behind purple flowers" width="739" height="1600" loading="lazy"><figcaption>Koi pond · Photography by Jason Collier</figcaption></figure>
+      <figure class="photo-item"><img src="images/photos/monarch-zinnia.jpg" alt="Monarch butterfly on a pink zinnia" width="1200" height="1600" loading="lazy"><figcaption>Monarch on a zinnia · Photography by Jason Collier</figcaption></figure>
+      <figure class="photo-item"><img src="images/photos/soil-pulverizer.jpg" alt="Rusty McCormick-Deering soil pulverizer" width="1600" height="1200" loading="lazy"><figcaption>McCormick-Deering soil pulverizer · Photography by Jason Collier</figcaption></figure>
+      <figure class="photo-item"><img src="images/photos/tiger-swallowtail.jpg" alt="Tiger swallowtail butterfly among green plants" width="1200" height="1600" loading="lazy"><figcaption>Tiger swallowtail · Photography by Jason Collier</figcaption></figure>
+      <figure class="photo-item"><img src="images/photos/tall-ship.jpg" alt="Tall ship masts and rigging flying English flags against a blue sky" width="1200" height="1600" loading="lazy"><figcaption>Tall ship · Photography by Jason Collier</figcaption></figure>
+    </div>
+    <p class="own-credit reveal">Photography by Jason Collier</p>
+  </div>
+</section>
+
+<div class="lightbox" id="lightbox" hidden role="dialog" aria-modal="true" aria-label="Image viewer"><button class="lb-close" aria-label="Close">×</button><button class="lb-prev" aria-label="Previous">‹</button><img alt=""><button class="lb-next" aria-label="Next">›</button><p></p></div>
+</main>
+
+<footer>
+  <span>© <span id="y">2026</span> Jason Collier</span>
+  <span class="foot-links"><a href="https://x.com/jascol235175" target="_blank" rel="noopener">X @jascol235175</a><a href="https://www.amazon.com/stores/author/B0GDW74Y5S" target="_blank" rel="noopener">Amazon Author Page</a></span>
+</footer>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js" defer></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/ScrollTrigger.min.js" defer></script>
+<script src="main.js" defer></script>
+</body>
+</html>

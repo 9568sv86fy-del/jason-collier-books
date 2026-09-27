@@ -94,8 +94,10 @@
 addEventListener('load', () => {
   if (!window.gsap || !window.ScrollTrigger || matchMedia('(prefers-reduced-motion: reduce)').matches) return;
   gsap.registerPlugin(ScrollTrigger);
+  if (document.querySelector('.hero')) {
   gsap.to('.hero-inner', {yPercent: -12, opacity: .2, ease: 'none', scrollTrigger: {trigger: '.hero', start: 'top top', end: 'bottom top', scrub: true}});
   gsap.to('.hero-slides', {yPercent: 18, ease: 'none', scrollTrigger: {trigger: '.hero', start: 'top top', end: 'bottom top', scrub: true}});
+  }
   document.querySelectorAll('.book').forEach(sec => {
     const tl = {trigger: sec, start: 'top bottom', end: 'bottom top', scrub: true};
     gsap.fromTo(sec.querySelector('.cover-wrap'), {y: 70}, {y: -70, ease: 'none', scrollTrigger: tl});
@@ -104,7 +106,7 @@ addEventListener('load', () => {
   });
   gsap.utils.toArray('.gallery figure, .art-item').forEach((el, i) =>
     gsap.from(el, {y: 40, opacity: 0, duration: .8, ease: 'power3.out', delay: (i % 4) * .06, scrollTrigger: {trigger: el, start: 'top 92%'}}));
-  gsap.fromTo('.rusty-art', {rotate: -2, y: 60}, {rotate: 1.5, y: -40, ease: 'none', scrollTrigger: {trigger: '.rusty', start: 'top bottom', end: 'bottom top', scrub: true}});
+  if (document.querySelector('.rusty-art')) gsap.fromTo('.rusty-art', {rotate: -2, y: 60}, {rotate: 1.5, y: -40, ease: 'none', scrollTrigger: {trigger: '.rusty', start: 'top bottom', end: 'bottom top', scrub: true}});
 });
 
 // collapsible excerpts
@@ -117,25 +119,64 @@ document.querySelectorAll('.excerpt').forEach((ex, i) => {
   ex.appendChild(b);
 });
 
-/* First Pulse audiobook: one video, seven parts, auto-advance */
+/* Audiobook players: one video per player, a list of parts, auto-advance */
 (() => {
-  const v = document.getElementById('ab-video');
-  if (!v) return;
-  const parts = [...document.querySelectorAll('.ab-part')];
-  const title = document.getElementById('ab-title');
-  let cur = 0;
-  function load(i, autoplay) {
-    if (i < 0 || i >= parts.length) return;
-    cur = i;
-    const b = parts[i];
-    parts.forEach((p, j) => { p.classList.toggle('on', j === i); if (j === i) p.setAttribute('aria-current', 'true'); else p.removeAttribute('aria-current'); });
-    v.poster = b.dataset.poster;
-    v.src = b.dataset.src;
-    v.setAttribute('aria-label', b.dataset.title);
-    if (title) title.textContent = b.dataset.title;
-    v.load();
-    if (autoplay) { const pr = v.play(); if (pr && pr.catch) pr.catch(() => {}); }
+  document.querySelectorAll('.audiobook').forEach(box => {
+    const v = box.querySelector('.ab-player video');
+    if (!v) return;
+    const parts = [...box.querySelectorAll('.ab-part')];
+    const title = box.querySelector('.ab-now span');
+    let cur = 0;
+    function load(i, autoplay) {
+      if (i < 0 || i >= parts.length) return;
+      cur = i;
+      const b = parts[i];
+      parts.forEach((p, j) => { p.classList.toggle('on', j === i); if (j === i) p.setAttribute('aria-current', 'true'); else p.removeAttribute('aria-current'); });
+      v.poster = b.dataset.poster;
+      v.src = b.dataset.src;
+      v.setAttribute('aria-label', b.dataset.title);
+      if (title) title.textContent = b.dataset.title;
+      v.load();
+      if (autoplay) { const pr = v.play(); if (pr && pr.catch) pr.catch(() => {}); }
+    }
+    parts.forEach((b, i) => b.addEventListener('click', () => load(i, true)));
+    v.addEventListener('ended', () => { if (cur < parts.length - 1) load(cur + 1, true); });
+  });
+})();
+
+/* Jang & Tom audiobook tabs: one visible book at a time */
+(() => {
+  const tabs = [...document.querySelectorAll('.ab-tabs [role="tab"]')];
+  if (!tabs.length) return;
+  function select(t, focus) {
+    tabs.forEach(x => {
+      const on = x === t, panel = document.getElementById(x.getAttribute('aria-controls'));
+      x.classList.toggle('on', on); x.setAttribute('aria-selected', on); x.tabIndex = on ? 0 : -1;
+      if (!panel) return;
+      panel.hidden = !on;
+      const v = panel.querySelector('video');
+      if (v && !on && !v.paused) v.pause();
+    });
+    if (focus) t.focus();
   }
-  parts.forEach((b, i) => b.addEventListener('click', () => load(i, true)));
-  v.addEventListener('ended', () => { if (cur < parts.length - 1) load(cur + 1, true); });
+  tabs.forEach((t, i) => {
+    t.addEventListener('click', () => select(t));
+    t.addEventListener('keydown', e => {
+      if (e.key === 'ArrowRight' || e.key === 'ArrowLeft') { e.preventDefault(); select(tabs[(i + (e.key === 'ArrowRight' ? 1 : tabs.length - 1)) % tabs.length], true); }
+    });
+  });
+  const fromHash = () => { const t = tabs.find(x => '#' + x.getAttribute('aria-controls') === location.hash);
+    if (t) { select(t); const s = document.getElementById('jang-and-tom'); if (s) s.scrollIntoView(); } };
+  fromHash(); addEventListener('hashchange', fromHash);
+})();
+
+/* Mobile nav toggle */
+(() => {
+  const nav = document.getElementById('nav'), btn = nav && nav.querySelector('.nav-toggle');
+  if (!btn) return;
+  const set = o => { nav.classList.toggle('open', o); btn.setAttribute('aria-expanded', o); btn.setAttribute('aria-label', o ? 'Close menu' : 'Menu'); };
+  btn.addEventListener('click', () => set(!nav.classList.contains('open')));
+  nav.querySelectorAll('nav a').forEach(a => a.addEventListener('click', () => set(false)));
+  addEventListener('keydown', e => { if (e.key === 'Escape' && nav.classList.contains('open')) { set(false); btn.focus(); } });
+  addEventListener('resize', () => { if (innerWidth > 1100) set(false); });
 })();
