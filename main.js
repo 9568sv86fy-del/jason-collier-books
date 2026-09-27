@@ -76,7 +76,7 @@
   const lb = document.getElementById('lightbox'); if (!lb) return;
   const img = lb.querySelector('img'), cap = lb.querySelector('p');
   let list = [], idx = 0, last = null;
-  const pool = () => [...document.querySelectorAll('.art-item:not(.hide) img, .gallery img, .scene-strip img')];
+  const pool = () => [...document.querySelectorAll('.art-item:not(.hide) img, .gallery img, .scene-strip img, .photo-item img')];
   const show = i => { idx = (i + list.length) % list.length; const el = list[idx]; img.src = el.src; img.alt = el.alt;
     cap.textContent = el.closest('figure')?.querySelector('figcaption')?.textContent || el.alt || ''; };
   const open = el => { last = el; list = pool(); show(list.indexOf(el)); lb.hidden = false; document.body.style.overflow = 'hidden'; lb.querySelector('.lb-close').focus(); };
