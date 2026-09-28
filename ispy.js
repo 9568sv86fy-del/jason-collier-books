@@ -2861,10 +2861,10 @@ const ISPY_BOOKS = [
      {
       "n": "Tail fin",
       "b": [
-       60.0,
-       28.0,
-       18.0,
-       24.0
+       80.0,
+       46.0,
+       16.0,
+       28.0
       ]
      }
     ]
@@ -3048,7 +3048,8 @@ const Ambience = (() => {
       return muted;
     },
     get muted() { return muted; },
-    get running() { return !!kind; }
+    get running() { return !!kind; },
+    get kind() { return kind; }
   };
 })();
 
@@ -3180,7 +3181,7 @@ const Ambience = (() => {
       start = performance.now();
       clock = setInterval(() => { tEl.textContent = fmt(secs()); }, 250);
     }
-    const tol = 1.2;
+    const tol = 2.4;
     const hits = targets.map((t, i) => ({ t, i })).filter(({ t, i }) => !found.has(i) && px >= t.b[0] - tol && px <= t.b[0] + t.b[2] + tol && py >= t.b[1] - tol && py <= t.b[1] + t.b[3] + tol)
       .sort((a, b) => a.t.b[2] * a.t.b[3] - b.t.b[2] * b.t.b[3]);
     if (hits.length) {
