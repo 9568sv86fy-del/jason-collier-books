@@ -66,6 +66,71 @@
     return html + endHtml;
   }
 
+
+  /* ---------------- Thorne reads (narration) ---------------- */
+  // One recording per entry: assets/thorne-lab-audio/entry-NNN.mp3 (NNN = entry number).
+  // play() is always called synchronously inside the click/keydown/change handler, so iOS Safari allows it.
+  const narr = (() => {
+    const bar = $('#lab-voice');
+    if (!bar) return { start() {}, stop() {}, prime() {} };
+    const MUTE_KEY = 'thorneLab.voiceMuted';
+    const audio = new Audio(); audio.preload = 'none'; audio.setAttribute('playsinline', '');
+    const btn = $('#lv-play'), label = $('#lv-label'), time = $('#lv-time'), mute = $('#lv-mute');
+    let muted = false; try { muted = localStorage.getItem(MUTE_KEY) === '1'; } catch (e) {}
+    let num = '', title = '';
+    const src = n => `assets/thorne-lab-audio/entry-${String(n).padStart(3, '0')}.mp3`;
+    const fmt = s => isFinite(s) ? `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, '0')}` : '';
+    function ui() {
+      const playing = !audio.paused && !audio.ended;
+      bar.classList.toggle('is-playing', playing);
+      bar.classList.toggle('is-muted', muted);
+      btn.setAttribute('aria-pressed', playing ? 'true' : 'false');
+      btn.setAttribute('aria-label', playing ? 'Pause Dr. Thorne’s reading' : `Play Dr. Thorne reading entry ${num}`);
+      label.textContent = bar.classList.contains('is-missing') ? 'No recording for this entry yet'
+        : playing ? `Thorne is reading · Entry ${num}` : audio.currentTime > 0 && !audio.ended ? `Paused · Entry ${num}` : `Hear Thorne read Entry ${num}`;
+      mute.setAttribute('aria-pressed', muted ? 'true' : 'false');
+      mute.textContent = muted ? 'Voice off' : 'Voice on';
+      mute.title = muted ? 'Dr. Thorne won’t read aloud when you open an entry' : 'Dr. Thorne reads each entry aloud when you open it';
+    }
+    function load(n, t) {
+      if (n === num && audio.src) return;
+      audio.pause(); num = n; title = t || ''; bar.classList.remove('is-missing');
+      audio.src = src(n); time.textContent = '';
+      ui();
+    }
+    function play() {
+      const p = audio.play();
+      if (p && p.catch) p.catch(() => ui());
+      if ('mediaSession' in navigator && window.MediaMetadata) {
+        try { navigator.mediaSession.metadata = new MediaMetadata({ title: `Entry ${num}${title ? ' · ' + title : ''}`, artist: 'Dr. Thorne', album: 'Thorne’s Lab · Research log' }); } catch (e) {}
+      }
+    }
+    audio.addEventListener('play', ui); audio.addEventListener('pause', ui);
+    audio.addEventListener('ended', () => { audio.currentTime = 0; ui(); });
+    audio.addEventListener('error', () => { if (audio.src) { bar.classList.add('is-missing'); ui(); } });
+    audio.addEventListener('timeupdate', () => { time.textContent = audio.duration ? `${fmt(audio.currentTime)} / ${fmt(audio.duration)}` : fmt(audio.currentTime); });
+    btn.addEventListener('click', () => { if (bar.classList.contains('is-missing')) return; if (audio.paused) play(); else audio.pause(); });
+    mute.addEventListener('click', () => {
+      muted = !muted; try { localStorage.setItem(MUTE_KEY, muted ? '1' : '0'); } catch (e) {}
+      if (muted) audio.pause();
+      ui();
+    });
+    // Stop when the notebook scrolls fully out of view ("journal closed") or the page is hidden.
+    const nb = $('#notebook');
+    if (nb && 'IntersectionObserver' in window) new IntersectionObserver(([e]) => { if (!e.isIntersecting) audio.pause(); }).observe(nb);
+    addEventListener('pagehide', () => audio.pause());
+    // pagehide does not fire when a tab is backgrounded; visibility does.
+    document.addEventListener('visibilitychange', () => { if (document.hidden) audio.pause(); });
+    ui();
+    return {
+      // entry opened by the visitor: switch recording and (unless muted) start it inside the same gesture
+      start(n, t) { load(n, t); if (!muted) play(); },
+      // entry shown without a gesture (first load, hash change): switch recording but stay quiet
+      prime(n, t) { load(n, t); },
+      stop() { audio.pause(); },
+    };
+  })();
+
   const page = $('#log-page');
   if (page) {
     const tabs = $('#log-tabs'), sel = $('#log-select'), prev = $('#log-prev'), next = $('#log-next'), pos = $('#log-pos'), count = $('#log-count');
@@ -95,6 +160,7 @@
     }
     function go(i, opts = {}) {
       if (i < 0 || i >= entries.length || i === cur || busy) return;
+      { const f = entries[i].fields, n = (f.entry || String(i + 1)).replace(/\D/g, '') || String(i + 1); (opts.gesture ? narr.start : narr.prime)(n, f.date || ''); }
       const dir = i > cur ? 'turn-out' : 'turn-back', first = cur < 0;
       const done = () => {
         cur = i; paint(i);
@@ -103,8 +169,11 @@
         busy = false;
         if (!opts.silent) {
           history.replaceState(null, '', '#' + id(entries[i]));
-          const top = page.getBoundingClientRect().top;
-          if (top < 60 || top > innerHeight * .6) page.scrollIntoView({ behavior: reduce ? 'auto' : 'smooth', block: 'start' });
+          // Keep the voice bar, which sits above the page, in view with the entry.
+          const anchor = $('#lab-voice') || page;
+          const top = anchor.getBoundingClientRect().top;
+          const navBottom = ($('#nav')?.getBoundingClientRect().bottom || 60) + 8;
+          if (top < navBottom || top > innerHeight * .6) anchor.scrollIntoView({ behavior: reduce ? 'auto' : 'smooth', block: 'start' });
           page.focus({ preventScroll: true });
         }
       };
@@ -119,11 +188,16 @@
       count.textContent = `· ${entries.length} entr${entries.length === 1 ? 'y' : 'ies'} so far`;
       tabs.innerHTML = entries.map((e, i) => `<li><button type="button" data-i="${i}"><b>No. ${esc(e.fields.entry || String(i + 1))}</b><span>${esc(e.fields.date || '')}</span></button></li>`).join('');
       sel.innerHTML = entries.map((e, i) => `<option value="${i}">No. ${esc(e.fields.entry || String(i + 1))} · ${esc(e.fields.date || '')}</option>`).join('');
-      tabs.addEventListener('click', ev => { const b = ev.target.closest('button'); if (b) go(+b.dataset.i); });
-      sel.addEventListener('change', () => go(+sel.value));
-      prev.addEventListener('click', () => go(cur - 1));
-      next.addEventListener('click', () => go(cur + 1));
-      page.addEventListener('keydown', ev => { if (ev.key === 'ArrowRight') go(cur + 1); if (ev.key === 'ArrowLeft') go(cur - 1); });
+      const G = { gesture: true };
+      // clicking the entry that is already open (re)starts its reading
+      const openCur = () => { const f = entries[cur].fields; narr.start((f.entry || String(cur + 1)).replace(/\D/g, '') || String(cur + 1), f.date || ''); };
+      tabs.addEventListener('click', ev => { const b = ev.target.closest('button'); if (!b) return; if (+b.dataset.i === cur) openCur(); else go(+b.dataset.i, G); });
+      sel.addEventListener('change', () => go(+sel.value, G));
+      prev.addEventListener('click', () => go(cur - 1, G));
+      next.addEventListener('click', () => go(cur + 1, G));
+      page.addEventListener('keydown', ev => { if (ev.key === 'ArrowRight') go(cur + 1, G); if (ev.key === 'ArrowLeft') go(cur - 1, G); });
+      // "Read the log" (opening the journal) starts the open entry's reading
+      document.querySelectorAll('a[href="#log"]').forEach(a => a.addEventListener('click', () => { if (cur >= 0) openCur(); }));
       const h = fromHash(); go(h >= 0 ? h : 0, { silent: true });
       if (h >= 0) setTimeout(() => $('#log').scrollIntoView(), 50);
       addEventListener('hashchange', () => { const k = fromHash(); if (k >= 0) go(k); });
