@@ -580,3 +580,14 @@ body:not(.home) .nav{background:rgba(10,8,7,.72);backdrop-filter:blur(12px);-web
   .brass-ab .ab-cover{max-width:320px}
   .rs-ep{grid-template-columns:1fr;align-items:start}
 }
+.brass-ab .audiobook{border-color:rgba(214,160,90,.35);background:linear-gradient(180deg,rgba(243,226,190,.07),rgba(26,17,10,.55))}
+.brass-ab .ab-player video{border-color:rgba(214,160,90,.4)}
+.brass-ab .ab-now{color:#c9b59a}
+.brass-ab .ab-now span{color:#f3cf8a}
+.brass-ab .ab-meta{margin:.45rem 0 0;font-family:"Special Elite",monospace;font-size:.78rem;letter-spacing:.06em;color:#d9a55e}
+.brass-ab .ab-synopsis{margin:.3rem 0 0;color:#e6d3b5;font-size:.98rem;line-height:1.45}
+.brass-ab .ab-part{color:#e6d3b5;background:rgba(214,160,90,.08);border-color:rgba(214,160,90,.28)}
+.brass-ab .ab-part:hover,.brass-ab .ab-part:focus-visible{border-color:#e8b56a;color:#fff}
+.brass-ab .ab-part.on{background:linear-gradient(135deg,rgba(214,160,90,.28),rgba(138,85,32,.22));border-color:#d9a55e;color:#fff}
+.brass-ab .ab-n{font-family:"Cinzel",serif;font-weight:700;letter-spacing:.12em}
+.brass-ab .ab-part.on .ab-n::before{color:#f3cf8a}
