@@ -559,3 +559,24 @@ body:not(.home) .nav{background:rgba(10,8,7,.72);backdrop-filter:blur(12px);-web
 .more-grid>.mcard{grid-column:span 2}
 .more-grid>.mcard:nth-child(n+4){grid-column:span 3}
 @media (max-width:760px){.more-grid{grid-template-columns:1fr}.more-grid>.mcard,.more-grid>.mcard:nth-child(n+4){grid-column:auto}}
+
+/* Rusty Stack storyboard animatic on the audiobooks page */
+.brass-ab .ab-book-head{grid-template-columns:minmax(160px,280px) 1fr;align-items:center}
+.brass-ab .ab-cover{aspect-ratio:16/9;object-fit:contain;filter:sepia(.25) contrast(1.05);border:4px solid transparent;
+  background:linear-gradient(#120c06,#120c06) padding-box,linear-gradient(135deg,#f3cf8a,#9a6428 40%,#e8b56a 60%,#6b3f16) border-box}
+.brass-ab .excerpt-label{color:#d9a55e;font-family:"Special Elite",monospace;letter-spacing:.12em}
+.brass-h{font-family:"IM Fell English SC",serif;font-weight:400;font-size:clamp(2.1rem,5vw,3.4rem);line-height:.92;
+  background:linear-gradient(180deg,#fbe3b0 0%,#d9a55e 50%,#8a5520 100%);-webkit-background-clip:text;background-clip:text;color:transparent}
+.brass-ab .brass-h small{display:block;margin:.45rem 0 0;font-size:.4em;letter-spacing:.28em;font-weight:400}
+.brass-intro{font-family:"Cormorant Garamond",serif;font-style:italic;font-size:clamp(1.2rem,2vw,1.45rem);line-height:1.4;color:#f0dcc0;margin:.15rem 0 1rem;max-width:40rem}
+.rs-episodes{list-style:none;display:grid;gap:1.15rem;margin:0;padding:0}
+.rs-ep{display:grid;grid-template-columns:minmax(0,1.2fr) minmax(0,.8fr);gap:clamp(1rem,2.4vw,1.6rem);align-items:center;padding:clamp(.85rem,2vw,1.15rem);border:1px solid rgba(214,160,90,.35);border-radius:6px;background:linear-gradient(180deg,rgba(243,226,190,.07),rgba(26,17,10,.45))}
+.rs-player{margin:0}
+.rs-player video{display:block;width:100%;height:auto;aspect-ratio:16/9;border-radius:4px;border:1px solid rgba(214,160,90,.4);background:#000}
+.rs-copy h3{font-family:"IM Fell English SC",serif;font-weight:400;font-size:clamp(1.45rem,2.4vw,1.9rem);line-height:1.05;color:#f3cf8a;margin:.15rem 0 .5rem}
+.rs-copy>p:last-child{color:#e6d3b5;font-size:.98rem}
+@media (max-width:760px){
+  .brass-ab .ab-book-head{grid-template-columns:1fr}
+  .brass-ab .ab-cover{max-width:320px}
+  .rs-ep{grid-template-columns:1fr;align-items:start}
+}
