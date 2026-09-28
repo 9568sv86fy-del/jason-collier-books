@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>I Spy | Jason Collier</title>
-<meta name="description" content="A picture game: find ten hidden things in scenes from the books of Jason Collier.">
+<meta name="description" content="A picture game: find five hidden things in scenes from the books of Jason Collier.">
 <meta property="og:title" content="I Spy | Jason Collier">
 <meta property="og:image" content="https://jasoncollierbooks.github.io/jason-collier-books/images/scenes/transcon-s46.jpg">
 <meta property="og:url" content="https://jasoncollierbooks.github.io/jason-collier-books/i-spy.html">
@@ -44,18 +44,19 @@
     <header class="ispy-head">
       <p class="lab-kicker">Picture game</p>
       <h1 class="ispy-h1">I Spy</h1>
-      <p>Pick a picture from the site. You get ten things to find, chosen at random, so every round is different. Tap each one in the picture.</p>
+      <p>Pick a picture from the site. You get five things to find, chosen at random, so every round is different. Tap each one in the picture.</p>
     </header>
-    <div class="ispy-gallery" id="ispy-gallery" role="list"></div>
+    <div class="ispy-gallery" id="ispy-gallery"></div>
 
     <div class="ispy-game" id="ispy-game" hidden>
       <div class="ispy-hud" role="status">
         <button type="button" id="is-back" class="hud-btn">← Pictures</button>
-        <span class="hud-box"><b id="is-found">0</b>/10 found</span>
+        <span class="hud-box"><b id="is-found">0</b>/<span id="is-of">5</span> found</span>
         <span class="hud-box">⏱ <b id="is-time">0:00</b></span>
         <span class="hud-box">Score <b id="is-score">0</b></span>
         <button type="button" id="is-hint" class="hud-btn">Hint (−50)</button>
         <button type="button" id="is-new" class="hud-btn">New list</button>
+        <button type="button" id="is-mute" class="hud-btn" aria-pressed="false">Sound on</button>
         <span class="zoom-ctl"><button type="button" id="is-zout" class="hud-btn" aria-label="Zoom out">−</button><button type="button" id="is-zin" class="hud-btn" aria-label="Zoom in">+</button></span>
       </div>
       <div class="ispy-wrap">
@@ -69,7 +70,7 @@
           <div class="ispy-win" id="ispy-win" hidden>
             <div class="ispy-win-card">
               <p class="lab-kicker">You spied them all</p>
-              <h3>All ten found</h3>
+              <h3 id="ispy-win-h">All five found</h3>
               <p id="ispy-win-text"></p>
               <button type="button" id="is-again" class="btn btn-phosphor">Play again</button>
               <button type="button" id="is-other" class="hud-btn">Another picture</button>
