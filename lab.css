@@ -294,7 +294,7 @@
 @media (max-width:700px){.ispy-view{max-height:62vh}.zoom-ctl{margin-left:0}.ispy-page .hud-box{font-size:1.05rem}}
 
 /* Thorne reads: narration strip above the notebook page */
-.lab-voice{display:flex;align-items:center;gap:.7rem;margin:0 0 .8rem;padding:.4rem .55rem .4rem .45rem;border:1px solid rgba(255,179,71,.28);border-radius:3px;background:rgba(0,0,0,.35);font:.8rem/1.2 "Courier Prime",monospace;color:#9a8e7c;min-height:2.6rem}
+.lab-voice{display:flex;align-items:center;gap:.7rem;margin:0 0 .8rem;padding:.4rem .55rem .4rem .45rem;border:1px solid rgba(255,179,71,.28);border-radius:3px;background:rgba(0,0,0,.35);font:.8rem/1.2 "Courier Prime",monospace;color:#9a8e7c;min-height:2.6rem;scroll-margin-top:5.5rem}
 .lv-play{flex:none;width:2rem;height:2rem;display:grid;place-items:center;border-radius:50%;border:1px solid rgba(255,179,71,.45);background:rgba(0,0,0,.4);cursor:pointer;padding:0}
 .lv-play:hover{border-color:var(--amber)}
 .lv-play:focus-visible,.lv-mute:focus-visible{outline:2px solid var(--amber);outline-offset:2px}

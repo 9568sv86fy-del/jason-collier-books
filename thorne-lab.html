@@ -115,10 +115,6 @@
         <label class="log-pick"><span>Entry</span><select id="log-select" aria-label="Choose an entry"></select></label>
       </nav>
       <div class="log-stage">
-        <article class="page" id="log-page" tabindex="-1" aria-live="polite">
-          <div class="page-loading">Opening the notebook…</div>
-          <noscript><p class="page-noscript">The log needs JavaScript to turn its pages. <a href="lab/thorne-log.md">Read the log as plain text</a>.</p></noscript>
-        </article>
         <div class="lab-voice" id="lab-voice" role="group" aria-label="Dr. Thorne reads the entry">
           <button type="button" id="lv-play" class="lv-play" aria-pressed="false"><span class="lv-ico" aria-hidden="true"></span></button>
           <span class="lv-wave" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></span>
@@ -126,6 +122,10 @@
           <span class="lv-time" id="lv-time" aria-hidden="true"></span>
           <button type="button" id="lv-mute" class="lv-mute" aria-pressed="false">Voice on</button>
         </div>
+        <article class="page" id="log-page" tabindex="-1" aria-live="polite">
+          <div class="page-loading">Opening the notebook…</div>
+          <noscript><p class="page-noscript">The log needs JavaScript to turn its pages. <a href="lab/thorne-log.md">Read the log as plain text</a>.</p></noscript>
+        </article>
         <div class="page-turn" aria-hidden="true"></div>
         <div class="log-controls">
           <button type="button" id="log-prev" class="log-btn">← Previous entry</button>

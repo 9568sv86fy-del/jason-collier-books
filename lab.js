@@ -119,6 +119,8 @@
     const nb = $('#notebook');
     if (nb && 'IntersectionObserver' in window) new IntersectionObserver(([e]) => { if (!e.isIntersecting) audio.pause(); }).observe(nb);
     addEventListener('pagehide', () => audio.pause());
+    // pagehide does not fire when a tab is backgrounded; visibility does.
+    document.addEventListener('visibilitychange', () => { if (document.hidden) audio.pause(); });
     ui();
     return {
       // entry opened by the visitor: switch recording and (unless muted) start it inside the same gesture
@@ -167,8 +169,11 @@
         busy = false;
         if (!opts.silent) {
           history.replaceState(null, '', '#' + id(entries[i]));
-          const top = page.getBoundingClientRect().top;
-          if (top < 60 || top > innerHeight * .6) page.scrollIntoView({ behavior: reduce ? 'auto' : 'smooth', block: 'start' });
+          // Keep the voice bar, which sits above the page, in view with the entry.
+          const anchor = $('#lab-voice') || page;
+          const top = anchor.getBoundingClientRect().top;
+          const navBottom = ($('#nav')?.getBoundingClientRect().bottom || 60) + 8;
+          if (top < navBottom || top > innerHeight * .6) anchor.scrollIntoView({ behavior: reduce ? 'auto' : 'smooth', block: 'start' });
           page.focus({ preventScroll: true });
         }
       };
