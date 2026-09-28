@@ -126,6 +126,8 @@ document.querySelectorAll('.excerpt').forEach((ex, i) => {
     if (!v) return;
     const parts = [...box.querySelectorAll('.ab-part')];
     const title = box.querySelector('.ab-now span');
+    const synopsis = box.querySelector('.ab-synopsis');
+    const meta = box.querySelector('.ab-meta');
     let cur = 0;
     function load(i, autoplay) {
       if (i < 0 || i >= parts.length) return;
@@ -136,6 +138,8 @@ document.querySelectorAll('.excerpt').forEach((ex, i) => {
       v.src = b.dataset.src;
       v.setAttribute('aria-label', b.dataset.title);
       if (title) title.textContent = b.dataset.title;
+      if (synopsis) synopsis.textContent = b.dataset.synopsis || '';
+      if (meta) meta.textContent = b.dataset.meta || '';
       v.load();
       if (autoplay) { const pr = v.play(); if (pr && pr.catch) pr.catch(() => {}); }
     }

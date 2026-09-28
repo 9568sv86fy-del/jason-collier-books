@@ -42,7 +42,7 @@
       <p class="kicker reveal">Listen</p>
       <h1 class="reveal">Audiobooks</h1>
       <p class="reveal">Animated audiobooks of <a href="jang-and-tom.html"><em>Jang and Tom: Wagon Masters</em></a> and <a href="first-pulse.html"><em>The First Pulse</em></a>, brought to life with Grok, and a narrated storyboard animatic of <a href="rusty-stack.html"><em>The Rusty Stack Adventures</em></a>. Pick an audiobook part; the next one plays automatically.</p>
-      <nav class="ab-jump reveal" aria-label="Audiobooks on this page"><a href="#jang-and-tom">Jang &amp; Tom</a><a href="#first-pulse">The First Pulse</a><a href="#rusty-stack-animatic">Rusty Stack</a></nav>
+      <nav class="ab-jump reveal" aria-label="Audiobooks on this page"><a href="#jang-and-tom">Jang &amp; Tom</a><a href="#first-pulse">The First Pulse</a><a href="#rusty-stack-animatic">Rusty Stack</a><a href="#wagon-masters-animated">Wagon Masters (Animated)</a></nav>
     </header>
 
     <section class="ab-book western-ab" id="jang-and-tom" aria-labelledby="jt-h">
@@ -174,99 +174,28 @@
           <a class="btn btn-line" href="rusty-stack.html">About the book</a>
         </div>
       </div>
-      <ol class="rs-episodes">
-        <li class="rs-ep reveal">
-          <figure class="rs-player">
-            <video controls preload="none" playsinline poster="assets/rusty-stack-episodes/episode01.jpg" width="854" height="480" aria-label="Episode 1, Half Dead, Half Left">
+      <div class="audiobook reveal">
+        <div class="ab-body">
+          <figure class="ab-player">
+            <video controls playsinline preload="metadata" poster="assets/rusty-stack-episodes/episode01.jpg" width="854" height="480" aria-label="Episode 1, Half Dead, Half Left">
               <source src="assets/rusty-stack-episodes/episode01.mp4" type="video/mp4">
               <a href="assets/rusty-stack-episodes/episode01.mp4">Watch Episode 1, Half Dead, Half Left</a>
             </video>
+            <figcaption class="ab-now" aria-live="polite">Now playing: <span class="ab-title">Episode 1, Half Dead, Half Left</span></figcaption>
+            <p class="ab-meta">Scenes 1-6</p>
+            <p class="ab-synopsis">The Rusty Stack looks like a flying junk heap, until Captain Varkis and his sky pirates try to rob her and discover her hidden tricks. But the mysterious crate in the hold has started to hiss...</p>
           </figure>
-          <div class="rs-copy">
-            <p class="excerpt-label">Episode 1 <span>· 11:18 · Scenes 1-6</span></p>
-            <h3>Half Dead, Half Left</h3>
-            <p>The Rusty Stack looks like a flying junk heap, until Captain Varkis and his sky pirates try to rob her and discover her hidden tricks. But the mysterious crate in the hold has started to hiss...</p>
-          </div>
-        </li>
-        <li class="rs-ep reveal">
-          <figure class="rs-player">
-            <video controls preload="none" playsinline poster="assets/rusty-stack-episodes/episode02.jpg" width="854" height="480" aria-label="Episode 2, Duct Tape and War Stories">
-              <source src="assets/rusty-stack-episodes/episode02.mp4" type="video/mp4">
-              <a href="assets/rusty-stack-episodes/episode02.mp4">Watch Episode 2, Duct Tape and War Stories</a>
-            </video>
-          </figure>
-          <div class="rs-copy">
-            <p class="excerpt-label">Episode 2 <span>· 8:34 · Scenes 7-11</span></p>
-            <h3>Duct Tape and War Stories</h3>
-            <p>The crew admits half their tricks were cardboard and duct tape. Then Spacey tells how he, Mira, Rico and a daring pilot called Lucky saved the city of Aetherhaven and became the most wanted deserters in the sky.</p>
-          </div>
-        </li>
-        <li class="rs-ep reveal">
-          <figure class="rs-player">
-            <video controls preload="none" playsinline poster="assets/rusty-stack-episodes/episode03.jpg" width="854" height="480" aria-label="Episode 3, The Duke's Bad Day">
-              <source src="assets/rusty-stack-episodes/episode03.mp4" type="video/mp4">
-              <a href="assets/rusty-stack-episodes/episode03.mp4">Watch Episode 3, The Duke's Bad Day</a>
-            </video>
-          </figure>
-          <div class="rs-copy">
-            <p class="excerpt-label">Episode 3 <span>· 8:34 · Scenes 12-17</span></p>
-            <h3>The Duke's Bad Day</h3>
-            <p>Strong-armed into delivering the crate to a cape-wearing warlord, the crew watches its gold-gobbling contents eat the Duke's treasure. Then they escape using the Rusty Stack's real secret speed.</p>
-          </div>
-        </li>
-        <li class="rs-ep reveal">
-          <figure class="rs-player">
-            <video controls preload="none" playsinline poster="assets/rusty-stack-episodes/episode04.jpg" width="854" height="480" aria-label="Episode 4, The City That Forgot How to Float">
-              <source src="assets/rusty-stack-episodes/episode04.mp4" type="video/mp4">
-              <a href="assets/rusty-stack-episodes/episode04.mp4">Watch Episode 4, The City That Forgot How to Float</a>
-            </video>
-          </figure>
-          <div class="rs-copy">
-            <p class="excerpt-label">Episode 4 <span>· 9:10 · Scenes 18-24</span></p>
-            <h3>The City That Forgot How to Float</h3>
-            <p>While the crew tows the sinking garden city of Verdant Spire, Spacey tumbles overboard. He's rescued by Hawke, a grumpy old cloud farmer with one very fast raft, just in time to save the day.</p>
-          </div>
-        </li>
-        <li class="rs-ep reveal">
-          <figure class="rs-player">
-            <video controls preload="none" playsinline poster="assets/rusty-stack-episodes/episode05.jpg" width="854" height="480" aria-label="Episode 5, Goats, Crystals, and Ghosts">
-              <source src="assets/rusty-stack-episodes/episode05.mp4" type="video/mp4">
-              <a href="assets/rusty-stack-episodes/episode05.mp4">Watch Episode 5, Goats, Crystals, and Ghosts</a>
-            </video>
-          </figure>
-          <div class="rs-copy">
-            <p class="excerpt-label">Episode 5 <span>· 8:53 · Scenes 25-30</span></p>
-            <h3>Goats, Crystals, and Ghosts</h3>
-            <p>Hawke shares the tale of his balloon-tied goats and Spacey explains why the Great Sky War never ends. Then a rescue from eerie ghost ships brings aboard an old prospector with a glowing violet secret.</p>
-          </div>
-        </li>
-        <li class="rs-ep reveal">
-          <figure class="rs-player">
-            <video controls preload="none" playsinline poster="assets/rusty-stack-episodes/episode06.jpg" width="854" height="480" aria-label="Episode 6, Debts and Blackmarket Drift">
-              <source src="assets/rusty-stack-episodes/episode06.mp4" type="video/mp4">
-              <a href="assets/rusty-stack-episodes/episode06.mp4">Watch Episode 6, Debts and Blackmarket Drift</a>
-            </video>
-          </figure>
-          <div class="rs-copy">
-            <p class="excerpt-label">Episode 6 <span>· 7:29 · Scenes 31-36</span></p>
-            <h3>Debts and Blackmarket Drift</h3>
-            <p>At the sky's shadiest flea market, an old debt catches up with Spacey. The crew pulls off a heist full of disguises, poetry and flying pies to rescue a long-lost friend.</p>
-          </div>
-        </li>
-        <li class="rs-ep reveal">
-          <figure class="rs-player">
-            <video controls preload="none" playsinline poster="assets/rusty-stack-episodes/episode07.jpg" width="854" height="480" aria-label="Episode 7, Ghosts, Crystals, and a Double-Cross Deluxe">
-              <source src="assets/rusty-stack-episodes/episode07.mp4" type="video/mp4">
-              <a href="assets/rusty-stack-episodes/episode07.mp4">Watch Episode 7, Ghosts, Crystals, and a Double-Cross Deluxe</a>
-            </video>
-          </figure>
-          <div class="rs-copy">
-            <p class="excerpt-label">Episode 7 <span>· 8:59 · Scenes 37-41</span></p>
-            <h3>Ghosts, Crystals, and a Double-Cross Deluxe</h3>
-            <p>Beyond the Forbidden Gyre, the crew survives a ghostly boarding and discovers a continent of glowing crystals. Then they outwit two warring fleets to give the whole sky a fresh start.</p>
-          </div>
-        </li>
-      </ol>
+          <ol class="ab-list" aria-label="Rusty Stack Adventures episodes">
+            <li><button type="button" class="ab-part on" data-src="assets/rusty-stack-episodes/episode01.mp4" data-poster="assets/rusty-stack-episodes/episode01.jpg" data-title="Episode 1, Half Dead, Half Left" data-meta="Scenes 1-6" data-synopsis="The Rusty Stack looks like a flying junk heap, until Captain Varkis and his sky pirates try to rob her and discover her hidden tricks. But the mysterious crate in the hold has started to hiss..." title="Half Dead, Half Left" aria-current="true"><span class="ab-n">Ep 1</span><span class="ab-t">11:18</span></button></li>
+            <li><button type="button" class="ab-part" data-src="assets/rusty-stack-episodes/episode02.mp4" data-poster="assets/rusty-stack-episodes/episode02.jpg" data-title="Episode 2, Duct Tape and War Stories" data-meta="Scenes 7-11" data-synopsis="The crew admits half their tricks were cardboard and duct tape. Then Spacey tells how he, Mira, Rico and a daring pilot called Lucky saved the city of Aetherhaven and became the most wanted deserters in the sky." title="Duct Tape and War Stories"><span class="ab-n">Ep 2</span><span class="ab-t">8:34</span></button></li>
+            <li><button type="button" class="ab-part" data-src="assets/rusty-stack-episodes/episode03.mp4" data-poster="assets/rusty-stack-episodes/episode03.jpg" data-title="Episode 3, The Duke's Bad Day" data-meta="Scenes 12-17" data-synopsis="Strong-armed into delivering the crate to a cape-wearing warlord, the crew watches its gold-gobbling contents eat the Duke's treasure. Then they escape using the Rusty Stack's real secret speed." title="The Duke's Bad Day"><span class="ab-n">Ep 3</span><span class="ab-t">8:34</span></button></li>
+            <li><button type="button" class="ab-part" data-src="assets/rusty-stack-episodes/episode04.mp4" data-poster="assets/rusty-stack-episodes/episode04.jpg" data-title="Episode 4, The City That Forgot How to Float" data-meta="Scenes 18-24" data-synopsis="While the crew tows the sinking garden city of Verdant Spire, Spacey tumbles overboard. He's rescued by Hawke, a grumpy old cloud farmer with one very fast raft, just in time to save the day." title="The City That Forgot How to Float"><span class="ab-n">Ep 4</span><span class="ab-t">9:10</span></button></li>
+            <li><button type="button" class="ab-part" data-src="assets/rusty-stack-episodes/episode05.mp4" data-poster="assets/rusty-stack-episodes/episode05.jpg" data-title="Episode 5, Goats, Crystals, and Ghosts" data-meta="Scenes 25-30" data-synopsis="Hawke shares the tale of his balloon-tied goats and Spacey explains why the Great Sky War never ends. Then a rescue from eerie ghost ships brings aboard an old prospector with a glowing violet secret." title="Goats, Crystals, and Ghosts"><span class="ab-n">Ep 5</span><span class="ab-t">8:53</span></button></li>
+            <li><button type="button" class="ab-part" data-src="assets/rusty-stack-episodes/episode06.mp4" data-poster="assets/rusty-stack-episodes/episode06.jpg" data-title="Episode 6, Debts and Blackmarket Drift" data-meta="Scenes 31-36" data-synopsis="At the sky's shadiest flea market, an old debt catches up with Spacey. The crew pulls off a heist full of disguises, poetry and flying pies to rescue a long-lost friend." title="Debts and Blackmarket Drift"><span class="ab-n">Ep 6</span><span class="ab-t">7:29</span></button></li>
+            <li><button type="button" class="ab-part" data-src="assets/rusty-stack-episodes/episode07.mp4" data-poster="assets/rusty-stack-episodes/episode07.jpg" data-title="Episode 7, Ghosts, Crystals, and a Double-Cross Deluxe" data-meta="Scenes 37-41" data-synopsis="Beyond the Forbidden Gyre, the crew survives a ghostly boarding and discovers a continent of glowing crystals. Then they outwit two warring fleets to give the whole sky a fresh start." title="Ghosts, Crystals, and a Double-Cross Deluxe"><span class="ab-n">Ep 7</span><span class="ab-t">8:59</span></button></li>
+          </ol>
+        </div>
+      </div>
     </section>
 
     <section class="ab-book brass-ab" id="wagon-masters-animated" aria-labelledby="wm-anim-h">
@@ -279,60 +208,25 @@
           <a class="btn btn-line" href="jang-and-tom.html">About the book</a>
         </div>
       </div>
-      <ol class="rs-episodes">
-        <li class="rs-ep reveal">
-          <figure class="rs-player">
-            <video controls preload="none" playsinline poster="assets/wagon-masters-episodes/episode01.jpg" width="854" height="480" aria-label="Episode 1, Debtors on the Run">
+      <div class="audiobook reveal">
+        <div class="ab-body">
+          <figure class="ab-player">
+            <video controls playsinline preload="metadata" poster="assets/wagon-masters-episodes/episode01.jpg" width="854" height="480" aria-label="Episode 1, Debtors on the Run">
               <source src="assets/wagon-masters-episodes/episode01.mp4" type="video/mp4">
               <a href="assets/wagon-masters-episodes/episode01.mp4">Watch Episode 1, Debtors on the Run</a>
             </video>
+            <figcaption class="ab-now" aria-live="polite">Now playing: <span class="ab-title">Episode 1, Debtors on the Run</span></figcaption>
+            <p class="ab-meta">Scenes 1-6</p>
+            <p class="ab-synopsis">Two Philadelphia swindlers on the run from a very unforgiving creditor sell themselves as expert wagon-train guides. Then their first river crossing goes spectacularly wrong, and right.</p>
           </figure>
-          <div class="rs-copy">
-            <p class="excerpt-label">Episode 1 <span>· 7:58 · Scenes 1-6</span></p>
-            <h3>Debtors on the Run</h3>
-            <p>Two Philadelphia swindlers on the run from a very unforgiving creditor sell themselves as expert wagon-train guides. Then their first river crossing goes spectacularly wrong, and right.</p>
-          </div>
-        </li>
-        <li class="rs-ep reveal">
-          <figure class="rs-player">
-            <video controls preload="none" playsinline poster="assets/wagon-masters-episodes/episode02.jpg" width="854" height="480" aria-label="Episode 2, Wandering Poles and Bear Bait">
-              <source src="assets/wagon-masters-episodes/episode02.mp4" type="video/mp4">
-              <a href="assets/wagon-masters-episodes/episode02.mp4">Watch Episode 2, Wandering Poles and Bear Bait</a>
-            </video>
-          </figure>
-          <div class="rs-copy">
-            <p class="excerpt-label">Episode 2 <span>· 7:31 · Scenes 7-12</span></p>
-            <h3>Wandering Poles and Bear Bait</h3>
-            <p>Lost on the prairie, Jang and Tom invent a 'scenic detour', win over a Pawnee hunting party with bad charades and good dentistry, and use Tom as bait in a hunt that hunts back.</p>
-          </div>
-        </li>
-        <li class="rs-ep reveal">
-          <figure class="rs-player">
-            <video controls preload="none" playsinline poster="assets/wagon-masters-episodes/episode03.jpg" width="854" height="480" aria-label="Episode 3, Smallpox, Bigfeet and a Blizzard">
-              <source src="assets/wagon-masters-episodes/episode03.mp4" type="video/mp4">
-              <a href="assets/wagon-masters-episodes/episode03.mp4">Watch Episode 3, Smallpox, Bigfeet and a Blizzard</a>
-            </video>
-          </figure>
-          <div class="rs-copy">
-            <p class="excerpt-label">Episode 3 <span>· 8:04 · Scenes 13-19</span></p>
-            <h3>Smallpox, Bigfeet and a Blizzard</h3>
-            <p>A runaway wheel, a surprise baby, ridiculous disguises at Fort Laramie, a buffalo-robe monster, and a blizzard that only blind luck and stubbornness can beat.</p>
-          </div>
-        </li>
-        <li class="rs-ep reveal">
-          <figure class="rs-player">
-            <video controls preload="none" playsinline poster="assets/wagon-masters-episodes/episode04.jpg" width="854" height="480" aria-label="Episode 4, Pendulums, Prophecies and Gold">
-              <source src="assets/wagon-masters-episodes/episode04.mp4" type="video/mp4">
-              <a href="assets/wagon-masters-episodes/episode04.mp4">Watch Episode 4, Pendulums, Prophecies and Gold</a>
-            </video>
-          </figure>
-          <div class="rs-copy">
-            <p class="excerpt-label">Episode 4 <span>· 9:06 · Scenes 20-26</span></p>
-            <h3>Pendulums, Prophecies and Gold</h3>
-            <p>A human pendulum routs bandits, a river takes its toll, Grimshaw's men catch up, a cactus nearly 'kills' Jang, and a willow stick finds water, gold and the way to California.</p>
-          </div>
-        </li>
-      </ol>
+          <ol class="ab-list" aria-label="Wagon Masters animated episodes">
+            <li><button type="button" class="ab-part on" data-src="assets/wagon-masters-episodes/episode01.mp4" data-poster="assets/wagon-masters-episodes/episode01.jpg" data-title="Episode 1, Debtors on the Run" data-meta="Scenes 1-6" data-synopsis="Two Philadelphia swindlers on the run from a very unforgiving creditor sell themselves as expert wagon-train guides. Then their first river crossing goes spectacularly wrong, and right." title="Debtors on the Run" aria-current="true"><span class="ab-n">Ep 1</span><span class="ab-t">7:58</span></button></li>
+            <li><button type="button" class="ab-part" data-src="assets/wagon-masters-episodes/episode02.mp4" data-poster="assets/wagon-masters-episodes/episode02.jpg" data-title="Episode 2, Wandering Poles and Bear Bait" data-meta="Scenes 7-12" data-synopsis="Lost on the prairie, Jang and Tom invent a 'scenic detour', win over a Pawnee hunting party with bad charades and good dentistry, and use Tom as bait in a hunt that hunts back." title="Wandering Poles and Bear Bait"><span class="ab-n">Ep 2</span><span class="ab-t">7:31</span></button></li>
+            <li><button type="button" class="ab-part" data-src="assets/wagon-masters-episodes/episode03.mp4" data-poster="assets/wagon-masters-episodes/episode03.jpg" data-title="Episode 3, Smallpox, Bigfeet and a Blizzard" data-meta="Scenes 13-19" data-synopsis="A runaway wheel, a surprise baby, ridiculous disguises at Fort Laramie, a buffalo-robe monster, and a blizzard that only blind luck and stubbornness can beat." title="Smallpox, Bigfeet and a Blizzard"><span class="ab-n">Ep 3</span><span class="ab-t">8:04</span></button></li>
+            <li><button type="button" class="ab-part" data-src="assets/wagon-masters-episodes/episode04.mp4" data-poster="assets/wagon-masters-episodes/episode04.jpg" data-title="Episode 4, Pendulums, Prophecies and Gold" data-meta="Scenes 20-26" data-synopsis="A human pendulum routs bandits, a river takes its toll, Grimshaw's men catch up, a cactus nearly 'kills' Jang, and a willow stick finds water, gold and the way to California." title="Pendulums, Prophecies and Gold"><span class="ab-n">Ep 4</span><span class="ab-t">9:06</span></button></li>
+          </ol>
+        </div>
+      </div>
     </section>
   </div>
 </section>
