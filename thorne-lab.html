@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Thorne’s Lab · Research log, ongoing | Jason Collier</title>
+<meta name="description" content="The research journal of Dr. Elias Thorne, a work in progress by Jason Collier, plus the Born Twice game.">
+<meta property="og:title" content="Thorne’s Lab · Research log, ongoing | Jason Collier">
+<meta property="og:image" content="https://jasoncollierbooks.github.io/jason-collier-books/images/lab/born-twice-og.jpg">
+<meta property="og:url" content="https://jasoncollierbooks.github.io/jason-collier-books/thorne-lab.html">
+<link rel="canonical" href="https://jasoncollierbooks.github.io/jason-collier-books/thorne-lab.html">
+<link rel="icon" href="data:,">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;700;900&family=Rye&family=Orbitron:wght@500;700;900&family=Cormorant+Garamond:ital,wght@0,500;1,500&family=Inter:wght@400;500;600;700&family=IM+Fell+English+SC&family=Special+Elite&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles.css">
+<link href="https://fonts.googleapis.com/css2?family=VT323&family=Courier+Prime:wght@400;700&family=Caveat:wght@500;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="lab.css">
+</head>
+<body class="page-lab">
+<div class="grain" aria-hidden="true"></div>
+
+<header class="nav" id="nav">
+  <a class="brand" href="index.html" aria-label="Jason Collier, home">J<span>·</span>C</a>
+  <button class="nav-toggle" type="button" aria-expanded="false" aria-controls="site-nav" aria-label="Menu"><span></span><span></span><span></span></button>
+  <nav id="site-nav" aria-label="Main">
+    <a href="index.html">Home</a>
+    <a href="jang-and-tom.html">Jang &amp; Tom</a>
+    <a href="first-pulse.html">First Pulse</a>
+    <a href="old-man-on-the-mountain.html">Old Man</a>
+    <a href="rusty-stack.html">Rusty Stack</a>
+    <a href="audiobooks.html">Audiobooks</a>
+    <a href="art.html">Art</a>
+    <a href="thorne-lab.html" class="on" aria-current="page">Thorne’s Lab</a>
+    <a href="i-spy.html">I-Spy</a>
+    <a href="about.html">About</a>
+  </nav>
+</header>
+
+<main id="top">
+<!-- ============ THORNE'S LAB ============ -->
+<section class="lab-hero" id="lab-top">
+  <div class="lab-hero-inner">
+    <div class="lab-intro">
+      <p class="lab-kicker reveal"><span class="lab-led" aria-hidden="true"></span>Research log, ongoing</p>
+      <h1 class="lab-title reveal">Thorne’s Lab</h1>
+      <p class="lab-lede reveal">The research log of Dr. Elias Thorne, physicist. Personal Laboratory, Princeton, New Jersey, 1982.</p>
+      <p class="lab-sub reveal">Jason Collier’s work in progress. The log is still being written, and new entries appear here as it grows.</p>
+      <nav class="lab-jump reveal" aria-label="In the lab">
+        <a href="#log">Read the log</a><a href="#terminal">Lab terminal</a><a href="i-spy.html">Play I Spy</a><a href="#instruments">Bench instruments</a>
+      </nav>
+    </div>
+
+    <div class="lab-rig reveal" aria-label="Bench instruments">
+      <div class="warn warn-laser" aria-hidden="true"><svg viewBox="0 0 60 52"><path d="M30 3 57 49H3z" fill="#f5c400" stroke="#111" stroke-width="3"/><circle cx="30" cy="34" r="5" fill="#111"/><path d="M30 34 L30 14 M30 34 L46 30 M30 34 L14 30 M30 34 L42 44 M30 34 L18 44" stroke="#111" stroke-width="2.4"/></svg><span>Danger<br>Laser radiation</span></div>
+
+      <div class="scope" id="instruments">
+        <div class="scope-top"><span class="scope-brand">Oscilloscope</span><span class="scope-model">Bench scope</span></div>
+        <div class="scope-body">
+          <div class="crt"><canvas id="scope-canvas" width="560" height="420" aria-label="Oscilloscope screen showing a green phosphor trace" role="img"></canvas><div class="crt-glass" aria-hidden="true"></div></div>
+          <div class="scope-panel">
+            <div class="knob-row">
+              <label class="knob"><input type="range" id="sc-freq" min="1" max="12" step="0.1" value="3" aria-label="Time per division"><span>Time/div</span></label>
+              <label class="knob"><input type="range" id="sc-amp" min="0.1" max="1" step="0.01" value="0.6" aria-label="Volts per division"><span>Volts/div</span></label>
+            </div>
+            <div class="scope-modes" role="radiogroup" aria-label="Waveform">
+              <button type="button" class="on" data-wave="sine" role="radio" aria-checked="true">∿ Sine</button>
+              <button type="button" data-wave="square" role="radio" aria-checked="false">⎍ Square</button>
+              <button type="button" data-wave="noise" role="radio" aria-checked="false">⁂ Noise</button>
+            </div>
+            <div class="scope-ch"><span class="lamp on" aria-hidden="true"></span>Power<span class="lamp amber" aria-hidden="true"></span>Trig</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="geiger">
+        <div class="geiger-face">
+          <div class="meter" aria-hidden="true"><div class="meter-scale"><span>0</span><span>50</span><span>100</span></div><div class="needle" id="gc-needle"></div><div class="meter-hub"></div><em>CPM ×10</em></div>
+          <div class="geiger-read"><span class="geiger-label">Counts</span><output id="gc-count" aria-live="off">00000</output></div>
+        </div>
+        <div class="geiger-ctl">
+          <button type="button" id="gc-power" class="gc-btn" aria-pressed="false">Power</button>
+          <label class="gc-range"><span>Wand distance</span><input type="range" id="gc-dist" min="0" max="100" value="70" aria-label="Wand distance from the source"></label>
+        </div>
+        <p class="geiger-tag">Geiger counter · <i>“scavenged from nuclear physics dept.”</i></p>
+      </div>
+
+      <figure class="clipboard">
+        <div class="clip" aria-hidden="true"></div>
+        <div class="clip-paper">
+          <p class="clip-h">Equipment inventory</p>
+          <blockquote>Equipment inventory: aging oscilloscope, basic vacuum chamber, Geiger counter scavenged from nuclear physics dept., and a borrowed argon laser.</blockquote>
+          <figcaption>From Entry 001, January 15, 1982</figcaption>
+        </div>
+      </figure>
+
+      <div class="warn warn-rad" aria-hidden="true"><svg viewBox="0 0 60 60"><circle cx="30" cy="30" r="28" fill="#f5c400" stroke="#111" stroke-width="2"/><circle cx="30" cy="30" r="5" fill="#9b1c7a"/><path d="M30 30 L22 16 A16 16 0 0 1 38 16 Z M30 30 L46 30 A16 16 0 0 1 38 44 Z M30 30 L22 44 A16 16 0 0 1 14 30 Z" fill="#9b1c7a"/></svg><span>Caution<br>Radioactive material</span></div>
+    </div>
+  </div>
+  <p class="lab-toy-note">Bench toys: the oscilloscope and Geiger counter are play instruments, not data from the log.</p>
+</section>
+
+<!-- ============ THE LOG ============ -->
+<section class="lab-log" id="log" aria-labelledby="log-h">
+  <div class="log-inner">
+    <header class="log-head">
+      <p class="lab-kicker">Research log, ongoing <span id="log-count"></span></p>
+      <h2 id="log-h">The Log</h2>
+      <p>Every entry, in Dr. Thorne’s own words. Turn the pages or jump to an entry.</p>
+    </header>
+    <div class="notebook" id="notebook">
+      <nav class="log-index" aria-label="Log entries">
+        <p class="log-index-h">Index</p>
+        <ol id="log-tabs"></ol>
+        <label class="log-pick"><span>Entry</span><select id="log-select" aria-label="Choose an entry"></select></label>
+      </nav>
+      <div class="log-stage">
+        <article class="page" id="log-page" tabindex="-1" aria-live="polite">
+          <div class="page-loading">Opening the notebook…</div>
+          <noscript><p class="page-noscript">The log needs JavaScript to turn its pages. <a href="lab/thorne-log.md">Read the log as plain text</a>.</p></noscript>
+        </article>
+        <div class="page-turn" aria-hidden="true"></div>
+        <div class="log-controls">
+          <button type="button" id="log-prev" class="log-btn">← Previous entry</button>
+          <span id="log-pos" class="log-pos"></span>
+          <button type="button" id="log-next" class="log-btn">Next entry →</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ LAB TERMINAL (GAME) ============ -->
+<section class="lab-terminal" id="terminal" aria-labelledby="term-h">
+  <div class="term-inner">
+    <div class="term-monitor">
+      <div class="term-screen">
+        <div class="term-boot" aria-hidden="true">
+          <p>THORNE LAB TERMINAL · READY</p>
+          <p>&gt; LOAD "BORN TWICE"<span class="caret">▌</span></p>
+        </div>
+        <img src="images/lab/born-twice-og.jpg" alt="Title art for the Born Twice game: a living ship with a glowing core" width="1200" height="630" loading="lazy">
+        <div class="term-scan" aria-hidden="true"></div>
+      </div>
+      <div class="term-bezel-foot"><span class="lamp on" aria-hidden="true"></span><span>Lab terminal</span></div>
+    </div>
+    <div class="term-text">
+      <p class="lab-kicker">Lab terminal · companion game</p>
+      <h2 id="term-h">Born Twice</h2>
+      <blockquote class="term-quote">“Grow a living starship in a 1982 laboratory, then fly it across a real solar chart. Some vessels work. Some wake up hungry.”<cite>Jason, <a href="https://x.com/jascol235175" target="_blank" rel="noopener">@JasCol235175</a> on X</cite></blockquote>
+      <a class="btn btn-phosphor" href="https://delta-branch-breeze-daisy.grok.me/" target="_blank" rel="noopener">▶ Launch the game</a>
+      <p class="term-note">Opens in a new tab. Game art from Born Twice, created with Grok.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ============ I-SPY TEASER ============ -->
+<section class="lab-ispy-teaser" id="ispy" aria-labelledby="ispy-h">
+  <a class="ispy-teaser" href="i-spy.html">
+    <span class="ispy-teaser-img"><img src="images/scenes/transcon-s46.jpg" alt="" loading="lazy"><span class="lens" aria-hidden="true"></span></span>
+    <span class="ispy-teaser-text"><span class="lab-kicker">Picture game</span><strong id="ispy-h">I Spy</strong><em>Pick a picture from the site and find ten hidden things. A new list every round.</em><span class="btn btn-phosphor">Play I Spy →</span></span>
+  </a>
+</section>
+</main>
+
+<footer>
+  <span>© <span id="y">2026</span> Jason Collier</span>
+  <span class="foot-links"><a href="https://x.com/jascol235175" target="_blank" rel="noopener">X @jascol235175</a><a href="https://www.amazon.com/stores/author/B0GDW74Y5S" target="_blank" rel="noopener">Amazon Author Page</a></span>
+</footer>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js" defer></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/ScrollTrigger.min.js" defer></script>
+<script src="main.js" defer></script>
+<script src="lab.js" defer></script>
+</body>
+</html>

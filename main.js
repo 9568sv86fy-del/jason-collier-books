@@ -178,5 +178,5 @@ document.querySelectorAll('.excerpt').forEach((ex, i) => {
   btn.addEventListener('click', () => set(!nav.classList.contains('open')));
   nav.querySelectorAll('nav a').forEach(a => a.addEventListener('click', () => set(false)));
   addEventListener('keydown', e => { if (e.key === 'Escape' && nav.classList.contains('open')) { set(false); btn.focus(); } });
-  addEventListener('resize', () => { if (innerWidth > 1100) set(false); });
+  addEventListener('resize', () => { if (innerWidth > 1280) set(false); });
 })();
