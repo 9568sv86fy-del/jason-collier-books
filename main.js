@@ -6,8 +6,8 @@
   const onScroll = () => nav.classList.toggle('scrolled', scrollY > 40);
   addEventListener('scroll', onScroll, {passive:true}); onScroll();
 
-  // scroll reveal (staggered)
-  const els = document.querySelectorAll('.reveal');
+  // scroll reveal only for content that starts below the fold
+  const els = [...document.querySelectorAll('.reveal')];
   if (reduce || !('IntersectionObserver' in window)) els.forEach(e => e.classList.add('in'));
   else {
     const io = new IntersectionObserver(entries => {
@@ -18,7 +18,12 @@
         en.target.classList.add('in'); io.unobserve(en.target);
       });
     }, {threshold:.12, rootMargin:'0px 0px -40px 0px'});
-    els.forEach(e => io.observe(e));
+    els.forEach(e => {
+      const r = e.getBoundingClientRect();
+      const eager = e.closest('.hero, .home-books, .book-body, .cover-wrap');
+      if (eager || (r.bottom > 0 && r.top < innerHeight * 0.98)) e.classList.add('in');
+      else { e.classList.add('wait'); io.observe(e); }
+    });
   }
   document.getElementById('y').textContent = new Date().getFullYear();
 
@@ -95,14 +100,12 @@ addEventListener('load', () => {
   if (!window.gsap || !window.ScrollTrigger || matchMedia('(prefers-reduced-motion: reduce)').matches) return;
   gsap.registerPlugin(ScrollTrigger);
   if (document.querySelector('.hero')) {
-  gsap.to('.hero-inner', {yPercent: -12, opacity: .2, ease: 'none', scrollTrigger: {trigger: '.hero', start: 'top top', end: 'bottom top', scrub: true}});
-  gsap.to('.hero-slides', {yPercent: 18, ease: 'none', scrollTrigger: {trigger: '.hero', start: 'top top', end: 'bottom top', scrub: true}});
+  gsap.to('.hero-slides', {yPercent: 10, ease: 'none', scrollTrigger: {trigger: '.hero', start: 'top top', end: 'bottom top', scrub: true}});
   }
   document.querySelectorAll('.book').forEach(sec => {
-    const tl = {trigger: sec, start: 'top bottom', end: 'bottom top', scrub: true};
-    gsap.fromTo(sec.querySelector('.cover-wrap'), {y: 70}, {y: -70, ease: 'none', scrollTrigger: tl});
-    gsap.fromTo(sec.querySelector('.book-num'), {y: 120}, {y: -120, ease: 'none', scrollTrigger: {...tl}});
-    gsap.fromTo(sec.querySelector('.title'), {letterSpacing: '.08em'}, {letterSpacing: '0em', ease: 'none', scrollTrigger: {trigger: sec, start: 'top 85%', end: 'top 30%', scrub: true}});
+    const title = sec.querySelector('.title');
+    if (!title) return;
+    gsap.fromTo(title, {letterSpacing: '.04em'}, {letterSpacing: '0em', ease: 'none', scrollTrigger: {trigger: sec, start: 'top 85%', end: 'top 30%', scrub: true}});
   });
   gsap.utils.toArray('.gallery figure, .art-item').forEach((el, i) =>
     gsap.from(el, {y: 40, opacity: 0, duration: .8, ease: 'power3.out', delay: (i % 4) * .06, scrollTrigger: {trigger: el, start: 'top 92%'}}));
@@ -174,13 +177,68 @@ document.querySelectorAll('.excerpt').forEach((ex, i) => {
   fromHash(); addEventListener('hashchange', fromHash);
 })();
 
-/* Mobile nav toggle */
+/* Grouped nav: hover on a fine pointer, click or tap, and keyboard */
 (() => {
-  const nav = document.getElementById('nav'), btn = nav && nav.querySelector('.nav-toggle');
-  if (!btn) return;
-  const set = o => { nav.classList.toggle('open', o); btn.setAttribute('aria-expanded', o); btn.setAttribute('aria-label', o ? 'Close menu' : 'Menu'); };
-  btn.addEventListener('click', () => set(!nav.classList.contains('open')));
-  nav.querySelectorAll('nav a').forEach(a => a.addEventListener('click', () => set(false)));
-  addEventListener('keydown', e => { if (e.key === 'Escape' && nav.classList.contains('open')) { set(false); btn.focus(); } });
-  addEventListener('resize', () => { if (innerWidth > 1280) set(false); });
+  const nav = document.getElementById('nav');
+  if (!nav) return;
+  const btn = nav.querySelector('.nav-toggle');
+  const groups = [...nav.querySelectorAll('.nav-group')];
+  const desktop = () => matchMedia('(min-width: 861px)').matches;
+  const closeGroups = (except) => {
+    groups.forEach(g => {
+      if (g === except) return;
+      g.classList.remove('is-open');
+      const b = g.querySelector('.nav-label');
+      if (b) b.setAttribute('aria-expanded', 'false');
+    });
+  };
+  const setMenu = (open) => {
+    nav.classList.toggle('open', open);
+    if (!btn) return;
+    btn.setAttribute('aria-expanded', String(open));
+    btn.setAttribute('aria-label', open ? 'Close menu' : 'Menu');
+    if (!open) closeGroups();
+  };
+  if (btn) btn.addEventListener('click', () => setMenu(!nav.classList.contains('open')));
+  groups.forEach(g => {
+    const b = g.querySelector('.nav-label');
+    const links = [...g.querySelectorAll('.nav-menu a')];
+    if (!b) return;
+    b.addEventListener('click', () => {
+      const willOpen = !g.classList.contains('is-open');
+      closeGroups(willOpen ? g : null);
+      g.classList.toggle('is-open', willOpen);
+      b.setAttribute('aria-expanded', String(willOpen));
+    });
+    b.addEventListener('keydown', e => {
+      if (e.key !== 'ArrowDown') return;
+      e.preventDefault();
+      closeGroups(g);
+      g.classList.add('is-open');
+      b.setAttribute('aria-expanded', 'true');
+      if (links[0]) links[0].focus();
+    });
+    links.forEach((a, i) => a.addEventListener('keydown', e => {
+      if (e.key === 'ArrowDown') { e.preventDefault(); links[(i + 1) % links.length].focus(); }
+      if (e.key === 'ArrowUp') { e.preventDefault(); (i === 0 ? b : links[i - 1]).focus(); }
+      if (e.key === 'Escape') { closeGroups(); b.focus(); }
+    }));
+  });
+  nav.querySelectorAll('.nav-menu a, a.nav-link').forEach(a => a.addEventListener('click', () => {
+    closeGroups();
+    if (!desktop()) setMenu(false);
+  }));
+  document.addEventListener('click', e => { if (!nav.contains(e.target)) { closeGroups(); if (!desktop()) setMenu(false); } });
+  addEventListener('keydown', e => {
+    if (e.key !== 'Escape') return;
+    const openGroup = groups.find(g => g.classList.contains('is-open'));
+    if (openGroup) {
+      const b = openGroup.querySelector('.nav-label');
+      closeGroups();
+      if (b) b.focus();
+      return;
+    }
+    if (nav.classList.contains('open')) { setMenu(false); if (btn) btn.focus(); }
+  });
+  addEventListener('resize', () => { if (desktop()) setMenu(false); });
 })();
