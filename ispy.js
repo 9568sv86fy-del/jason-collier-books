@@ -2539,184 +2539,565 @@ const ISPY_BOOKS = [
   ]
  }
 ];
-const ISPY_PICS = ISPY_BOOKS.flatMap(book => book.pics.map(p => Object.assign({ book: book.name, sound: book.sound }, p)));
+/* Scene ambience: each picture gets its own procedurally built soundscape (no audio files).
+   Adjust which picture plays which preset in ISPY_SCENE_SOUNDS; tweak presets in AMBIENCE_PRESETS below. */
+const ISPY_SCENE_SOUNDS = {
+  // image file                              : preset      // scene
+  "images/jang-and-tom-wagon-masters.jpg":    "trail",     // book cover: wagons, horses, Old West trail
+  "media/wagonmasters_part1of6_poster.jpg":   "livery",    // outside a livery stable / barnyard in Independence
+  "images/scenes/transcon-s01.jpg":           "town",      // stagecoach rolling down a muddy frontier main street at sunset
+  "images/scenes/philly-s09.jpg":             "farmyard",  // farmhouse porch, rearing horse, woman shouting
+  "images/scenes/transcon-s10.jpg":           "mountain",  // stagecoach crashing on a rocky mountain road
+  "images/scenes/philly-s21.jpg":             "race",      // horse race, pack of galloping riders
+  "images/scenes/transcon-s21.jpg":           "stampede",  // stagecoach driving through a longhorn herd
+  "images/scenes/philly-s45.jpg":             "campfire",  // night camp under the Milky Way, campfire, tin cups
+  "images/scenes/transcon-s46.jpg":           "crowd",     // crowd in a half-built timber town, goat eats top hat
+  "images/scenes/transcon-s57.jpg":           "riverboat", // misty river dock, paddle steamer, people waving
+  "images/art/philly-s01.jpg":                "gaslight",  // foggy gaslit city street at dusk, carriage on cobbles
+  "images/art/philly-s03.jpg":                "saloon",    // man with pickled-egg jar in a lamp-lit bar
+  "images/art/transcon-s07.jpg":              "livery",    // stage-line livery yard, mules, coaches, windmill
+  "images/art/transcon-s15.jpg":              "saloon",    // race poster inside a saloon, bottles on shelves
+  "images/art/philly-s15.jpg":                "crowd",     // boardwalk crowd laughing at a shop window
+  "images/art/transcon-s26.jpg":              "snowplain", // stagecoach full of geese crossing a snowy plain
+  "images/art/philly-s32.jpg":                "town",      // Lightning Express freight wagons in a frontier town
+  "images/art/transcon-s37.jpg":              "mountain",  // alpacas spilling from a coach on a mountainside
+  "images/art/philly-s37.jpg":                "dusktrail", // rider and wagon men at sunset by the pines
+  "images/art/transcon-s53.jpg":              "snowcamp",  // chuckwagon supper in the snow, cattle herd behind
+  "images/art/transcon-s58.jpg":              "steamer",   // steamboat on open water at sunset, gulls
+  "images/art/philly-s59.jpg":                "prairie",   // covered-wagon line crossing open prairie at sunset
+  "images/rusty-stack-game.jpg":              "airship"    // Rusty Stack airship in a lightning storm
+};
+
+const ISPY_PICS = ISPY_BOOKS.flatMap(book => book.pics.map(p => Object.assign({ book: book.name, sound: book.sound }, p, { sound: ISPY_SCENE_SOUNDS[p.src] || book.sound })));
 const ROUND = 5;
 
 const Ambience = (() => {
-  let ctx, master, alive = [], clock = null, kind = null, muted = false, noise = null;
+  const LEVEL = 0.42, FADE = 1.6;
+  let ctx, master, white, brown, muted = false, cur = null, kind = null;
+
   function ac() {
     if (!ctx) {
       const AC = window.AudioContext || window.webkitAudioContext;
       if (!AC) return null;
       ctx = new AC();
       master = ctx.createGain();
-      master.gain.value = muted ? 0 : 0.42;
+      master.gain.value = muted ? 0 : LEVEL;
       master.connect(ctx.destination);
-      const len = ctx.sampleRate * 2;
-      noise = ctx.createBuffer(1, len, ctx.sampleRate);
-      const data = noise.getChannelData(0);
-      for (let i = 0; i < len; i++) data[i] = Math.random() * 2 - 1;
+      const len = ctx.sampleRate * 4;
+      white = ctx.createBuffer(1, len, ctx.sampleRate);
+      brown = ctx.createBuffer(1, len, ctx.sampleRate);
+      const w = white.getChannelData(0), b = brown.getChannelData(0);
+      let last = 0;
+      for (let i = 0; i < len; i++) {
+        w[i] = Math.random() * 2 - 1;
+        last = (last + 0.02 * w[i]) / 1.02;
+        b[i] = last * 3.5;
+      }
+      // tilt the brown noise so its ends meet: the loop seam never clicks (white noise needs no fix)
+      const drift = b[len - 1] - b[0];
+      for (let i = 0; i < len; i++) b[i] -= drift * i / (len - 1);
     }
     if (ctx.state === "suspended") ctx.resume();
     return ctx;
   }
-  function keep(node) { alive.push(node); return node; }
-  function silence() {
-    if (clock) { clearInterval(clock); clock = null; }
-    alive.forEach(n => { try { n.stop(); } catch (e) {} try { n.disconnect(); } catch (e) {} });
-    alive = [];
+
+  const rnd = (a, b) => a + Math.random() * (b - a);
+  const pick = a => a[Math.floor(Math.random() * a.length)];
+
+  /* ---------- a Scene owns a bus, its looping nodes and its event timers ---------- */
+  function Scene(name) {
+    const bus = ctx.createGain();
+    bus.gain.value = 0;
+    bus.connect(master);
+    return { name, bus, nodes: [], timers: [], dead: false };
   }
-  function wind(freq, gain) {
-    const c = ac();
-    const src = keep(c.createBufferSource());
-    src.buffer = noise;
+  function keep(S, n) { S.nodes.push(n); return n; }
+  function kill(S, fade) {
+    if (!S || S.dead) return;
+    S.dead = true;
+    S.timers.forEach(t => clearTimeout(t));
+    const now = ctx.currentTime;
+    S.bus.gain.cancelScheduledValues(now);
+    S.bus.gain.setValueAtTime(S.bus.gain.value, now);
+    S.bus.gain.linearRampToValueAtTime(0, now + fade);
+    setTimeout(() => {
+      S.nodes.forEach(n => { try { n.stop(); } catch (e) {} try { n.disconnect(); } catch (e) {} });
+      try { S.bus.disconnect(); } catch (e) {}
+    }, fade * 1000 + 120);
+  }
+  // randomly scheduled one-shot: fn fires every min..max seconds while the scene lives
+  function every(S, min, max, fn, first) {
+    const go = () => {
+      if (S.dead) return;
+      try { fn(); } catch (e) {}
+      S.timers.push(setTimeout(go, rnd(min, max) * 1000));
+    };
+    S.timers.push(setTimeout(go, (first != null ? first : rnd(min * 0.3, max * 0.6)) * 1000));
+  }
+
+  /* ---------- looping beds ---------- */
+  function bed(S, o) {
+    // o: {buf:'white'|'brown', type, f, q, g, lfo, depth, swell, swellRate, pan}
+    const src = keep(S, ctx.createBufferSource());
+    src.buffer = o.buf === "brown" ? brown : white;
     src.loop = true;
-    const filter = keep(c.createBiquadFilter());
-    filter.type = "lowpass";
-    filter.frequency.value = freq;
-    const amp = keep(c.createGain());
-    amp.gain.value = gain;
-    const lfo = keep(c.createOscillator());
-    lfo.frequency.value = 0.07 + Math.random() * 0.05;
-    const lfoGain = keep(c.createGain());
-    lfoGain.gain.value = freq * 0.28;
-    lfo.connect(lfoGain);
-    lfoGain.connect(filter.frequency);
-    const swell = keep(c.createOscillator());
-    swell.frequency.value = 0.13;
-    const swellGain = keep(c.createGain());
-    swellGain.gain.value = gain * 0.35;
-    swell.connect(swellGain);
-    swellGain.connect(amp.gain);
-    src.connect(filter);
-    filter.connect(amp);
-    amp.connect(master);
-    src.start();
-    lfo.start();
-    swell.start();
-  }
-  function hum(freq, type, gain) {
-    const c = ac();
-    const osc = keep(c.createOscillator());
-    osc.type = type;
-    osc.frequency.value = freq;
-    const filter = keep(c.createBiquadFilter());
-    filter.type = "lowpass";
-    filter.frequency.value = 220;
-    const amp = keep(c.createGain());
-    amp.gain.value = gain;
-    const lfo = keep(c.createOscillator());
-    lfo.frequency.value = 0.18;
-    const lfoGain = keep(c.createGain());
-    lfoGain.gain.value = freq * 0.01;
-    lfo.connect(lfoGain);
-    lfoGain.connect(osc.frequency);
-    osc.connect(filter);
-    filter.connect(amp);
-    amp.connect(master);
-    osc.start();
-    lfo.start();
-  }
-  function chirp() {
-    const c = ac();
-    if (!c) return;
-    const now = c.currentTime;
-    const osc = c.createOscillator();
-    osc.type = "square";
-    osc.frequency.value = 3800 + Math.random() * 600;
-    const filter = c.createBiquadFilter();
-    filter.type = "bandpass";
-    filter.frequency.value = 4200;
-    filter.Q.value = 12;
-    const amp = c.createGain();
-    amp.gain.value = 0;
-    osc.connect(filter);
-    filter.connect(amp);
-    amp.connect(master);
-    const bursts = 3 + (Math.random() * 3 | 0);
-    for (let i = 0; i < bursts; i++) {
-      const t = now + i * 0.08;
-      amp.gain.setValueAtTime(0.0001, t);
-      amp.gain.linearRampToValueAtTime(0.045, t + 0.01);
-      amp.gain.linearRampToValueAtTime(0.0001, t + 0.035);
+    src.playbackRate.value = o.rate || 1;
+    const fl = ctx.createBiquadFilter();
+    fl.type = o.type || "lowpass";
+    fl.frequency.value = o.f;
+    fl.Q.value = o.q || 0.7;
+    const amp = ctx.createGain();
+    amp.gain.value = o.g;
+    src.connect(fl);
+    let tail = fl;
+    if (o.f2) { // optional second filter stage
+      const f2 = ctx.createBiquadFilter();
+      f2.type = o.type2 || "highpass";
+      f2.frequency.value = o.f2;
+      fl.connect(f2);
+      tail = f2;
     }
-    osc.start(now);
-    osc.stop(now + bursts * 0.08 + 0.05);
+    tail.connect(amp);
+    if (o.pan != null && ctx.createStereoPanner) {
+      const p = ctx.createStereoPanner();
+      p.pan.value = o.pan;
+      amp.connect(p); p.connect(S.bus);
+    } else amp.connect(S.bus);
+    if (o.lfo) { // slow filter wander
+      const l = keep(S, ctx.createOscillator()), lg = ctx.createGain();
+      l.frequency.value = o.lfo * rnd(0.8, 1.2);
+      lg.gain.value = o.f * (o.depth || 0.3);
+      l.connect(lg); lg.connect(fl.frequency); l.start();
+    }
+    if (o.swell) { // slow volume swell
+      const l = keep(S, ctx.createOscillator()), lg = ctx.createGain();
+      l.frequency.value = (o.swellRate || 0.11) * rnd(0.8, 1.2);
+      lg.gain.value = o.g * o.swell;
+      l.connect(lg); lg.connect(amp.gain); l.start();
+    }
+    src.start(0, rnd(0, 3.5));
+    return { src, fl, amp };
   }
-  function bird() {
-    const c = ac();
-    if (!c) return;
-    const now = c.currentTime;
-    const osc = c.createOscillator();
-    osc.type = "sine";
-    const base = 1300 + Math.random() * 700;
-    osc.frequency.setValueAtTime(base, now);
-    osc.frequency.exponentialRampToValueAtTime(base * 1.5, now + 0.1);
-    osc.frequency.exponentialRampToValueAtTime(base * 0.82, now + 0.28);
-    const amp = c.createGain();
-    amp.gain.setValueAtTime(0.0001, now);
-    amp.gain.linearRampToValueAtTime(0.035, now + 0.03);
-    amp.gain.exponentialRampToValueAtTime(0.0001, now + 0.34);
-    osc.connect(amp);
-    amp.connect(master);
-    osc.start(now);
-    osc.stop(now + 0.36);
+  function drone(S, freq, type, g, cutoff, wobble, am) {
+    const o = keep(S, ctx.createOscillator());
+    o.type = type; o.frequency.value = freq;
+    const fl = ctx.createBiquadFilter();
+    fl.type = "lowpass"; fl.frequency.value = cutoff || 240;
+    const amp = ctx.createGain(); amp.gain.value = g;
+    o.connect(fl); fl.connect(amp); amp.connect(S.bus);
+    if (wobble) {
+      const l = keep(S, ctx.createOscillator()), lg = ctx.createGain();
+      l.frequency.value = 0.17; lg.gain.value = freq * wobble;
+      l.connect(lg); lg.connect(o.frequency); l.start();
+    }
+    if (am) { // amplitude beat, e.g. propeller thrum
+      const l = keep(S, ctx.createOscillator()), lg = ctx.createGain();
+      l.frequency.value = am; lg.gain.value = g * 0.6;
+      l.connect(lg); lg.connect(amp.gain); l.start();
+    }
+    o.start();
   }
-  function creak() {
-    const c = ac();
-    if (!c) return;
-    const now = c.currentTime;
-    const src = c.createBufferSource();
-    src.buffer = noise;
-    const filter = c.createBiquadFilter();
-    filter.type = "bandpass";
-    filter.Q.value = 8;
-    filter.frequency.setValueAtTime(180 + Math.random() * 220, now);
-    filter.frequency.exponentialRampToValueAtTime(70, now + 0.5);
-    const amp = c.createGain();
-    amp.gain.setValueAtTime(0.0001, now);
-    amp.gain.linearRampToValueAtTime(0.06, now + 0.04);
-    amp.gain.exponentialRampToValueAtTime(0.0001, now + 0.55);
-    src.connect(filter);
-    filter.connect(amp);
-    amp.connect(master);
-    src.start(now);
-    src.stop(now + 0.58);
+
+  /* ---------- one-shot helpers ---------- */
+  function out(S, pan) {
+    if (ctx.createStereoPanner) {
+      const p = ctx.createStereoPanner();
+      p.pan.value = pan == null ? rnd(-0.7, 0.7) : pan;
+      p.connect(S.bus);
+      return p;
+    }
+    return S.bus;
   }
+  function burst(S, t, dur, f, q, g, type, dest, buf) {
+    const s = ctx.createBufferSource();
+    s.buffer = buf === "brown" ? brown : white;
+    const fl = ctx.createBiquadFilter();
+    fl.type = type || "bandpass"; fl.frequency.value = f; fl.Q.value = q;
+    const a = ctx.createGain();
+    a.gain.setValueAtTime(0.0001, t);
+    a.gain.linearRampToValueAtTime(g, t + Math.min(0.01, dur * 0.2));
+    a.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    s.connect(fl); fl.connect(a); a.connect(dest || S.bus);
+    s.start(t, rnd(0, 3)); s.stop(t + dur + 0.05);
+    return fl;
+  }
+  function tone(S, t, f, dur, g, type, dest, attack) {
+    const o = ctx.createOscillator();
+    o.type = type || "sine"; o.frequency.setValueAtTime(f, t);
+    const a = ctx.createGain();
+    a.gain.setValueAtTime(0.0001, t);
+    a.gain.linearRampToValueAtTime(g, t + (attack || 0.005));
+    a.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    o.connect(a); a.connect(dest || S.bus);
+    o.start(t); o.stop(t + dur + 0.05);
+    return o;
+  }
+
+  /* ---------- sound events ---------- */
+  const EV = {
+    cricket(S, g = 0.03) {
+      const t = ctx.currentTime, d = out(S), f = rnd(3900, 4600), n = 3 + (Math.random() * 3 | 0);
+      for (let i = 0; i < n; i++) tone(S, t + i * 0.075, f, 0.035, g, "triangle", d, 0.008);
+    },
+    bird(S, g = 0.03) {
+      const t = ctx.currentTime, d = out(S), base = rnd(1400, 2300), n = 1 + (Math.random() * 3 | 0);
+      for (let i = 0; i < n; i++) {
+        const o = tone(S, t + i * 0.22, base, 0.2, g, "sine", d, 0.02);
+        o.frequency.exponentialRampToValueAtTime(base * rnd(1.25, 1.6), t + i * 0.22 + 0.07);
+        o.frequency.exponentialRampToValueAtTime(base * 0.85, t + i * 0.22 + 0.19);
+      }
+    },
+    meadowlark(S, g = 0.025) {
+      const t = ctx.currentTime, d = out(S), notes = [2600, 2200, 3100, 2400, 1900];
+      notes.slice(0, 3 + (Math.random() * 3 | 0)).forEach((f, i) => tone(S, t + i * 0.13, f * rnd(0.95, 1.05), 0.12, g, "sine", d, 0.01));
+    },
+    creak(S, g = 0.05) {
+      const t = ctx.currentTime, fl = burst(S, t, rnd(0.35, 0.7), rnd(180, 420), 9, g, "bandpass", out(S));
+      fl.frequency.exponentialRampToValueAtTime(rnd(70, 120), t + 0.55);
+    },
+    hooves(S, g = 0.05, steps = 6, gap = 0.28, f = 700, pan) {
+      const t = ctx.currentTime, d = out(S, pan);
+      for (let i = 0; i < steps; i++) {
+        const tt = t + i * gap + (i % 2 ? gap * 0.35 : 0) + rnd(-0.01, 0.01);
+        burst(S, tt, 0.07, f * rnd(0.85, 1.15), 3, g * rnd(0.7, 1), "bandpass", d);
+      }
+    },
+    gallop(S, g = 0.06, bars = 6) { // three-beat gallop, low thuds
+      const t = ctx.currentTime, d = out(S);
+      for (let b = 0; b < bars; b++) [0, 0.09, 0.19].forEach(o => burst(S, t + b * 0.42 + o, 0.09, rnd(160, 260), 1.5, g * rnd(0.7, 1), "lowpass", d, "brown"));
+    },
+    wheel(S, g = 0.03) { // wagon wheel rattle and axle creak
+      const t = ctx.currentTime, d = out(S);
+      for (let i = 0; i < 10; i++) burst(S, t + i * 0.11 + rnd(0, 0.03), 0.05, rnd(900, 1500), 6, g * rnd(0.4, 1), "bandpass", d);
+      if (Math.random() < 0.6) EV.creak(S, g * 1.3);
+    },
+    voices(S, g = 0.03, n = 5) { // distant indistinct talk: formant-ish noise syllables
+      const t = ctx.currentTime, d = out(S);
+      let tt = t;
+      for (let i = 0; i < n; i++) {
+        const dur = rnd(0.1, 0.25);
+        burst(S, tt, dur, rnd(450, 1100), 4, g * rnd(0.5, 1), "bandpass", d);
+        tt += dur + rnd(0.02, 0.12);
+      }
+    },
+    laugh(S, g = 0.03) {
+      const t = ctx.currentTime, d = out(S), f = rnd(700, 1200), n = 4 + (Math.random() * 4 | 0);
+      for (let i = 0; i < n; i++) burst(S, t + i * 0.14, 0.1, f * (1 - i * 0.03), 6, g * (1 - i * 0.08), "bandpass", d);
+    },
+    clink(S, g = 0.03) { // glass clink
+      const t = ctx.currentTime, d = out(S), f = rnd(2400, 3600);
+      [1, 2.32, 3.9].forEach((m, i) => tone(S, t, f * m, 0.5 - i * 0.12, g / (i + 1), "sine", d, 0.002));
+      if (Math.random() < 0.4) [1, 2.32].forEach((m, i) => tone(S, t + 0.09, f * 1.07 * m, 0.35, g * 0.6 / (i + 1), "sine", d, 0.002));
+    },
+    piano(S, g = 0.02) { // faint honky-tonk phrase: two slightly detuned strings per note
+      const t = ctx.currentTime, d = out(S, rnd(-0.4, 0.4));
+      const scale = [261.6, 293.7, 329.6, 392, 440, 523.3, 587.3, 659.3];
+      const lp = ctx.createBiquadFilter(); lp.type = "lowpass"; lp.frequency.value = 1400; lp.connect(d);
+      const n = 4 + (Math.random() * 5 | 0);
+      let i0 = Math.random() * 5 | 0;
+      for (let i = 0; i < n; i++) {
+        const tt = t + i * rnd(0.22, 0.34), f = scale[i0];
+        tone(S, tt, f, 0.9, g, "triangle", lp, 0.004);
+        tone(S, tt, f * 1.006, 0.9, g * 0.7, "triangle", lp, 0.004);
+        if (i % 2 === 0) tone(S, tt, f / 2, 1.1, g * 0.5, "triangle", lp, 0.004);
+        i0 = Math.max(0, Math.min(scale.length - 1, i0 + pick([-2, -1, 1, 1, 2])));
+      }
+    },
+    crackle(S, g = 0.05) {
+      const t = ctx.currentTime, d = out(S, rnd(-0.2, 0.2)), n = 1 + (Math.random() * 4 | 0);
+      for (let i = 0; i < n; i++) burst(S, t + rnd(0, 0.25), rnd(0.008, 0.03), rnd(1500, 5000), 1, g * rnd(0.3, 1), "highpass", d);
+    },
+    pop(S, g = 0.06) { // bigger ember pop
+      burst(S, ctx.currentTime, 0.05, rnd(600, 1400), 2, g, "bandpass", out(S, rnd(-0.2, 0.2)));
+    },
+    owl(S, g = 0.025) {
+      const t = ctx.currentTime, d = out(S);
+      [0, 0.45, 0.75].forEach((o, i) => { const x = tone(S, t + o, 400 - i * 15, 0.35, g, "sine", d, 0.06); x.frequency.linearRampToValueAtTime(370 - i * 15, t + o + 0.3); });
+    },
+    thunder(S, g = 0.12) {
+      const t = ctx.currentTime, dur = rnd(3, 5.5);
+      const fl = burst(S, t, dur, rnd(90, 160), 0.7, g, "lowpass", out(S), "brown");
+      fl.frequency.linearRampToValueAtTime(60, t + dur);
+    },
+    whistle(S, g = 0.03) { // distant steam whistle chord
+      const t = ctx.currentTime, d = out(S, rnd(-0.5, 0.5)), len = rnd(1.2, 2.2);
+      const lp = ctx.createBiquadFilter(); lp.type = "lowpass"; lp.frequency.value = 1200; lp.connect(d);
+      [311, 392, 466].forEach(f => {
+        const o = ctx.createOscillator(), a = ctx.createGain();
+        o.type = "sawtooth"; o.frequency.setValueAtTime(f * 0.97, t); o.frequency.linearRampToValueAtTime(f, t + 0.25);
+        a.gain.setValueAtTime(0.0001, t); a.gain.linearRampToValueAtTime(g / 3, t + 0.25);
+        a.gain.setValueAtTime(g / 3, t + len); a.gain.exponentialRampToValueAtTime(0.0001, t + len + 0.6);
+        o.connect(a); a.connect(lp); o.start(t); o.stop(t + len + 0.7);
+      });
+      burst(S, t, len + 0.4, 2500, 1, g * 0.4, "bandpass", d);
+    },
+    hiss(S, g = 0.03) { // steam release
+      const t = ctx.currentTime, dur = rnd(0.8, 1.6), fl = burst(S, t, dur, 3500, 0.8, g, "highpass", out(S));
+      fl.frequency.linearRampToValueAtTime(5000, t + dur);
+    },
+    gull(S, g = 0.025) {
+      const t = ctx.currentTime, d = out(S), n = 2 + (Math.random() * 3 | 0);
+      for (let i = 0; i < n; i++) {
+        const tt = t + i * 0.28, o = tone(S, tt, 1800, 0.24, g, "sawtooth", d, 0.03);
+        o.frequency.exponentialRampToValueAtTime(1100, tt + 0.22);
+      }
+    },
+    honk(S, g = 0.03) { // goose
+      const t = ctx.currentTime, d = out(S);
+      const bp = ctx.createBiquadFilter(); bp.type = "bandpass"; bp.frequency.value = 1100; bp.Q.value = 2; bp.connect(d);
+      const n = 1 + (Math.random() * 3 | 0);
+      for (let i = 0; i < n; i++) { const o = tone(S, t + i * 0.22, rnd(380, 460), 0.16, g, "sawtooth", bp, 0.01); o.frequency.linearRampToValueAtTime(330, t + i * 0.22 + 0.15); }
+    },
+    moo(S, g = 0.03) { // distant cattle lowing
+      const t = ctx.currentTime, d = out(S), len = rnd(0.9, 1.6);
+      const lp = ctx.createBiquadFilter(); lp.type = "lowpass"; lp.frequency.value = 500; lp.connect(d);
+      const o = ctx.createOscillator(), a = ctx.createGain();
+      o.type = "sawtooth"; const f = rnd(95, 130);
+      o.frequency.setValueAtTime(f, t); o.frequency.linearRampToValueAtTime(f * 1.15, t + len * 0.3); o.frequency.linearRampToValueAtTime(f * 0.85, t + len);
+      a.gain.setValueAtTime(0.0001, t); a.gain.linearRampToValueAtTime(g, t + 0.2); a.gain.exponentialRampToValueAtTime(0.0001, t + len);
+      o.connect(a); a.connect(lp); o.start(t); o.stop(t + len + 0.1);
+    },
+    cluck(S, g = 0.025) { // hen
+      const t = ctx.currentTime, d = out(S), n = 2 + (Math.random() * 4 | 0);
+      for (let i = 0; i < n; i++) burst(S, t + i * rnd(0.12, 0.2), 0.06, rnd(900, 1400), 8, g, "bandpass", d);
+    },
+    snort(S, g = 0.04) { // horse snort / blow
+      const t = ctx.currentTime, fl = burst(S, t, rnd(0.4, 0.7), 900, 1.2, g, "bandpass", out(S));
+      fl.frequency.linearRampToValueAtTime(400, t + 0.5);
+    },
+    whinny(S, g = 0.02) {
+      const t = ctx.currentTime, d = out(S), len = 1.1;
+      const o = ctx.createOscillator(), v = ctx.createOscillator(), vg = ctx.createGain(), a = ctx.createGain();
+      const bp = ctx.createBiquadFilter(); bp.type = "bandpass"; bp.frequency.value = 1200; bp.Q.value = 1.5;
+      o.type = "sawtooth"; o.frequency.setValueAtTime(900, t); o.frequency.linearRampToValueAtTime(1100, t + 0.2); o.frequency.exponentialRampToValueAtTime(450, t + len);
+      v.frequency.value = 11; vg.gain.value = 40; v.connect(vg); vg.connect(o.frequency);
+      a.gain.setValueAtTime(0.0001, t); a.gain.linearRampToValueAtTime(g, t + 0.08); a.gain.exponentialRampToValueAtTime(0.0001, t + len);
+      o.connect(bp); bp.connect(a); a.connect(d);
+      o.start(t); v.start(t); o.stop(t + len + 0.1); v.stop(t + len + 0.1);
+    },
+    hammer(S, g = 0.04) { // distant carpentry
+      const t = ctx.currentTime, d = out(S), n = 2 + (Math.random() * 4 | 0);
+      for (let i = 0; i < n; i++) burst(S, t + i * rnd(0.35, 0.5), 0.06, rnd(500, 800), 5, g, "bandpass", d);
+    },
+    bell(S, g = 0.02) { // far-off church bell
+      const t = ctx.currentTime, d = out(S, rnd(-0.6, 0.6)), f = rnd(210, 250);
+      [1, 2.0, 2.76, 5.4].forEach((m, i) => tone(S, t, f * m, 3.5 - i * 0.6, g / (i + 1), "sine", d, 0.004));
+    },
+    cheer(S, g = 0.04) { // crowd swell
+      const t = ctx.currentTime, dur = rnd(1.5, 2.5), s = ctx.createBufferSource(), fl = ctx.createBiquadFilter(), a = ctx.createGain();
+      s.buffer = white; fl.type = "bandpass"; fl.frequency.value = 1000; fl.Q.value = 0.8;
+      a.gain.setValueAtTime(0.0001, t); a.gain.linearRampToValueAtTime(g, t + dur * 0.35); a.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+      s.connect(fl); fl.connect(a); a.connect(out(S)); s.start(t, rnd(0, 3)); s.stop(t + dur + 0.05);
+    },
+    rocks(S, g = 0.04) { // gravel skitter / small rockfall
+      const t = ctx.currentTime, d = out(S), n = 5 + (Math.random() * 8 | 0);
+      for (let i = 0; i < n; i++) burst(S, t + i * rnd(0.04, 0.12), 0.04, rnd(1200, 3000), 4, g * rnd(0.3, 1), "bandpass", d);
+    },
+    lap(S, g = 0.03) { // water lapping against pilings
+      const t = ctx.currentTime, dur = rnd(0.5, 0.9), fl = burst(S, t, dur, rnd(400, 700), 1.5, g, "bandpass", out(S));
+      fl.frequency.exponentialRampToValueAtTime(250, t + dur);
+    },
+    sizzle(S, g = 0.02) {
+      burst(S, ctx.currentTime, rnd(1, 2), 5000, 0.7, g, "highpass", out(S, rnd(-0.2, 0.2)));
+    },
+    rigging(S, g = 0.03) { // rope/line flutter
+      const t = ctx.currentTime, d = out(S);
+      for (let i = 0; i < 6; i++) burst(S, t + i * 0.06, 0.05, rnd(250, 400), 5, g * rnd(0.5, 1), "bandpass", d);
+    }
+  };
+
+  /* ---------- presets: beds + scheduled events ---------- */
+  const AMBIENCE_PRESETS = {
+    prairie(S) { // open prairie: soft rolling wind, insects, meadowlarks, far-off wagon creaks
+      bed(S, { f: 480, g: 0.1, lfo: 0.07, depth: 0.3, swell: 0.35, swellRate: 0.13 });
+      bed(S, { f: 1200, g: 0.025, lfo: 0.05, depth: 0.3 });
+      every(S, 1.5, 3.5, () => EV.cricket(S, 0.02));
+      every(S, 5, 11, () => EV.meadowlark(S));
+      every(S, 7, 14, () => EV.creak(S, 0.03));
+    },
+    trail(S) { // wagon trail by day: light wind, rolling wheels, hooves, birds
+      bed(S, { f: 420, g: 0.07, lfo: 0.06, swell: 0.3 });
+      bed(S, { buf: "brown", f: 180, g: 0.08 });
+      every(S, 3, 6, () => EV.hooves(S, 0.035, 8, 0.3, 650));
+      every(S, 4, 8, () => EV.wheel(S, 0.022));
+      every(S, 4, 9, () => EV.bird(S, 0.022));
+    },
+    dusktrail(S) { // sunset by the pines: breeze in trees, crickets starting, horse shifting, wagon creaks
+      bed(S, { f: 900, type: "bandpass", q: 0.5, g: 0.06, lfo: 0.05, depth: 0.4, swell: 0.4, swellRate: 0.08 });
+      bed(S, { f: 300, g: 0.04 });
+      every(S, 1.2, 2.6, () => EV.cricket(S, 0.018));
+      every(S, 6, 12, () => EV.snort(S, 0.03));
+      every(S, 5, 10, () => EV.hooves(S, 0.03, 3, 0.4, 600));
+      every(S, 6, 12, () => EV.creak(S, 0.035));
+      every(S, 9, 18, () => EV.bird(S, 0.015));
+    },
+    town(S) { // frontier main street: hooves, wagon creaks, distant voices, a dog-free murmur
+      bed(S, { f: 350, g: 0.075, lfo: 0.06, swell: 0.3 });
+      bed(S, { f: 800, type: "bandpass", q: 0.6, g: 0.02, swell: 0.5, swellRate: 0.3 });
+      every(S, 2.5, 5, () => EV.hooves(S, 0.04, 8, 0.3, 700));
+      every(S, 4, 8, () => EV.wheel(S, 0.022));
+      every(S, 2.5, 5.5, () => EV.voices(S, 0.018, 4 + (Math.random() * 4 | 0)));
+      every(S, 10, 20, () => EV.hammer(S, 0.02));
+      every(S, 8, 16, () => EV.snort(S, 0.025));
+    },
+    livery(S) { // livery stable yard: horses/mules stamping and snorting, hay rustle, creaking gate, birds
+      bed(S, { f: 380, g: 0.075, lfo: 0.06, swell: 0.3 });
+      bed(S, { f: 3000, type: "bandpass", q: 0.8, g: 0.008, swell: 0.8, swellRate: 0.2 });
+      every(S, 3, 7, () => EV.hooves(S, 0.035, 2 + (Math.random() * 3 | 0), 0.35, 550));
+      every(S, 4, 9, () => EV.snort(S, 0.035));
+      every(S, 12, 24, () => EV.whinny(S, 0.015));
+      every(S, 5, 10, () => EV.creak(S, 0.04));
+      every(S, 4, 8, () => EV.bird(S, 0.02));
+      every(S, 6, 12, () => EV.voices(S, 0.015, 3));
+      every(S, 12, 22, () => EV.hammer(S, 0.018));
+    },
+    farmyard(S) { // farmhouse yard: birds, clucking hens, horse, porch creaks
+      bed(S, { f: 400, g: 0.075, lfo: 0.06, swell: 0.3 });
+      every(S, 2.5, 5, () => EV.bird(S, 0.022));
+      every(S, 3, 7, () => EV.cluck(S, 0.022));
+      every(S, 6, 12, () => EV.snort(S, 0.035));
+      every(S, 10, 20, () => EV.whinny(S, 0.016));
+      every(S, 5, 10, () => EV.hooves(S, 0.035, 3, 0.3, 550));
+      every(S, 6, 12, () => EV.creak(S, 0.035));
+    },
+    race(S) { // horse race: rolling gallop, wind rush, distant cheering
+      bed(S, { f: 700, g: 0.07, lfo: 0.2, depth: 0.4, swell: 0.4, swellRate: 0.25 });
+      bed(S, { buf: "brown", f: 160, g: 0.09, swell: 0.3, swellRate: 0.4 });
+      every(S, 0.9, 1.8, () => EV.gallop(S, 0.05, 5));
+      every(S, 4, 8, () => EV.cheer(S, 0.028));
+      every(S, 6, 12, () => EV.snort(S, 0.03));
+    },
+    stampede(S) { // longhorn herd: low rumble, many hooves, lowing, coach rattle
+      bed(S, { buf: "brown", f: 140, g: 0.13, lfo: 0.15, swell: 0.3, swellRate: 0.2 });
+      bed(S, { f: 600, g: 0.04, lfo: 0.1 });
+      every(S, 0.6, 1.3, () => EV.gallop(S, 0.04, 4));
+      every(S, 2, 4.5, () => EV.moo(S, 0.03));
+      every(S, 3, 6, () => EV.wheel(S, 0.025));
+    },
+    mountain(S) { // rocky mountain road: gusty wind, gravel skitter, rattling coach, hooves
+      bed(S, { f: 600, g: 0.09, lfo: 0.09, depth: 0.45, swell: 0.55, swellRate: 0.1 });
+      bed(S, { f: 1800, type: "bandpass", q: 1.5, g: 0.012, lfo: 0.07, depth: 0.3, swell: 0.6 });
+      every(S, 3, 7, () => EV.rocks(S, 0.03));
+      every(S, 3, 6, () => EV.wheel(S, 0.025));
+      every(S, 4, 8, () => EV.hooves(S, 0.035, 6, 0.25, 650));
+      every(S, 10, 20, () => EV.bird(S, 0.012));
+    },
+    campfire(S) { // night camp: crickets, crackling fire, faint breeze, far owl
+      bed(S, { f: 300, g: 0.035, lfo: 0.05, swell: 0.3 });
+      bed(S, { buf: "brown", f: 400, g: 0.04, swell: 0.4, swellRate: 0.5 }); // fire breath
+      every(S, 0.12, 0.6, () => EV.crackle(S, 0.035), 0.2);
+      every(S, 3, 8, () => EV.pop(S, 0.035));
+      every(S, 0.8, 1.8, () => EV.cricket(S, 0.02));
+      every(S, 14, 28, () => EV.owl(S, 0.02));
+      every(S, 12, 24, () => EV.snort(S, 0.02));
+    },
+    snowcamp(S) { // chuckwagon supper in the snow: cold wind, fire crackle and sizzling pan, cattle lowing
+      bed(S, { f: 700, g: 0.06, lfo: 0.07, depth: 0.4, swell: 0.4 });
+      bed(S, { buf: "brown", f: 400, g: 0.03, swell: 0.4, swellRate: 0.5 });
+      every(S, 0.15, 0.7, () => EV.crackle(S, 0.03), 0.2);
+      every(S, 2.5, 5, () => EV.sizzle(S, 0.014));
+      every(S, 4, 9, () => EV.moo(S, 0.025));
+      every(S, 6, 12, () => EV.clink(S, 0.012));
+      every(S, 7, 14, () => EV.hooves(S, 0.025, 4, 0.35, 450));
+    },
+    snowplain(S) { // coach across a snowy plain: cold whistling wind, muffled hooves, geese
+      bed(S, { f: 550, g: 0.08, lfo: 0.08, depth: 0.4, swell: 0.5, swellRate: 0.09 });
+      bed(S, { f: 2200, type: "bandpass", q: 4, g: 0.012, lfo: 0.06, depth: 0.25, swell: 0.7, swellRate: 0.07 });
+      every(S, 2.5, 5, () => EV.hooves(S, 0.03, 8, 0.28, 400));
+      every(S, 3, 7, () => EV.honk(S, 0.022));
+      every(S, 5, 10, () => EV.creak(S, 0.03));
+    },
+    saloon(S) { // saloon: crowd murmur, clinking glasses, faint honky-tonk piano, occasional laugh
+      bed(S, { f: 600, type: "bandpass", q: 0.9, g: 0.05, lfo: 0.3, depth: 0.25, swell: 0.4, swellRate: 0.6 });
+      bed(S, { f: 1100, type: "bandpass", q: 1.2, g: 0.02, lfo: 0.4, depth: 0.2, swell: 0.6, swellRate: 0.9 });
+      bed(S, { buf: "brown", f: 200, g: 0.04 });
+      every(S, 1.5, 4, () => EV.clink(S, 0.018));
+      every(S, 1.5, 3.5, () => EV.voices(S, 0.018, 3 + (Math.random() * 4 | 0)));
+      every(S, 5, 10, () => EV.piano(S, 0.012), 1.5);
+      every(S, 8, 16, () => EV.laugh(S, 0.018));
+      every(S, 10, 20, () => EV.creak(S, 0.025));
+    },
+    crowd(S) { // outdoor crowd: murmur, bursts of laughter, a few calls; hammering on a half-built town
+      bed(S, { f: 700, type: "bandpass", q: 0.8, g: 0.05, lfo: 0.3, depth: 0.25, swell: 0.4, swellRate: 0.5 });
+      bed(S, { f: 350, g: 0.03, lfo: 0.06 });
+      every(S, 1, 2.5, () => EV.voices(S, 0.02, 3 + (Math.random() * 5 | 0)));
+      every(S, 4, 9, () => EV.laugh(S, 0.022));
+      every(S, 6, 12, () => EV.hammer(S, 0.02));
+      every(S, 8, 16, () => EV.hooves(S, 0.03, 4, 0.3, 650));
+    },
+    gaslight(S) { // foggy gaslit city street at dusk: carriage on cobbles, soft drizzle, distant bell
+      bed(S, { f: 5000, type: "highpass", g: 0.012, swell: 0.3, swellRate: 0.07 }); // drizzle
+      bed(S, { buf: "brown", f: 220, g: 0.05, lfo: 0.05, swell: 0.3 });           // city hush
+      every(S, 3, 6, () => EV.hooves(S, 0.04, 8, 0.26, 1100));
+      every(S, 5, 10, () => EV.wheel(S, 0.02));
+      every(S, 18, 32, () => EV.bell(S, 0.02), 4);
+      every(S, 7, 14, () => EV.voices(S, 0.012, 3));
+    },
+    riverboat(S) { // misty river dock: lapping water, paddlewheel churn, steam hiss, whistle, gulls
+      bed(S, { buf: "brown", f: 500, g: 0.08, lfo: 0.12, depth: 0.35, swell: 0.4, swellRate: 0.2 });
+      const churn = bed(S, { f: 900, type: "bandpass", q: 0.8, g: 0.02 });
+      const l = keep(S, ctx.createOscillator()), lg = ctx.createGain(); // paddle rhythm
+      l.frequency.value = 1.4; lg.gain.value = 0.012; l.connect(lg); lg.connect(churn.amp.gain); l.start();
+      drone(S, 55, "sine", 0.03, 180, 0.01);
+      every(S, 1.5, 3.5, () => EV.lap(S, 0.03));
+      every(S, 6, 12, () => EV.hiss(S, 0.012));
+      every(S, 18, 35, () => EV.whistle(S, 0.022), 5);
+      every(S, 5, 10, () => EV.gull(S, 0.014));
+      every(S, 5, 10, () => EV.voices(S, 0.014, 4));
+      every(S, 7, 14, () => EV.creak(S, 0.03));
+    },
+    steamer(S) { // steamboat on open water at sunset: waves, engine chug, gulls, sea breeze
+      bed(S, { buf: "brown", f: 600, g: 0.09, lfo: 0.09, depth: 0.4, swell: 0.5, swellRate: 0.12 });
+      bed(S, { f: 900, g: 0.03, lfo: 0.06, swell: 0.4 });
+      const chug = bed(S, { f: 300, g: 0.02 });
+      const l = keep(S, ctx.createOscillator()), lg = ctx.createGain(); // steam engine chug
+      l.type = "square"; l.frequency.value = 1.8; lg.gain.value = 0.016; l.connect(lg); lg.connect(chug.amp.gain); l.start();
+      every(S, 2.5, 6, () => EV.gull(S, 0.018));
+      every(S, 20, 40, () => EV.whistle(S, 0.018), 8);
+      every(S, 8, 16, () => EV.hiss(S, 0.01));
+    },
+    airship(S) { // Rusty Stack airship: engine drone, propeller thrum, rushing wind, rigging creaks, far thunder
+      drone(S, 49, "sine", 0.09, 220, 0.01);
+      drone(S, 73.5, "triangle", 0.045, 220, 0.01, 7.5);  // propeller thrum
+      drone(S, 98, "sawtooth", 0.012, 260, 0.006, 15);
+      bed(S, { f: 700, g: 0.07, lfo: 0.08, depth: 0.4, swell: 0.4, swellRate: 0.1 }); // wind rushing past
+      bed(S, { f: 2500, type: "bandpass", q: 2, g: 0.01, lfo: 0.05, depth: 0.3, swell: 0.6 });
+      every(S, 2.5, 5, () => EV.creak(S, 0.045));
+      every(S, 4, 8, () => EV.rigging(S, 0.02));
+      every(S, 14, 28, () => EV.thunder(S, 0.07), 6);
+    }
+  };
+
   function start(next) {
     if (!ac()) return;
-    if (kind === next && alive.length) return;
-    silence();
+    if (!AMBIENCE_PRESETS[next]) next = "prairie";
+    if (kind === next && cur && !cur.dead) return;
+    kill(cur, FADE); // crossfade: old scene fades out while the new one fades in
     kind = next;
-    if (next === "airship") {
-      hum(49, "sine", 0.09);
-      hum(73.5, "triangle", 0.045);
-      hum(98, "sine", 0.02);
-      wind(260, 0.055);
-      clock = setInterval(() => { if (kind === "airship" && Math.random() < 0.8) creak(); }, 3200);
-    } else {
-      wind(480, 0.11);
-      wind(1200, 0.03);
-      clock = setInterval(() => {
-        if (kind !== "prairie") return;
-        if (Math.random() < 0.62) chirp();
-        else bird();
-      }, 2400);
-    }
+    const S = Scene(next);
+    AMBIENCE_PRESETS[next](S);
+    const now = ctx.currentTime;
+    S.bus.gain.setValueAtTime(0, now);
+    S.bus.gain.linearRampToValueAtTime(1, now + FADE);
+    cur = S;
+    if (window.console) console.info("[I Spy] ambience preset:", next);
   }
   return {
     unlock() { ac(); },
     play(next) { start(next); },
-    stop() { silence(); kind = null; },
+    stop() { if (ctx) kill(cur, 0.6); cur = null; kind = null; },
     toggle() {
       muted = !muted;
-      if (master && ctx) master.gain.setTargetAtTime(muted ? 0 : 0.42, ctx.currentTime, 0.04);
-      else if (master) master.gain.value = muted ? 0 : 0.42;
+      if (master && ctx) master.gain.setTargetAtTime(muted ? 0 : LEVEL, ctx.currentTime, 0.04);
+      else if (master) master.gain.value = muted ? 0 : LEVEL;
       return muted;
     },
     get muted() { return muted; },
     get running() { return !!kind; },
-    get kind() { return kind; }
+    get kind() { return kind; },
+    presets: Object.keys(AMBIENCE_PRESETS),
+    get _ctx() { return ctx; },
+    get _master() { return master; }
   };
 })();
 
