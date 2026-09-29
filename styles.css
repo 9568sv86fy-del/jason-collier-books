@@ -591,3 +591,16 @@ body:not(.home) .nav{background:rgba(10,8,7,.72);backdrop-filter:blur(12px);-web
 .brass-ab .ab-part.on{background:linear-gradient(135deg,rgba(214,160,90,.28),rgba(138,85,32,.22));border-color:#d9a55e;color:#fff}
 .brass-ab .ab-n{font-family:"Cinzel",serif;font-weight:700;letter-spacing:.12em}
 .brass-ab .ab-part.on .ab-n::before{color:#f3cf8a}
+
+/* share */
+.share{position:relative;display:inline-flex;align-items:center;align-self:center;margin-top:1rem}
+.buy>.share,.cta-row>.share{margin-top:0}
+.ispy-head+.share{margin-top:1rem}
+.btn.btn-share{padding:.55rem .95rem;font-size:.72rem;cursor:pointer;font-family:inherit;background:rgba(10,8,7,.72);-webkit-appearance:none;appearance:none}
+.btn.btn-share:focus-visible{outline:2px solid var(--fire2);outline-offset:3px}
+.share-pop{position:fixed;z-index:80;min-width:13.5rem;padding:.35rem;display:flex;flex-direction:column;gap:.1rem;background:#120e0b;border:1px solid rgba(255,193,94,.4);border-radius:3px;box-shadow:0 18px 40px -16px rgba(0,0,0,.9)}
+.share-pop[hidden]{display:none}
+.share-action{display:block;width:100%;text-align:left;text-decoration:none;background:transparent;color:var(--ink);border:1px solid transparent;border-radius:2px;padding:.6rem .75rem;font:700 .72rem/1.2 "Inter",system-ui,sans-serif;letter-spacing:.1em;text-transform:uppercase;cursor:pointer}
+.share-pop a.share-action{color:var(--ink)}
+.share-action:hover,.share-action:focus-visible{border-color:var(--fire2);color:var(--fire2);background:rgba(255,138,42,.1);outline:none}
+.share-status{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}

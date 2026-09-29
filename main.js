@@ -184,3 +184,170 @@ document.querySelectorAll('.excerpt').forEach((ex, i) => {
   addEventListener('keydown', e => { if (e.key === 'Escape' && nav.classList.contains('open')) { set(false); btn.focus(); } });
   addEventListener('resize', () => { if (innerWidth > 1280) set(false); });
 })();
+
+/* Share: one control, injected on book pages, audiobooks, I Spy, Thorne's Lab, and home */
+(() => {
+  const body = document.body;
+  const show = body.classList.contains('home')
+    || body.classList.contains('page-book')
+    || body.classList.contains('page-audio')
+    || body.classList.contains('page-lab');
+  if (!show || document.getElementById('share-popover')) return;
+
+  const wrap = document.createElement('div');
+  wrap.className = 'share';
+
+  const btn = document.createElement('button');
+  btn.type = 'button';
+  btn.className = 'btn btn-line btn-share';
+  btn.textContent = 'Share';
+  btn.setAttribute('aria-label', 'Share this page');
+  btn.setAttribute('aria-expanded', 'false');
+  btn.setAttribute('aria-haspopup', 'dialog');
+  btn.setAttribute('aria-controls', 'share-popover');
+
+  const pop = document.createElement('div');
+  pop.className = 'share-pop';
+  pop.id = 'share-popover';
+  pop.hidden = true;
+  pop.setAttribute('role', 'dialog');
+  pop.setAttribute('aria-label', 'Share this page');
+
+  const copyBtn = document.createElement('button');
+  copyBtn.type = 'button';
+  copyBtn.className = 'share-action';
+  copyBtn.textContent = 'Copy link';
+
+  const status = document.createElement('p');
+  status.className = 'share-status';
+  status.setAttribute('role', 'status');
+  status.setAttribute('aria-live', 'polite');
+
+  const xLink = document.createElement('a');
+  xLink.className = 'share-action';
+  xLink.target = '_blank';
+  xLink.rel = 'noopener noreferrer';
+  xLink.textContent = 'Share on X';
+
+  const fbLink = document.createElement('a');
+  fbLink.className = 'share-action';
+  fbLink.target = '_blank';
+  fbLink.rel = 'noopener noreferrer';
+  fbLink.textContent = 'Share on Facebook';
+
+  pop.append(copyBtn, status, xLink, fbLink);
+  wrap.append(btn);
+
+  let placed = false;
+  if (body.classList.contains('page-ispy')) {
+    const head = document.querySelector('.ispy-head');
+    if (head) { head.insertAdjacentElement('afterend', wrap); placed = true; }
+  } else if (body.classList.contains('page-lab')) {
+    const intro = document.querySelector('.lab-intro');
+    if (intro) { intro.appendChild(wrap); placed = true; }
+  } else if (body.classList.contains('page-audio')) {
+    const head = document.querySelector('.page-head');
+    if (head) { head.appendChild(wrap); placed = true; }
+  } else if (body.classList.contains('page-book')) {
+    const row = document.querySelector('.buy, .cta-row');
+    if (row) { row.appendChild(wrap); placed = true; }
+  } else if (body.classList.contains('home')) {
+    const row = document.querySelector('.hero .cta-row');
+    if (row) { row.appendChild(wrap); placed = true; }
+  }
+  if (!placed) return;
+  document.body.appendChild(pop);
+
+  const payload = () => ({ title: document.title, text: document.title, url: location.href });
+  const fillLinks = data => {
+    xLink.href = 'https://twitter.com/intent/tweet?url=' + encodeURIComponent(data.url) + '&text=' + encodeURIComponent(data.text);
+    fbLink.href = 'https://www.facebook.com/sharer/sharer.php?u=' + encodeURIComponent(data.url);
+  };
+  fillLinks(payload());
+
+  let timer = 0;
+  const focusables = () => [...pop.querySelectorAll('button, a[href]')];
+  const place = () => {
+    const r = btn.getBoundingClientRect();
+    pop.style.top = (r.bottom + 6) + 'px';
+    pop.style.left = Math.max(8, r.left) + 'px';
+    pop.style.right = 'auto';
+    pop.style.bottom = 'auto';
+    const pr = pop.getBoundingClientRect();
+    if (pr.right > innerWidth - 8) pop.style.left = Math.max(8, innerWidth - pr.width - 8) + 'px';
+    const pr2 = pop.getBoundingClientRect();
+    if (pr2.bottom > innerHeight - 8) pop.style.top = Math.max(8, r.top - pr2.height - 6) + 'px';
+  };
+  const open = () => {
+    fillLinks(payload());
+    status.textContent = '';
+    copyBtn.textContent = 'Copy link';
+    pop.hidden = false;
+    btn.setAttribute('aria-expanded', 'true');
+    place();
+    copyBtn.focus();
+  };
+  const close = restore => {
+    if (pop.hidden) return;
+    pop.hidden = true;
+    btn.setAttribute('aria-expanded', 'false');
+    status.textContent = '';
+    copyBtn.textContent = 'Copy link';
+    clearTimeout(timer);
+    if (restore) btn.focus();
+  };
+
+  btn.addEventListener('click', async () => {
+    if (!pop.hidden) { close(false); return; }
+    const data = payload();
+    if (typeof navigator.share === 'function' && (!navigator.canShare || navigator.canShare(data))) {
+      try { await navigator.share(data); return; }
+      catch (err) { if (err && err.name === 'AbortError') return; }
+    }
+    open();
+  });
+
+  copyBtn.addEventListener('click', async () => {
+    const url = location.href;
+    let ok = false;
+    try {
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        const write = navigator.clipboard.writeText(url);
+        await Promise.race([write, new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 1000))]);
+        ok = true;
+      }
+    } catch (e) { ok = false; }
+    if (!ok) {
+      const ta = document.createElement('textarea');
+      ta.value = url;
+      ta.setAttribute('readonly', '');
+      ta.style.position = 'fixed';
+      ta.style.left = '-9999px';
+      document.body.appendChild(ta);
+      ta.select();
+      try { ok = document.execCommand('copy'); } catch (e) { ok = false; }
+      ta.remove();
+      copyBtn.focus();
+    }
+    const message = ok ? 'Link copied' : 'Could not copy link';
+    copyBtn.textContent = message;
+    status.textContent = message;
+    clearTimeout(timer);
+    timer = setTimeout(() => { copyBtn.textContent = 'Copy link'; status.textContent = ''; }, 2000);
+  });
+
+  pop.addEventListener('click', e => { if (e.target.closest('a')) close(false); });
+  addEventListener('click', e => { if (!pop.hidden && !wrap.contains(e.target) && !pop.contains(e.target)) close(false); });
+  addEventListener('scroll', () => { if (!pop.hidden) place(); }, {passive:true});
+  addEventListener('resize', () => { if (!pop.hidden) place(); });
+  addEventListener('keydown', e => {
+    if (pop.hidden) return;
+    if (e.key === 'Escape') { e.preventDefault(); close(true); return; }
+    if (e.key !== 'Tab') return;
+    const items = focusables();
+    if (!items.length) return;
+    const first = items[0], last = items[items.length - 1];
+    if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
+    else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
+  });
+})();
