@@ -29,20 +29,34 @@
 <div class="grain" aria-hidden="true"></div>
 
 <header class="nav" id="nav">
-  <a class="brand" href="index.html" aria-label="Jason Collier, home">J<span>·</span>C</a>
+  <a class="brand" href="index.html" aria-current="page" aria-label="Jason Collier, home">J<span>·</span>C</a>
   <button class="nav-toggle" type="button" aria-expanded="false" aria-controls="site-nav" aria-label="Menu"><span></span><span></span><span></span></button>
   <nav id="site-nav" aria-label="Main">
-    <a href="index.html" class="on" aria-current="page">Home</a>
-    <a href="jang-and-tom.html">Jang &amp; Tom</a>
-    <a href="first-pulse.html">First Pulse</a>
-    <a href="old-man-on-the-mountain.html">Old Man</a>
-    <a href="rusty-stack.html">Rusty Stack</a>
-    <a href="audiobooks.html">Audiobooks</a>
-    <a href="art.html">Art</a>
-    <a href="thorne-lab.html">Thorne’s Lab</a>
-    <a href="i-spy.html">I-Spy</a>
-    <a href="coloring.html">Coloring Pages</a>
-    <a href="about.html">About</a>
+    <div class="nav-group">
+      <button type="button" class="nav-label" aria-expanded="false" aria-haspopup="true" aria-controls="menu-books">Books</button>
+      <div class="nav-menu" id="menu-books" role="group" aria-label="Books">
+        <a href="jang-and-tom.html">Jang &amp; Tom</a>
+        <a href="first-pulse.html">First Pulse</a>
+        <a href="old-man-on-the-mountain.html">Old Man</a>
+        <a href="rusty-stack.html">Rusty Stack</a>
+      </div>
+    </div>
+    <a class="nav-link" href="audiobooks.html">Listen</a>
+    <div class="nav-group">
+      <button type="button" class="nav-label" aria-expanded="false" aria-haspopup="true" aria-controls="menu-play">Play</button>
+      <div class="nav-menu" id="menu-play" role="group" aria-label="Play">
+        <a href="i-spy.html">I Spy</a>
+        <a href="coloring.html">Coloring Pages</a>
+      </div>
+    </div>
+    <div class="nav-group">
+      <button type="button" class="nav-label" aria-expanded="false" aria-haspopup="true" aria-controls="menu-extra">Extra</button>
+      <div class="nav-menu" id="menu-extra" role="group" aria-label="Extra">
+        <a href="art.html">Art</a>
+        <a href="thorne-lab.html">Thorne’s Lab</a>
+      </div>
+    </div>
+    <a class="nav-link" href="about.html">About</a>
   </nav>
 </header>
 
@@ -69,16 +83,27 @@
           <em>Two thousand miles of pure frontier chaos.</em>
         </div>
       </div>
-      <div class="cta-row reveal">
+      <div class="cta-row hero-actions reveal">
         <a class="btn btn-fire" href="https://www.amazon.com/dp/B0HFCF11YP" target="_blank" rel="noopener">Buy on Amazon</a>
-        <a class="btn btn-line" href="https://kite-bolt-fleet-honey.grok.me/" target="_blank" rel="noopener">▶ Play the games</a>
-        <a class="btn btn-line" href="#books">Explore the books ↓</a>
+        <a class="btn btn-line" href="i-spy.html">Play</a>
+        <a class="btn btn-line" href="audiobooks.html">Listen</a>
+        <a class="btn btn-line" href="coloring.html">Color</a>
       </div>
     </div>
     <div class="hero-stack reveal" aria-hidden="true">
       <img class="stack s3" src="images/old-man-on-the-mountain.jpg" alt="">
       <img class="stack s2" src="images/the-first-pulse.jpg" alt="">
       <img class="stack s1 tilt" src="images/jang-and-tom-wagon-masters.jpg" alt="">
+    </div>
+    <div class="hero-previews">
+      <a class="hero-preview" href="i-spy.html">
+        <img src="images/scenes/transcon-s46.jpg" alt="I Spy scene from the books" width="640" height="360">
+        <span><strong>Play</strong><em>Pick a picture from the books and find ten hidden things.</em></span>
+      </a>
+      <a class="hero-preview hero-preview-color" href="coloring.html">
+        <img src="coloring/thumbs/runaway-horse.png" alt="Coloring page of a runaway horse" width="640" height="360">
+        <span><strong>Color</strong><em>Color pictures from the books right on the screen, or print them out.</em></span>
+      </a>
     </div>
   </div>
   <div class="marquee" aria-hidden="true"><div class="track">
@@ -144,6 +169,7 @@
 
 <footer>
   <span>© <span id="y">2026</span> Jason Collier</span>
+  <span class="visit-count" hidden></span>
   <span class="foot-links"><a href="https://x.com/jascol235175" target="_blank" rel="noopener">X @jascol235175</a><a href="https://www.amazon.com/stores/author/B0GDW74Y5S" target="_blank" rel="noopener">Amazon Author Page</a></span>
 </footer>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js" defer></script>
