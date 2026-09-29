@@ -591,3 +591,6 @@ body:not(.home) .nav{background:rgba(10,8,7,.72);backdrop-filter:blur(12px);-web
 .brass-ab .ab-part.on{background:linear-gradient(135deg,rgba(214,160,90,.28),rgba(138,85,32,.22));border-color:#d9a55e;color:#fff}
 .brass-ab .ab-n{font-family:"Cinzel",serif;font-weight:700;letter-spacing:.12em}
 .brass-ab .ab-part.on .ab-n::before{color:#f3cf8a}
+
+/* home: six "more" cards sit in two rows of three */
+@media (min-width:761px){.more-grid:has(>.mcard:nth-child(6))>.mcard{grid-column:span 2}}
