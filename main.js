@@ -177,17 +177,120 @@ document.querySelectorAll('.excerpt').forEach((ex, i) => {
   fromHash(); addEventListener('hashchange', fromHash);
 })();
 
-/* One visit count for the whole site. Stays hidden if the counter cannot be read. */
+/* One visit count for the whole site. A milestone count may play a one-time intro. */
 (() => {
   const el = document.querySelector('.visit-count');
+  const SEEN = 'jc-milestone-intro';
+  let active = false;
+
+  const seen = () => { try { return localStorage.getItem(SEEN) === '1'; } catch (e) { return true; } };
+  const markSeen = () => { try { localStorage.setItem(SEEN, '1'); } catch (e) {} };
+  const isMilestone = n => n === 100 || n === 250 || n === 500 || (n >= 1000 && n % 1000 === 0);
+  const testCount = () => {
+    try {
+      const raw = new URLSearchParams(location.search).get('milestone-test');
+      if (raw == null || !/^\d+$/.test(raw)) return null;
+      const n = Number(raw);
+      return Number.isSafeInteger(n) && n >= 1 ? n : null;
+    } catch (e) { return null; }
+  };
+
+  function showMilestone(n, preview) {
+    if (active) return;
+    if (!preview && (seen() || !isMilestone(n))) return;
+    let video;
+    try { video = document.createElement('video'); } catch (e) { return; }
+    active = true;
+    let gone = false;
+    let overlay = null;
+    let onKey = null;
+    const destroy = () => {
+      if (gone) return;
+      gone = true;
+      clearTimeout(timer);
+      if (onKey) document.removeEventListener('keydown', onKey);
+      document.body.classList.remove('milestone-open');
+      video.removeEventListener('error', onError);
+      try { video.pause(); } catch (e) {}
+      video.removeAttribute('src');
+      if (overlay) overlay.remove();
+      overlay = null;
+    };
+    const onError = () => destroy();
+    const timer = setTimeout(destroy, 8000);
+    video.preload = 'auto';
+    video.playsInline = true;
+    video.setAttribute('playsinline', '');
+    video.addEventListener('error', onError);
+    video.addEventListener('canplay', () => {
+      if (gone) return;
+      clearTimeout(timer);
+      if (!preview) markSeen();
+      const label = "You're visitor #" + n.toLocaleString('en-US') + '!';
+      overlay = document.createElement('div');
+      overlay.className = 'milestone';
+      overlay.setAttribute('role', 'dialog');
+      overlay.setAttribute('aria-modal', 'true');
+      overlay.setAttribute('aria-label', label);
+      const card = document.createElement('div');
+      card.className = 'milestone-card';
+      const title = document.createElement('h2');
+      title.className = 'milestone-title';
+      title.id = 'milestone-title';
+      title.textContent = label;
+      const stage = document.createElement('div');
+      stage.className = 'milestone-stage';
+      const unmute = document.createElement('button');
+      unmute.type = 'button';
+      unmute.className = 'btn btn-fire milestone-unmute';
+      unmute.textContent = 'Unmute';
+      unmute.hidden = true;
+      const skip = document.createElement('button');
+      skip.type = 'button';
+      skip.className = 'btn btn-line milestone-skip';
+      skip.textContent = 'Skip';
+      skip.setAttribute('aria-label', 'Skip intro');
+      stage.append(video, unmute);
+      card.append(title, stage);
+      overlay.append(card, skip);
+      onKey = e => { if (e.key === 'Escape') { e.preventDefault(); destroy(); } };
+      skip.addEventListener('click', destroy);
+      video.addEventListener('ended', destroy);
+      unmute.addEventListener('click', () => {
+        video.muted = false;
+        const again = video.play();
+        if (again && again.catch) again.catch(() => {});
+        unmute.hidden = true;
+      });
+      document.addEventListener('keydown', onKey);
+      document.body.classList.add('milestone-open');
+      document.body.appendChild(overlay);
+      skip.focus();
+      video.muted = false;
+      const attempt = video.play();
+      if (attempt && attempt.catch) attempt.catch(() => {
+        if (gone) return;
+        video.muted = true;
+        unmute.hidden = false;
+        const retry = video.play();
+        if (retry && retry.catch) retry.catch(() => { if (!gone) destroy(); });
+      });
+    }, {once:true});
+    video.src = 'assets/video/milestone-intro.mp4';
+  }
+
+  const preview = testCount();
+  if (preview != null) showMilestone(preview, true);
+
   if (!el || !window.fetch) return;
   fetch('https://countapi.mileshilliard.com/api/v1/hit/jasoncollierbooks-site')
     .then(r => r.ok ? r.json() : Promise.reject())
     .then(data => {
-      const n = Number(data && data.value);
+      const n = Math.floor(Number(data && data.value));
       if (!Number.isFinite(n) || n < 0) return;
-      el.textContent = 'Visitors: ' + Math.floor(n).toLocaleString('en-US');
+      el.textContent = 'Visitors: ' + n.toLocaleString('en-US');
       el.hidden = false;
+      if (preview == null) showMilestone(n, false);
     })
     .catch(() => {});
 })();

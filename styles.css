@@ -654,3 +654,13 @@ body:not(.home) .nav{background:rgba(10,8,7,.72);backdrop-filter:blur(12px);-web
   .book-ready .book-body{padding:.75rem .8rem .9rem}
   .book-ready .review{font-size:1.05rem;padding:.7rem .8rem}
 }
+
+/* milestone visit intro */
+body.milestone-open{overflow:hidden}
+.milestone{position:fixed;inset:0;z-index:300;display:grid;place-items:center;padding:4.2rem 1rem 1.4rem;background:rgba(8,6,5,.94)}
+.milestone-card{width:min(960px,100%);text-align:center}
+.milestone-title{font-family:"Cinzel",serif;font-weight:900;text-transform:uppercase;letter-spacing:.04em;line-height:1.05;font-size:clamp(1.55rem,4.2vw,3rem);color:#ffc15e;text-shadow:0 2px 18px rgba(0,0,0,.55);margin:0 0 1rem}
+.milestone-stage{position:relative}
+.milestone video{display:block;width:100%;height:auto;aspect-ratio:16/9;background:#000;border:1px solid rgba(255,193,94,.4);border-radius:4px;box-shadow:0 30px 80px -28px #000}
+.milestone-unmute{position:absolute;left:.8rem;bottom:.8rem}
+.milestone-skip{position:absolute;top:1rem;right:1rem;z-index:2}
