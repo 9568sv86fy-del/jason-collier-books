@@ -1,7 +1,7 @@
-/* Coloring Pages: line art traced from the book pictures, tap-to-fill canvas, print + download */
+/* Coloring Pages: line art redrawn from the book pictures, tap-to-fill canvas, print + download */
 const CP_BOOKS = [
   { name: "Jang & Tom", pics: [
-    { id: "wagon-masters-cover", title: "Wagon Masters Cover", w: 754, h: 1200 },
+    { id: "wagon-masters-cover", title: "Wagon Masters Cover", w: 1200, h: 675 },
     { id: "runaway-horse", title: "Runaway Horse", w: 1200, h: 675 },
     { id: "horse-race", title: "The Big Horse Race", w: 1200, h: 675 },
     { id: "stampede", title: "Longhorn Stampede", w: 1200, h: 675 },
@@ -38,7 +38,7 @@ const CP_COLORS = [
   const PICS = CP_BOOKS.flatMap(b => b.pics);
   const LINE = 170;          // pixels darker than this are "line" and never get filled
   const BLEED = 2;           // color is pushed this many px under the anti-aliased line edge
-  const KEY = id => "jc-coloring:" + id;
+  const KEY = id => "jc-coloring-v2:" + id;
 
   const gal = $("#cp-gallery"), editor = $("#cp-editor"), canvas = $("#cp-canvas"), view = $("#cp-view");
   const ctx = canvas.getContext("2d", { willReadFrequently: true });
