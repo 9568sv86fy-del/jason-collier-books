@@ -12,111 +12,111 @@ const ISPY_BOOKS = [
     "credit": "Cover · Jang & Tom · Wagon Masters",
     "items": [
      {
-      "n": "Snowy peak",
+      "n": "Grizzly bear",
       "b": [
-       52.0,
-       6.0,
-       34.0,
-       14.0
+       68.3,
+       31.3,
+       17,
+       14.2
       ]
      },
      {
-      "n": "Wagon canvas",
+      "n": "Running cowboy",
       "b": [
-       26.0,
-       18.0,
-       42.0,
-       16.0
+       86.2,
+       33.2,
+       11.8,
+       12.7
       ]
      },
      {
-      "n": "Red lantern",
+      "n": "Cows in a whirlpool",
       "b": [
-       30.0,
-       20.0,
-       10.0,
-       10.0
+       9.3,
+       30.8,
+       17,
+       8.3
       ]
      },
      {
-      "n": "Driver",
+      "n": "Chicken in a crate",
       "b": [
-       56.0,
-       14.0,
-       18.0,
-       18.0
+       20.2,
+       34.2,
+       14.8,
+       8.6
       ]
      },
      {
-      "n": "Whip",
+      "n": "Covered wagon",
       "b": [
-       70.0,
-       6.0,
-       18.0,
-       18.0
+       12.4,
+       47.4,
+       22.5,
+       22.4
       ]
      },
      {
-      "n": "Left white horse",
+      "n": "Laughing man in plaid",
       "b": [
-       4.0,
-       36.0,
-       28.0,
-       30.0
+       28.7,
+       39.5,
+       22,
+       32
       ]
      },
      {
-      "n": "Right white horse",
+      "n": "Man with arms crossed",
       "b": [
-       28.0,
-       34.0,
-       26.0,
-       28.0
+       51.2,
+       43,
+       18,
+       30
       ]
      },
      {
-      "n": "Wagon wheel",
+      "n": "Goat with a garland",
       "b": [
-       12.0,
-       52.0,
-       16.0,
-       16.0
+       11.6,
+       67.9,
+       18.6,
+       17.1
       ]
      },
      {
-      "n": "Tom's hat",
+      "n": "Three alpacas",
       "b": [
-       38.0,
-       62.0,
-       16.0,
-       12.0
+       33.4,
+       75.2,
+       28,
+       14.1
       ]
      },
      {
-      "n": "Red shirt",
+      "n": "Stagecoach and horses",
       "b": [
-       36.0,
-       70.0,
-       18.0,
-       16.0
+       68.3,
+       68.4,
+       27.4,
+       14.8
       ]
      },
      {
-      "n": "Rifle",
+      "n": "Jang & Tom title",
       "b": [
-       56.0,
-       66.0,
-       16.0,
-       24.0
+       16.3,
+       4.4,
+       50,
+       8
       ]
      },
      {
-      "n": "Dust cloud",
+      "n": "Jason Collier name",
       "b": [
-       0.0,
-       78.0,
-       32.0,
-       18.0
+       22.5,
+       88.9,
+       50,
+       6.4
       ]
      }
     ]
@@ -124,115 +124,115 @@ const ISPY_BOOKS = [
    {
     "id": "wagonmasters-poster",
     "src": "media/wagonmasters_part1of6_poster.jpg",
-    "title": "Dust on the Trail",
+    "title": "Beside the Wagon",
     "credit": "Audiobook art · Jang & Tom · Wagon Masters",
     "items": [
      {
-      "n": "Wooden sign",
+      "n": "Laughing bearded face",
       "b": [
-       2.0,
-       4.0,
-       32.0,
-       28.0
+       13,
+       0,
+       10,
+       17
       ]
      },
      {
-      "n": "Distant mountains",
+      "n": "Smiling man's face",
       "b": [
-       48.0,
-       2.0,
-       48.0,
-       16.0
+       57,
+       4,
+       9,
+       18
       ]
      },
      {
-      "n": "Canvas top",
+      "n": "Raised hand",
       "b": [
-       66.0,
-       16.0,
-       20.0,
-       16.0
+       38.5,
+       15,
+       8.5,
+       20
       ]
      },
      {
-      "n": "Stagecoach",
+      "n": "Cowboy hat",
       "b": [
-       58.0,
-       20.0,
-       34.0,
-       48.0
+       60,
+       0,
+       13,
+       16
       ]
      },
      {
-      "n": "Coach lantern",
+      "n": "Red bandana",
       "b": [
-       60.0,
-       28.0,
-       8.0,
-       10.0
+       59.5,
+       19,
+       6.5,
+       12
       ]
      },
      {
-      "n": "Driver",
+      "n": "Belt buckle",
       "b": [
-       72.0,
-       20.0,
-       14.0,
-       18.0
+       20.5,
+       53,
+       4.5,
+       6.5
       ]
      },
      {
-      "n": "Raised whip",
+      "n": "Wagon wheel",
       "b": [
-       82.0,
-       12.0,
-       14.0,
-       18.0
+       33,
+       52,
+       14,
+       36
       ]
      },
      {
-      "n": "White horse",
+      "n": "Patch on the wagon cover",
       "b": [
-       40.0,
-       36.0,
-       22.0,
-       38.0
+       33,
+       1.5,
+       6.5,
+       13.5
       ]
      },
      {
-      "n": "Brown horse",
+      "n": "Hay bale",
       "b": [
-       54.0,
-       40.0,
-       18.0,
-       34.0
+       83,
+       55,
+       17,
+       16
       ]
      },
      {
-      "n": "Coach wheel",
+      "n": "Wooden fence",
       "b": [
-       74.0,
-       50.0,
-       14.0,
-       18.0
+       81,
+       26,
+       19,
+       28
       ]
      },
      {
-      "n": "Dust cloud",
+      "n": "Barn",
       "b": [
-       0.0,
-       48.0,
-       34.0,
-       42.0
+       73,
+       0,
+       24,
+       36
       ]
      },
      {
-      "n": "Desert scrub",
+      "n": "Holstered pistol",
       "b": [
-       14.0,
-       68.0,
-       22.0,
-       22.0
+       10.5,
+       61,
+       5.5,
+       22
       ]
      }
     ]
@@ -244,111 +244,111 @@ const ISPY_BOOKS = [
     "credit": "Grok image art · Jang & Tom · Transcontinental",
     "items": [
      {
-      "n": "Orange sun",
-      "b": [
-       2.0,
-       4.0,
-       16.0,
-       18.0
-      ]
-     },
-     {
-      "n": "Mountain ridge",
-      "b": [
-       0.0,
-       12.0,
-       42.0,
-       20.0
-      ]
-     },
-     {
       "n": "Red stagecoach",
       "b": [
-       4.0,
-       36.0,
-       30.0,
-       40.0
+       11.5,
+       42,
+       30,
+       40
       ]
      },
      {
-      "n": "Coach driver",
+      "n": "Big spoked wheel",
       "b": [
-       12.0,
-       38.0,
-       14.0,
-       16.0
+       23.8,
+       63,
+       9.2,
+       24.5
       ]
      },
      {
-      "n": "Coach wheel",
+      "n": "Rear wheel",
       "b": [
-       14.0,
-       58.0,
-       14.0,
-       18.0
+       11.5,
+       61,
+       9,
+       26
+      ]
+     },
+     {
+      "n": "Front wheel",
+      "b": [
+       37.5,
+       68,
+       5,
+       16.5
+      ]
+     },
+     {
+      "n": "Stagecoach driver",
+      "b": [
+       33.5,
+       37.5,
+       6,
+       14
+      ]
+     },
+     {
+      "n": "Luggage on the roof",
+      "b": [
+       21,
+       42,
+       11.5,
+       8.5
       ]
      },
      {
       "n": "Team of horses",
       "b": [
-       30.0,
-       40.0,
-       24.0,
-       34.0
+       39.5,
+       56.5,
+       22,
+       26
       ]
      },
      {
-      "n": "Dust behind the coach",
+      "n": "Lead horse",
       "b": [
-       0.0,
-       62.0,
-       22.0,
-       28.0
+       54,
+       58,
+       10.5,
+       21
       ]
      },
      {
-      "n": "Hanging saloon sign",
+      "n": "Snow-capped peak",
       "b": [
-       54.0,
-       14.0,
-       18.0,
-       18.0
+       77,
+       35,
+       12,
+       15
       ]
      },
      {
-      "n": "Saloon porch",
+      "n": "Upstairs windows",
       "b": [
-       50.0,
-       30.0,
-       30.0,
-       34.0
+       5,
+       30.5,
+       10,
+       10
       ]
      },
      {
-      "n": "Water trough",
+      "n": "Telegraph pole",
       "b": [
-       58.0,
-       64.0,
-       18.0,
-       16.0
+       91.5,
+       49,
+       2.5,
+       21
       ]
      },
      {
-      "n": "Horse at the trough",
+      "n": "Townsfolk on the boardwalk",
       "b": [
-       68.0,
-       46.0,
-       16.0,
-       24.0
-      ]
-     },
-     {
-      "n": "Covered wagon",
-      "b": [
-       74.0,
-       40.0,
-       22.0,
-       28.0
+       1.5,
+       61.5,
+       11,
+       12
       ]
      }
     ]
@@ -356,115 +356,115 @@ const ISPY_BOOKS = [
    {
     "id": "scene-philly-s09",
     "src": "images/scenes/philly-s09.jpg",
-    "title": "Sunday Promenade",
+    "title": "The Farmyard",
     "credit": "Grok image art · Jang & Tom · Philadelphia Follies",
     "items": [
      {
-      "n": "Brick facade",
+      "n": "Straw hat with cherries",
       "b": [
-       0.0,
-       0.0,
-       32.0,
-       28.0
+       19.5,
+       1,
+       16.5,
+       17.5
       ]
      },
      {
-      "n": "Tall window",
+      "n": "Cherries",
       "b": [
-       6.0,
-       2.0,
-       16.0,
-       18.0
+       21,
+       7,
+       4.5,
+       7
       ]
      },
      {
-      "n": "Black top hat",
+      "n": "Brown cowboy hat",
       "b": [
-       4.0,
-       18.0,
-       14.0,
-       14.0
+       58.5,
+       5.5,
+       11,
+       12
       ]
      },
      {
-      "n": "Man in a dark coat",
+      "n": "Broom",
       "b": [
-       2.0,
-       30.0,
-       20.0,
-       50.0
+       47.5,
+       20,
+       10,
+       40
       ]
      },
      {
-      "n": "Woman's wide hat",
+      "n": "Man lying in the manure",
       "b": [
-       24.0,
-       12.0,
-       16.0,
-       14.0
+       32,
+       64,
+       36,
+       28
       ]
      },
      {
-      "n": "Blue dress",
+      "n": "Fallen man's hat",
       "b": [
-       22.0,
-       28.0,
-       22.0,
-       52.0
+       29.8,
+       62.5,
+       13.3,
+       12
       ]
      },
      {
-      "n": "Pink parasol",
+      "n": "Red bandana",
       "b": [
-       46.0,
-       4.0,
-       18.0,
-       22.0
+       40,
+       74,
+       4.5,
+       12
       ]
      },
      {
-      "n": "Pink dress",
+      "n": "Screaming woman",
       "b": [
-       44.0,
-       28.0,
-       18.0,
-       50.0
+       77,
+       8,
+       16,
+       40
       ]
      },
      {
-      "n": "Brown top hat",
+      "n": "Potted plant",
       "b": [
-       64.0,
-       14.0,
-       12.0,
-       14.0
+       92.5,
+       45,
+       6.5,
+       16
       ]
      },
      {
-      "n": "Man in a brown suit",
+      "n": "Porch steps",
       "b": [
-       62.0,
-       26.0,
-       18.0,
-       48.0
+       72,
+       64,
+       18,
+       12
       ]
      },
      {
-      "n": "Child in yellow",
+      "n": "Bearded man's face",
       "b": [
-       78.0,
-       44.0,
-       16.0,
-       32.0
+       54,
+       16,
+       12,
+       16
       ]
      },
      {
-      "n": "Street lamp",
+      "n": "Horse's raised hoof",
       "b": [
-       84.0,
-       2.0,
-       12.0,
-       36.0
+       8,
+       28,
+       14,
+       22
       ]
      }
     ]
@@ -472,124 +472,115 @@ const ISPY_BOOKS = [
    {
     "id": "scene-transcon-s10",
     "src": "images/scenes/transcon-s10.jpg",
-    "title": "The Freight Stop",
+    "title": "The Crash",
     "credit": "Grok image art · Jang & Tom · Transcontinental",
     "items": [
      {
-      "n": "Hanging sign",
+      "n": "Black top hat",
       "b": [
-       0.0,
-       4.0,
-       16.0,
-       20.0
+       62.3,
+       32.5,
+       6.8,
+       9.5
       ]
      },
      {
-      "n": "Bowler hat",
+      "n": "Falling man",
       "b": [
-       14.0,
-       8.0,
-       14.0,
-       14.0
+       38.5,
+       32,
+       39,
+       45
       ]
      },
      {
-      "n": "Man in a bowler hat",
+      "n": "Yellow waistcoat",
       "b": [
-       8.0,
-       12.0,
-       22.0,
-       34.0
+       53.5,
+       45.5,
+       9.5,
+       21
       ]
      },
      {
-      "n": "Canvas wagon cover",
+      "n": "Broken front wheel",
       "b": [
-       36.0,
-       6.0,
-       26.0,
-       28.0
+       6.5,
+       62,
+       13.5,
+       27
       ]
      },
      {
-      "n": "Pair of oxen",
+      "n": "Rear wheel",
       "b": [
-       64.0,
-       8.0,
-       30.0,
-       34.0
+       4.5,
+       36,
+       8.5,
+       22
       ]
      },
      {
-      "n": "Green wagon",
+      "n": "Luggage on the roof",
       "b": [
-       70.0,
-       4.0,
-       28.0,
-       44.0
+       23,
+       4.5,
+       18.5,
+       9
       ]
      },
      {
-      "n": "Red stagecoach",
+      "n": "Bearded driver",
       "b": [
-       2.0,
-       50.0,
-       28.0,
-       34.0
+       75.5,
+       1.5,
+       24,
+       40
       ]
      },
      {
-      "n": "Coach driver",
+      "n": "Brown cowboy hat",
       "b": [
-       8.0,
-       48.0,
-       14.0,
-       16.0
+       79,
+       1.5,
+       8.5,
+       8
       ]
      },
      {
-      "n": "Stack of barrels",
+      "n": "Shouting man",
       "b": [
-       0.0,
-       74.0,
-       20.0,
-       22.0
+       61.5,
+       6.5,
+       17,
+       22
       ]
      },
      {
-      "n": "Red bandana",
+      "n": "Shouting man's hat",
       "b": [
-       40.0,
-       54.0,
-       12.0,
-       12.0
+       68,
+       7.5,
+       7.5,
+       7
       ]
      },
      {
-      "n": "White apron",
+      "n": "Second coach front wheel",
       "b": [
-       38.0,
-       60.0,
-       18.0,
-       26.0
+       69,
+       40,
+       5.5,
+       17
       ]
      },
      {
-      "n": "Red bucket",
+      "n": "Second coach rear wheel",
       "b": [
-       44.0,
-       68.0,
-       16.0,
-       18.0
-      ]
-     },
-     {
-      "n": "Wagon wheel",
-      "b": [
-       64.0,
-       54.0,
-       18.0,
-       26.0
+       77,
+       43,
+       7,
+       17
       ]
      }
     ]
@@ -601,111 +592,111 @@ const ISPY_BOOKS = [
     "credit": "Grok image art · Jang & Tom · Philadelphia Follies",
     "items": [
      {
-      "n": "Grandstand",
+      "n": "Red cap",
       "b": [
-       0.0,
-       2.0,
-       32.0,
-       38.0
+       39.5,
+       4,
+       6.5,
+       7.5
       ]
      },
      {
-      "n": "Top hat in the crowd",
+      "n": "Red flag",
       "b": [
-       4.0,
-       6.0,
-       12.0,
-       14.0
+       3.5,
+       17,
+       12.5,
+       22
       ]
      },
      {
-      "n": "Spectator crowd",
+      "n": "Flag post",
       "b": [
-       2.0,
-       10.0,
-       28.0,
-       26.0
+       2.5,
+       12,
+       3.5,
+       50
       ]
      },
      {
-      "n": "Shade trees",
+      "n": "Black riding boot",
       "b": [
-       36.0,
-       0.0,
-       58.0,
-       28.0
+       15.8,
+       57,
+       7,
+       11
       ]
      },
      {
-      "n": "White rail fence",
+      "n": "Stirrup",
       "b": [
-       32.0,
-       24.0,
-       64.0,
-       16.0
+       45.5,
+       62,
+       5.5,
+       10
       ]
      },
      {
-      "n": "Jockey in red",
+      "n": "Green-capped jockey",
       "b": [
-       4.0,
-       50.0,
-       18.0,
-       22.0
+       57,
+       25,
+       7,
+       16
       ]
      },
      {
-      "n": "Brown racehorse",
+      "n": "Black horse",
       "b": [
-       0.0,
-       56.0,
-       32.0,
-       32.0
+       54,
+       33,
+       13.5,
+       36
       ]
      },
      {
-      "n": "Jockey in blue",
+      "n": "Blue-capped jockey",
       "b": [
-       36.0,
-       50.0,
-       18.0,
-       20.0
+       68.8,
+       27,
+       7.8,
+       20
       ]
      },
      {
-      "n": "Black racehorse",
+      "n": "Yellow-capped jockey",
       "b": [
-       32.0,
-       56.0,
-       32.0,
-       32.0
+       79.5,
+       31,
+       6.5,
+       15
       ]
      },
      {
-      "n": "Dirt track",
+      "n": "Purple-capped jockey",
       "b": [
-       0.0,
-       78.0,
-       100.0,
-       22.0
+       87.4,
+       34,
+       5.5,
+       13
       ]
      },
      {
-      "n": "Riding crop",
+      "n": "Lead horse's head",
       "b": [
-       12.0,
-       48.0,
-       10.0,
-       12.0
+       28,
+       18,
+       16,
+       18
       ]
      },
      {
-      "n": "Rail post",
+      "n": "Bearded rider's face",
       "b": [
-       34.0,
-       22.0,
-       8.0,
-       18.0
+       36,
+       10,
+       10,
+       14
       ]
      }
     ]
@@ -713,115 +704,115 @@ const ISPY_BOOKS = [
    {
     "id": "scene-transcon-s21",
     "src": "images/scenes/transcon-s21.jpg",
-    "title": "The River Bridge",
+    "title": "Through the Herd",
     "credit": "Grok image art · Jang & Tom · Transcontinental",
     "items": [
      {
-      "n": "Snowy mountains",
+      "n": "Brown hat waved in the air",
       "b": [
-       0.0,
-       2.0,
-       52.0,
-       24.0
+       32,
+       1,
+       6,
+       11
       ]
      },
      {
-      "n": "Pine trees",
+      "n": "Man waving his hat",
       "b": [
-       64.0,
-       6.0,
-       32.0,
-       32.0
+       32,
+       1,
+       18,
+       32
       ]
      },
      {
-      "n": "Lead covered wagon",
+      "n": "Red neckerchief",
       "b": [
-       12.0,
-       30.0,
-       26.0,
-       28.0
+       42.5,
+       9,
+       4,
+       7
       ]
      },
      {
-      "n": "Wagon canvas",
+      "n": "Bearded driver",
       "b": [
-       18.0,
-       28.0,
-       18.0,
-       14.0
+       46,
+       7.5,
+       16,
+       36
       ]
      },
      {
-      "n": "Ox team",
+      "n": "Driver's cowboy hat",
       "b": [
-       0.0,
-       40.0,
-       20.0,
-       22.0
+       54,
+       7.5,
+       7.5,
+       8.5
       ]
      },
      {
-      "n": "Man with a whip",
+      "n": "Red coach body",
       "b": [
-       34.0,
-       26.0,
-       14.0,
-       20.0
+       59,
+       14,
+       22,
+       40
       ]
      },
      {
-      "n": "Raised whip",
+      "n": "Luggage on the roof",
       "b": [
-       30.0,
-       18.0,
-       12.0,
-       16.0
+       61,
+       13.5,
+       18,
+       12
       ]
      },
      {
-      "n": "Second wagon",
+      "n": "Front wagon wheel",
       "b": [
-       44.0,
-       32.0,
-       22.0,
-       24.0
+       58,
+       62,
+       8,
+       20
       ]
      },
      {
-      "n": "Wagon wheel",
+      "n": "Rear wagon wheel",
       "b": [
-       24.0,
-       46.0,
-       12.0,
-       16.0
+       73.5,
+       59,
+       10.5,
+       28
       ]
      },
      {
-      "n": "Wooden bridge",
+      "n": "Lead horse's head",
       "b": [
-       4.0,
-       44.0,
-       84.0,
-       20.0
+       9,
+       26,
+       12,
+       28
       ]
      },
      {
-      "n": "River water",
+      "n": "White spotted longhorn",
       "b": [
-       0.0,
-       64.0,
-       100.0,
-       24.0
+       32,
+       58,
+       26,
+       36
       ]
      },
      {
-      "n": "Rocks in the river",
+      "n": "Brown longhorn",
       "b": [
-       54.0,
-       70.0,
-       20.0,
-       16.0
+       84,
+       53,
+       15,
+       33
       ]
      }
     ]
@@ -829,115 +820,97 @@ const ISPY_BOOKS = [
    {
     "id": "scene-philly-s45",
     "src": "images/scenes/philly-s45.jpg",
-    "title": "The Ballroom",
+    "title": "Tin Cups",
     "credit": "Grok image art · Jang & Tom · Philadelphia Follies",
     "items": [
      {
-      "n": "Crystal chandelier",
+      "n": "Campfire",
       "b": [
-       34.0,
-       0.0,
-       26.0,
-       22.0
+       28.5,
+       79,
+       10.5,
+       16.5
       ]
      },
      {
-      "n": "Candle flames",
+      "n": "Tin cups",
       "b": [
-       40.0,
-       4.0,
-       12.0,
-       10.0
+       45.5,
+       48.5,
+       6,
+       8.5
       ]
      },
      {
-      "n": "Marble column",
+      "n": "Left man's cowboy hat",
       "b": [
-       0.0,
-       6.0,
-       14.0,
-       52.0
+       29.5,
+       36,
+       13,
+       10
       ]
      },
      {
-      "n": "Gold mirror",
+      "n": "Right man's cowboy hat",
       "b": [
-       4.0,
-       14.0,
-       16.0,
-       24.0
+       57,
+       34,
+       14,
+       10
       ]
      },
      {
-      "n": "Green ball gown",
+      "n": "Mustached man",
       "b": [
-       12.0,
-       28.0,
-       20.0,
-       50.0
+       22,
+       36,
+       22,
+       42
       ]
      },
      {
-      "n": "Folding fan",
+      "n": "Red neckerchief",
       "b": [
-       16.0,
-       38.0,
-       10.0,
-       12.0
+       33.5,
+       50,
+       4.5,
+       9
       ]
      },
      {
-      "n": "Man in a tailcoat",
+      "n": "Bearded man in plaid",
       "b": [
-       28.0,
-       24.0,
-       16.0,
-       48.0
+       50.5,
+       34,
+       24,
+       48
       ]
      },
      {
-      "n": "Pink ball gown",
+      "n": "Long dark beard",
       "b": [
-       44.0,
-       28.0,
-       18.0,
-       50.0
+       61,
+       44,
+       7,
+       14
       ]
      },
      {
-      "n": "Man in a black suit",
+      "n": "Covered wagons on the left",
       "b": [
-       56.0,
-       26.0,
-       16.0,
-       46.0
+       0,
+       44,
+       26,
+       18
       ]
      },
      {
-      "n": "Violin",
+      "n": "Covered wagons on the right",
       "b": [
-       72.0,
-       32.0,
-       12.0,
-       20.0
-      ]
-     },
-     {
-      "n": "Cello",
-      "b": [
-       82.0,
-       36.0,
-       14.0,
-       26.0
-      ]
-     },
-     {
-      "n": "Dance floor",
-      "b": [
-       16.0,
-       74.0,
-       52.0,
-       22.0
+       75,
+       44,
+       24,
+       18
       ]
      }
     ]
@@ -949,156 +922,111 @@ const ISPY_BOOKS = [
     "credit": "Grok image art · Jang & Tom · Transcontinental",
     "items": [
      {
-      "n": "Top hat",
+      "n": "White goat",
       "b": [
-       8.0,
-       14.0,
-       11.0,
-       17.0
+       2,
+       59,
+       34,
+       38
+      ]
+     },
+     {
+      "n": "Hat in the goat's mouth",
+      "b": [
+       35,
+       69,
+       11,
+       12
+      ]
+     },
+     {
+      "n": "Shocked man's face",
+      "b": [
+       45,
+       52,
+       8.5,
+       16
+      ]
+     },
+     {
+      "n": "Black top hat",
+      "b": [
+       7.5,
+       14.5,
+       12,
+       17
       ]
      },
      {
       "n": "Walrus mustache",
       "b": [
-       14.5,
-       31.0,
-       5.0,
-       4.0
-      ]
-     },
-     {
-      "n": "Goat",
-      "b": [
-       2.0,
-       59.0,
-       34.0,
-       41.0
-      ]
-     },
-     {
-      "n": "Goat horns",
-      "b": [
-       25.0,
-       59.0,
-       9.0,
-       7.0
+       10.5,
+       31,
+       8.5,
+       7
       ]
      },
      {
       "n": "Watch chain",
       "b": [
-       16.0,
-       66.0,
-       8.0,
-       7.0
+       16,
+       67,
+       9,
+       6
       ]
      },
      {
-      "n": "Hat in the air",
+      "n": "Raised brown hat",
       "b": [
-       45.0,
-       4.0,
-       9.0,
-       15.0
+       44.5,
+       4,
+       9.5,
+       14
       ]
      },
      {
-      "n": "Red bandana",
+      "n": "Red neckerchief",
       "b": [
-       55.0,
-       36.0,
-       7.0,
-       12.0
+       55,
+       37,
+       9,
+       17
       ]
      },
      {
-      "n": "Brown cowboy hat",
+      "n": "Bearded man's black hat",
       "b": [
-       55.0,
-       18.0,
-       11.0,
-       10.0
+       83,
+       18.5,
+       13.5,
+       12
       ]
      },
      {
-      "n": "Hat in the goat’s mouth",
+      "n": "Wrecked timber",
       "b": [
-       36.0,
-       66.0,
-       9.0,
-       10.0
+       65,
+       9,
+       22,
+       24
       ]
      },
      {
-      "n": "Notepad",
+      "n": "Reporter's notepad",
       "b": [
-       71.0,
-       49.0,
-       5.0,
-       5.0
-      ]
-     },
-     {
-      "n": "Second notepad",
-      "b": [
-       27.5,
-       46.0,
-       6.0,
-       5.0
-      ]
-     },
-     {
-      "n": "Plaid shirt",
-      "b": [
-       75.0,
-       40.0,
-       24.0,
-       45.0
-      ]
-     },
-     {
-      "n": "Black hat",
-      "b": [
-       83.0,
-       15.0,
-       13.0,
-       11.0
-      ]
-     },
-     {
-      "n": "Open hand",
-      "b": [
-       68.0,
-       58.0,
-       5.0,
-       9.0
-      ]
-     },
-     {
-      "n": "Wrecked trestle",
-      "b": [
-       65.0,
-       9.0,
-       18.0,
-       19.0
-      ]
-     },
-     {
-      "n": "Surprised face",
-      "b": [
-       45.0,
-       52.0,
-       6.0,
-       11.0
+       70.5,
+       48.5,
+       4.5,
+       6
       ]
      },
      {
       "n": "Laughing woman",
       "b": [
-       1.0,
-       30.0,
-       5.0,
-       11.0
+       0,
+       29,
+       6.5,
+       17
       ]
      }
     ]
@@ -1106,115 +1034,115 @@ const ISPY_BOOKS = [
    {
     "id": "scene-transcon-s57",
     "src": "images/scenes/transcon-s57.jpg",
-    "title": "The Pacific",
+    "title": "The Dock",
     "credit": "Grok image art · Jang & Tom · Transcontinental",
     "items": [
      {
-      "n": "Seagulls",
+      "n": "White handkerchief",
       "b": [
-       34.0,
-       6.0,
-       26.0,
-       16.0
+       17.5,
+       16.5,
+       11.5,
+       14
       ]
      },
      {
-      "n": "Setting sun",
+      "n": "Red-haired woman",
       "b": [
-       60.0,
-       16.0,
-       18.0,
-       20.0
+       9,
+       26,
+       8,
+       18
       ]
      },
      {
-      "n": "Ship sails",
+      "n": "Left boy's raised cap",
       "b": [
-       70.0,
-       20.0,
-       18.0,
-       20.0
+       21.5,
+       32.5,
+       5,
+       8
       ]
      },
      {
-      "n": "Tall ship",
+      "n": "Right boy's raised cap",
       "b": [
-       64.0,
-       28.0,
-       28.0,
-       32.0
+       30.5,
+       36,
+       5.5,
+       8
       ]
      },
      {
-      "n": "Sun on the water",
+      "n": "White goat",
       "b": [
-       54.0,
-       44.0,
-       20.0,
-       24.0
+       14.5,
+       65,
+       24,
+       30
       ]
      },
      {
-      "n": "Cliff edge",
+      "n": "Paper in the goat's mouth",
       "b": [
-       0.0,
-       38.0,
-       34.0,
-       32.0
+       37.5,
+       74.5,
+       7.5,
+       14
       ]
      },
      {
-      "n": "Cowboy hat",
+      "n": "Smokestack",
       "b": [
-       4.0,
-       36.0,
-       12.0,
-       12.0
+       69,
+       7.5,
+       5,
+       25
       ]
      },
      {
-      "n": "Two men on the cliff",
+      "n": "Red paddle wheel",
       "b": [
-       2.0,
-       44.0,
-       26.0,
-       32.0
+       80,
+       42.5,
+       12,
+       20
       ]
      },
      {
-      "n": "Wagon at the cliff",
+      "n": "Raised brown hat",
       "b": [
-       0.0,
-       48.0,
-       16.0,
-       22.0
+       45.5,
+       11,
+       5.5,
+       8.5
       ]
      },
      {
-      "n": "Whitecaps",
+      "n": "Bearded man waving",
       "b": [
-       28.0,
-       54.0,
-       40.0,
-       16.0
+       60,
+       24,
+       14,
+       28
       ]
      },
      {
-      "n": "Rocky shore",
+      "n": "Red neckerchief",
       "b": [
-       0.0,
-       70.0,
-       36.0,
-       26.0
+       54.5,
+       30.5,
+       4.5,
+       9
       ]
      },
      {
-      "n": "Ocean",
+      "n": "Dock piling",
       "b": [
-       30.0,
-       40.0,
-       70.0,
-       28.0
+       56,
+       74,
+       4.5,
+       22
       ]
      }
     ]
@@ -1222,115 +1150,97 @@ const ISPY_BOOKS = [
    {
     "id": "art-philly-s01",
     "src": "images/art/philly-s01.jpg",
-    "title": "The Study",
+    "title": "The Street Lamp",
     "credit": "Grok image art · Jang & Tom · Philadelphia Follies",
     "items": [
      {
-      "n": "Heavy curtains",
+      "n": "Horse",
       "b": [
-       0.0,
-       2.0,
-       16.0,
-       42.0
+       10.5,
+       54,
+       10,
+       32
       ]
      },
      {
-      "n": "Paned window",
+      "n": "Enclosed carriage",
       "b": [
-       8.0,
-       4.0,
-       22.0,
-       32.0
+       20,
+       50.5,
+       15,
+       29
       ]
      },
      {
-      "n": "World globe",
+      "n": "Rear carriage wheel",
       "b": [
-       2.0,
-       34.0,
-       20.0,
-       22.0
+       31,
+       61.5,
+       5,
+       18
       ]
      },
      {
-      "n": "Black top hat",
+      "n": "Front carriage wheel",
       "b": [
-       36.0,
-       26.0,
-       20.0,
-       22.0
+       26.5,
+       65.5,
+       5,
+       14
       ]
      },
      {
-      "n": "Stack of papers",
+      "n": "Man in a top hat",
       "b": [
-       48.0,
-       16.0,
-       18.0,
-       18.0
+       73,
+       38,
+       12,
+       48
       ]
      },
      {
-      "n": "Bookcase",
+      "n": "Top hat",
       "b": [
-       66.0,
-       2.0,
-       32.0,
-       46.0
+       76,
+       34.5,
+       5.5,
+       8.5
       ]
      },
      {
-      "n": "Row of books",
+      "n": "Lit street lamp",
       "b": [
-       70.0,
-       10.0,
-       24.0,
-       28.0
+       81.5,
+       6,
+       7,
+       22
       ]
      },
      {
-      "n": "Red chair",
+      "n": "Lamp post",
       "b": [
-       4.0,
-       52.0,
-       26.0,
-       40.0
+       83.5,
+       28,
+       4,
+       48
       ]
      },
      {
-      "n": "Quill pen",
+      "n": "Distant street lamp",
       "b": [
-       40.0,
-       50.0,
-       14.0,
-       26.0
+       65.5,
+       52,
+       2.5,
+       6.5
       ]
      },
      {
-      "n": "Inkwell",
+      "n": "Chimney",
       "b": [
-       50.0,
-       58.0,
-       14.0,
-       16.0
-      ]
-     },
-     {
-      "n": "Pocket watch",
-      "b": [
-       36.0,
-       68.0,
-       16.0,
-       16.0
-      ]
-     },
-     {
-      "n": "Wooden desk",
-      "b": [
-       28.0,
-       54.0,
-       44.0,
-       32.0
+       12.5,
+       7,
+       4.5,
+       11
       ]
      }
     ]
@@ -1338,115 +1248,88 @@ const ISPY_BOOKS = [
    {
     "id": "art-philly-s03",
     "src": "images/art/philly-s03.jpg",
-    "title": "Philadelphia Street",
+    "title": "The Pickled Eggs",
     "credit": "Grok image art · Jang & Tom · Philadelphia Follies",
     "items": [
      {
-      "n": "Gas street lamp",
+      "n": "Jar of pickled eggs",
       "b": [
-       2.0,
-       4.0,
-       14.0,
-       48.0
+       7,
+       49,
+       24.5,
+       51
       ]
      },
      {
-      "n": "Brick row houses",
+      "n": "Pickled egg",
       "b": [
-       18.0,
-       2.0,
-       72.0,
-       36.0
+       12.5,
+       68,
+       9.5,
+       13
       ]
      },
      {
-      "n": "Shop sign",
+      "n": "Pointing finger",
       "b": [
-       42.0,
-       8.0,
-       20.0,
-       16.0
+       28,
+       71,
+       9,
+       14
       ]
      },
      {
-      "n": "Flower box",
+      "n": "Round spectacles",
       "b": [
-       24.0,
-       20.0,
-       16.0,
-       14.0
+       38,
+       23.5,
+       20,
+       13.5
       ]
      },
      {
-      "n": "Carriage horse",
+      "n": "Sly grin",
       "b": [
-       24.0,
-       38.0,
-       22.0,
-       34.0
+       43,
+       43,
+       9,
+       6.5
       ]
      },
      {
-      "n": "Carriage driver",
+      "n": "White shirt collar",
       "b": [
-       46.0,
-       32.0,
-       14.0,
-       18.0
+       47,
+       51,
+       13,
+       10
       ]
      },
      {
-      "n": "Horse-drawn carriage",
+      "n": "Black cravat",
       "b": [
-       36.0,
-       40.0,
-       32.0,
-       32.0
+       48.5,
+       57,
+       9,
+       22
       ]
      },
      {
-      "n": "Carriage wheel",
+      "n": "Hanging oil lamp",
       "b": [
-       52.0,
-       56.0,
-       14.0,
-       18.0
+       82,
+       15,
+       12,
+       28
       ]
      },
      {
-      "n": "Woman in a bonnet",
+      "n": "Glass bottle",
       "b": [
-       4.0,
-       40.0,
-       18.0,
-       36.0
-      ]
-     },
-     {
-      "n": "Bonnet",
-      "b": [
-       6.0,
-       38.0,
-       14.0,
-       14.0
-      ]
-     },
-     {
-      "n": "Man in a top hat",
-      "b": [
-       62.0,
-       34.0,
-       18.0,
-       36.0
-      ]
-     },
-     {
-      "n": "Cobblestones",
-      "b": [
-       0.0,
-       72.0,
-       100.0,
-       26.0
+       1,
+       25,
+       8.5,
+       42
       ]
      }
     ]
@@ -1460,154 +1343,109 @@ const ISPY_BOOKS = [
      {
       "n": "Stage-Line Livery sign",
       "b": [
-       10.0,
-       0.0,
-       39.0,
-       24.0
+       8.5,
+       0,
+       40.5,
+       21
       ]
      },
      {
-      "n": "Horseshoe",
+      "n": "To all points west poster",
       "b": [
-       28.5,
-       18.5,
-       4.5,
-       6.0
-      ]
-     },
-     {
-      "n": "Windmill",
-      "b": [
-       86.0,
-       8.0,
-       7.5,
-       26.0
-      ]
-     },
-     {
-      "n": "Basket of apples",
-      "b": [
-       14.0,
-       80.0,
-       11.5,
-       20.0
-      ]
-     },
-     {
-      "n": "Apples on the ground",
-      "b": [
-       23.0,
-       95.0,
-       6.5,
-       5.0
+       1.5,
+       29,
+       9.5,
+       28
       ]
      },
      {
       "n": "Ladder",
       "b": [
-       2.0,
-       60.0,
-       9.5,
-       28.0
+       3,
+       60,
+       8,
+       27
       ]
      },
      {
-      "n": "“To all points west” poster",
+      "n": "Basket of apples",
       "b": [
-       0.5,
-       29.0,
-       10.5,
-       28.0
-      ]
-     },
-     {
-      "n": "Mule",
-      "b": [
-       36.0,
-       42.0,
-       21.0,
-       52.0
+       14,
+       80,
+       11.5,
+       20
       ]
      },
      {
       "n": "Straw hat",
       "b": [
        26.5,
-       38.0,
-       8.5,
-       8.0
+       38.5,
+       9.5,
+       8.5
+      ]
+     },
+     {
+      "n": "Old man with a white beard",
+      "b": [
+       22,
+       38,
+       18,
+       59
+      ]
+     },
+     {
+      "n": "Mule",
+      "b": [
+       37,
+       42,
+       19.5,
+       52
       ]
      },
      {
       "n": "Brown cowboy hat",
       "b": [
-       17.0,
+       17,
        29.5,
-       8.0,
-       9.0
+       7.5,
+       9.5
       ]
      },
      {
-      "n": "Rag",
+      "n": "Concord coach",
       "b": [
-       10.0,
-       48.0,
-       5.0,
-       14.0
+       35,
+       33,
+       17,
+       19
+      ]
+     },
+     {
+      "n": "Red coach",
+      "b": [
+       55,
+       22,
+       19.5,
+       42
+      ]
+     },
+     {
+      "n": "Kneeling man's hat",
+      "b": [
+       75,
+       46,
+       9.5,
+       10
       ]
      },
      {
       "n": "Wagon wheel",
       "b": [
        83.5,
-       60.0,
-       13.0,
-       32.0
-      ]
-     },
-     {
-      "n": "Lead rope",
-      "b": [
-       32.0,
-       62.0,
-       12.0,
-       10.0
-      ]
-     },
-     {
-      "n": "Concord coach",
-      "b": [
-       35.5,
-       28.0,
-       17.0,
-       21.0
-      ]
-     },
-     {
-      "n": "Red coach",
-      "b": [
-       55.0,
-       22.0,
-       17.0,
-       38.0
-      ]
-     },
-     {
-      "n": "White beard",
-      "b": [
-       29.0,
-       44.0,
-       5.5,
-       7.0
-      ]
-     },
-     {
-      "n": "Kneeling man’s hat",
-      "b": [
-       75.5,
-       46.0,
-       9.0,
-       9.0
+       65,
+       13,
+       32
       ]
      }
     ]
@@ -1615,115 +1453,115 @@ const ISPY_BOOKS = [
    {
     "id": "art-transcon-s15",
     "src": "images/art/transcon-s15.jpg",
-    "title": "The River Crossing",
+    "title": "The Race Poster",
     "credit": "Grok image art · Jang & Tom · Transcontinental",
     "items": [
      {
-      "n": "Cottonwood trees",
+      "n": "Race poster headline",
       "b": [
-       0.0,
-       4.0,
-       32.0,
-       38.0
+       19,
+       5,
+       40,
+       12
       ]
      },
      {
-      "n": "Far bank",
+      "n": "Pointing man's hat",
       "b": [
-       6.0,
-       16.0,
-       58.0,
-       18.0
+       13,
+       22,
+       16,
+       18
       ]
      },
      {
-      "n": "Wagon on the bank",
+      "n": "Red bandana",
       "b": [
-       70.0,
-       22.0,
-       24.0,
-       22.0
+       18,
+       43,
+       8,
+       12
       ]
      },
      {
-      "n": "Canvas top",
+      "n": "Bearded man's hat",
       "b": [
-       30.0,
-       26.0,
-       20.0,
-       16.0
+       60,
+       24,
+       14,
+       12
       ]
      },
      {
-      "n": "Wagon in the river",
+      "n": "Painted stagecoach",
       "b": [
-       20.0,
-       32.0,
-       34.0,
-       30.0
+       33,
+       27,
+       22,
+       22
       ]
      },
      {
-      "n": "Ox team",
+      "n": "Pile of gold coins",
       "b": [
-       4.0,
-       40.0,
-       24.0,
-       26.0
+       41,
+       61,
+       13,
+       18
       ]
      },
      {
-      "n": "Cowboy hat",
+      "n": "Black hat",
       "b": [
-       58.0,
-       18.0,
-       14.0,
-       14.0
+       81,
+       26,
+       8,
+       7
       ]
      },
      {
-      "n": "Rider",
+      "n": "Bottles on the shelves",
       "b": [
-       54.0,
-       24.0,
-       20.0,
-       24.0
+       89,
+       12,
+       10,
+       28
       ]
      },
      {
-      "n": "Saddle horse",
+      "n": "Brass goblet",
       "b": [
-       52.0,
-       36.0,
-       24.0,
-       30.0
+       92.5,
+       51,
+       7,
+       10
       ]
      },
      {
-      "n": "Splash",
+      "n": "Pointing finger",
       "b": [
-       12.0,
-       52.0,
-       18.0,
-       16.0
+       28,
+       48,
+       8,
+       10
       ]
      },
      {
-      "n": "Wagon wheel",
+      "n": "Crossed arms",
       "b": [
-       32.0,
-       48.0,
-       14.0,
-       16.0
+       54,
+       40,
+       14,
+       16
       ]
      },
      {
-      "n": "River",
+      "n": "Bar counter",
       "b": [
-       0.0,
-       58.0,
-       100.0,
-       34.0
+       78,
+       70,
+       20,
+       16
       ]
      }
     ]
@@ -1735,156 +1573,102 @@ const ISPY_BOOKS = [
     "credit": "Grok image art · Jang & Tom · Philadelphia Follies",
     "items": [
      {
+      "n": "Bearded man in a pink dress",
+      "b": [
+       6,
+       2,
+       29,
+       90
+      ]
+     },
+     {
       "n": "Feathered hat",
       "b": [
-       11.0,
-       0.0,
-       18.0,
-       19.0
+       10.5,
+       1,
+       18.5,
+       21
       ]
      },
      {
-      "n": "Beard",
+      "n": "Boy's straw hat",
       "b": [
-       19.0,
-       16.0,
-       7.0,
-       13.0
+       37,
+       49.5,
+       12,
+       13.5
       ]
      },
      {
-      "n": "Pink dress",
+      "n": "Boy in a blue shirt",
       "b": [
-       7.0,
-       26.0,
-       30.0,
-       68.0
+       35,
+       50,
+       14,
+       50
       ]
      },
      {
-      "n": "Lace cuff",
+      "n": "Pointing girl",
       "b": [
-       30.0,
-       52.0,
-       5.5,
-       9.0
+       46,
+       38.5,
+       17,
+       61.5
       ]
      },
      {
-      "n": "Boy’s straw hat",
+      "n": "Pointing boy",
       "b": [
-       37.0,
-       49.0,
-       10.0,
-       15.0
-      ]
-     },
-     {
-      "n": "Pointing finger",
-      "b": [
-       46.0,
-       39.0,
-       5.0,
-       7.0
-      ]
-     },
-     {
-      "n": "Second pointing finger",
-      "b": [
-       49.0,
-       57.0,
-       5.0,
-       6.0
+       49.5,
+       57,
+       21,
+       43
       ]
      },
      {
       "n": "Lace bonnet",
       "b": [
-       66.0,
-       22.0,
-       11.0,
-       16.0
+       69,
+       22,
+       8,
+       12
       ]
      },
      {
       "n": "Dark bonnet",
       "b": [
        78.5,
-       21.0,
-       8.5,
-       15.0
+       21,
+       10,
+       13
+      ]
+     },
+     {
+      "n": "Boy's black hat",
+      "b": [
+       74,
+       54,
+       10.5,
+       12
+      ]
+     },
+     {
+      "n": "Boy in a black hat",
+      "b": [
+       71,
+       54,
+       13,
+       46
       ]
      },
      {
       "n": "Straw bonnet",
       "b": [
-       91.0,
-       26.0,
-       9.0,
-       14.0
-      ]
-     },
-     {
-      "n": "Laughing boy’s hat",
-      "b": [
-       61.5,
-       56.0,
-       9.0,
-       14.0
-      ]
-     },
-     {
-      "n": "Black hat",
-      "b": [
-       74.5,
-       55.0,
+       91,
+       26,
        8.5,
-       12.0
-      ]
-     },
-     {
-      "n": "Shop window",
-      "b": [
-       44.5,
-       0.0,
-       15.0,
-       38.0
-      ]
-     },
-     {
-      "n": "Veranda",
-      "b": [
-       80.0,
-       5.0,
-       20.0,
-       18.0
-      ]
-     },
-     {
-      "n": "Blue shirt",
-      "b": [
-       35.5,
-       65.0,
-       14.0,
-       35.0
-      ]
-     },
-     {
-      "n": "Child peeking",
-      "b": [
-       76.0,
-       34.0,
-       4.5,
-       7.0
-      ]
-     },
-     {
-      "n": "Plank",
-      "b": [
-       3.0,
-       86.0,
-       34.0,
-       14.0
+       10
       ]
      }
     ]
@@ -1892,115 +1676,106 @@ const ISPY_BOOKS = [
    {
     "id": "art-transcon-s26",
     "src": "images/art/transcon-s26.jpg",
-    "title": "Snowbound",
+    "title": "Geese on the Coach",
     "credit": "Grok image art · Jang & Tom · Transcontinental",
     "items": [
      {
-      "n": "Snowy mountains",
+      "n": "Standing man's hat",
       "b": [
-       0.0,
-       0.0,
-       68.0,
-       28.0
+       62,
+       13,
+       9,
+       7
       ]
      },
      {
-      "n": "Pine trees",
+      "n": "Seated driver's hat",
       "b": [
-       0.0,
-       14.0,
-       38.0,
-       56.0
+       62.5,
+       35,
+       10,
+       8
       ]
      },
      {
-      "n": "Chimney smoke",
+      "n": "Bearded driver",
       "b": [
-       68.0,
-       2.0,
-       18.0,
-       18.0
+       59,
+       35,
+       16,
+       36
       ]
      },
      {
-      "n": "Stone chimney",
+      "n": "Crates of geese",
       "b": [
-       72.0,
-       8.0,
-       14.0,
-       20.0
+       73,
+       27,
+       22,
+       20
       ]
      },
      {
-      "n": "Log cabin",
+      "n": "Brown horses",
       "b": [
-       62.0,
-       12.0,
-       36.0,
-       36.0
+       44,
+       59,
+       13,
+       32
       ]
      },
      {
-      "n": "Canvas cover",
+      "n": "Front wagon wheel",
       "b": [
-       34.0,
-       46.0,
-       20.0,
-       18.0
+       73,
+       82,
+       12,
+       16
       ]
      },
      {
-      "n": "Covered wagon",
+      "n": "Rear wagon wheel",
       "b": [
-       30.0,
-       48.0,
-       32.0,
-       34.0
+       91,
+       76,
+       8,
+       20
       ]
      },
      {
-      "n": "Draft horse",
+      "n": "Distant wagon",
       "b": [
-       32.0,
-       58.0,
-       18.0,
-       24.0
+       11.5,
+       57,
+       4.5,
+       6
       ]
      },
      {
-      "n": "Fur hat",
+      "n": "Second distant wagon",
       "b": [
-       66.0,
-       48.0,
-       16.0,
-       16.0
+       20.5,
+       57,
+       4,
+       6
       ]
      },
      {
-      "n": "Man in a fur coat",
+      "n": "Pointing arm",
       "b": [
-       64.0,
-       52.0,
-       22.0,
-       34.0
+       70,
+       22,
+       14,
+       12
       ]
      },
      {
-      "n": "Wagon wheel",
+      "n": "Knife",
       "b": [
-       74.0,
-       64.0,
-       16.0,
-       20.0
-      ]
-     },
-     {
-      "n": "Deep snow",
-      "b": [
-       0.0,
-       78.0,
-       100.0,
-       22.0
+       56,
+       48,
+       6,
+       10
       ]
      }
     ]
@@ -2008,115 +1783,97 @@ const ISPY_BOOKS = [
    {
     "id": "art-philly-s32",
     "src": "images/art/philly-s32.jpg",
-    "title": "Market Day",
+    "title": "Lightning Express",
     "credit": "Grok image art · Jang & Tom · Philadelphia Follies",
     "items": [
      {
-      "n": "Hanging shop sign",
+      "n": "Lightning Express lettering",
       "b": [
-       14.0,
-       4.0,
-       20.0,
-       16.0
+       30,
+       26,
+       14,
+       14
       ]
      },
      {
-      "n": "Brick storefront",
+      "n": "Standing man's hat",
       "b": [
-       0.0,
-       0.0,
-       38.0,
-       28.0
+       47.5,
+       8,
+       8.5,
+       8
       ]
      },
      {
-      "n": "Striped awning",
+      "n": "Red bandana",
       "b": [
-       42.0,
-       12.0,
-       26.0,
-       18.0
+       50,
+       20,
+       5,
+       10
       ]
      },
      {
-      "n": "Market awning",
+      "n": "Kneeling man's hat",
       "b": [
-       4.0,
-       18.0,
-       34.0,
-       20.0
+       13.5,
+       31,
+       10,
+       11
       ]
      },
      {
-      "n": "Bonnet",
+      "n": "Wagon wheel",
       "b": [
-       34.0,
-       24.0,
-       14.0,
-       14.0
+       21,
+       51,
+       13,
+       32
       ]
      },
      {
-      "n": "Woman in a bonnet",
+      "n": "Wheel hub",
       "b": [
-       32.0,
-       32.0,
-       18.0,
-       40.0
+       20,
+       61,
+       8,
+       12
       ]
      },
      {
-      "n": "Baskets of fruit",
+      "n": "Brown horse's head",
       "b": [
-       4.0,
-       40.0,
-       28.0,
-       24.0
+       68,
+       9,
+       16,
+       22
       ]
      },
      {
-      "n": "Red apples",
+      "n": "Row of red wagons",
       "b": [
-       8.0,
-       44.0,
-       16.0,
-       16.0
+       84,
+       36,
+       15,
+       28
       ]
      },
      {
-      "n": "Wicker basket",
+      "n": "Standing man's boots",
       "b": [
-       52.0,
-       42.0,
-       16.0,
-       18.0
+       46,
+       70,
+       10,
+       16
       ]
      },
      {
-      "n": "Man with a basket",
+      "n": "Kneeling man's beard",
       "b": [
-       48.0,
-       28.0,
-       20.0,
-       40.0
-      ]
-     },
-     {
-      "n": "Flower cart",
-      "b": [
-       66.0,
-       34.0,
-       24.0,
-       30.0
-      ]
-     },
-     {
-      "n": "Child by the cart",
-      "b": [
-       78.0,
-       44.0,
-       14.0,
-       28.0
+       8,
+       42,
+       8,
+       10
       ]
      }
     ]
@@ -2124,115 +1881,106 @@ const ISPY_BOOKS = [
    {
     "id": "art-transcon-s37",
     "src": "images/art/transcon-s37.jpg",
-    "title": "The Stampede",
+    "title": "The Alpaca Coach",
     "credit": "Grok image art · Jang & Tom · Transcontinental",
     "items": [
      {
-      "n": "Distant mountains",
+      "n": "Alpacas in the coach window",
       "b": [
-       0.0,
-       2.0,
-       42.0,
-       20.0
+       13,
+       18,
+       16,
+       20
       ]
      },
      {
-      "n": "Cowboy hat",
+      "n": "Bearded man's hat",
       "b": [
-       60.0,
-       12.0,
-       14.0,
-       14.0
+       45,
+       18,
+       12,
+       10
       ]
      },
      {
-      "n": "Cowboy",
+      "n": "Bucket man's hat",
       "b": [
-       56.0,
-       16.0,
-       20.0,
-       26.0
+       62,
+       22,
+       10,
+       8
       ]
      },
      {
-      "n": "Cow horse",
+      "n": "Bucket",
       "b": [
-       52.0,
-       30.0,
-       24.0,
-       30.0
+       57.5,
+       39,
+       7,
+       11
       ]
      },
      {
-      "n": "Thrown lasso",
+      "n": "Log cabin",
       "b": [
-       70.0,
-       18.0,
-       20.0,
-       20.0
+       67,
+       13,
+       22,
+       26
       ]
      },
      {
-      "n": "Second rider",
+      "n": "Alpaca on the roof",
       "b": [
-       76.0,
-       22.0,
-       18.0,
-       26.0
+       71.5,
+       1,
+       7,
+       11
       ]
      },
      {
-      "n": "Wagon on the horizon",
+      "n": "Alpaca by the coach",
       "b": [
-       40.0,
-       22.0,
-       16.0,
-       14.0
+       17,
+       45,
+       16,
+       28
       ]
      },
      {
-      "n": "Dust cloud",
+      "n": "Front alpaca",
       "b": [
-       24.0,
-       28.0,
-       38.0,
-       30.0
+       71,
+       57,
+       14,
+       32
       ]
      },
      {
-      "n": "The herd",
+      "n": "Alpaca near the cabin",
       "b": [
-       34.0,
-       34.0,
-       40.0,
-       32.0
+       76,
+       40,
+       9,
+       16
       ]
      },
      {
-      "n": "Longhorn horns",
+      "n": "Grain in the air",
       "b": [
-       2.0,
-       32.0,
-       24.0,
-       16.0
+       40,
+       30,
+       12,
+       14
       ]
      },
      {
-      "n": "Foreground steer",
+      "n": "Coach window",
       "b": [
-       0.0,
-       40.0,
-       36.0,
-       42.0
-      ]
-     },
-     {
-      "n": "Steer's tail",
-      "b": [
-       26.0,
-       54.0,
-       14.0,
-       16.0
+       8,
+       16,
+       12,
+       16
       ]
      }
     ]
@@ -2240,115 +1988,106 @@ const ISPY_BOOKS = [
    {
     "id": "art-philly-s37",
     "src": "images/art/philly-s37.jpg",
-    "title": "The Depot",
+    "title": "Tipping His Hat",
     "credit": "Grok image art · Jang & Tom · Philadelphia Follies",
     "items": [
      {
-      "n": "Steam cloud",
+      "n": "Rider's black hat",
       "b": [
-       16.0,
-       2.0,
-       32.0,
-       22.0
+       18,
+       7.5,
+       10.5,
+       7
       ]
      },
      {
-      "n": "Station clock",
+      "n": "Black horse's head",
       "b": [
-       34.0,
-       4.0,
-       16.0,
-       20.0
+       35,
+       24,
+       9.5,
+       24
       ]
      },
      {
-      "n": "Smokestack",
+      "n": "Holstered revolver",
       "b": [
-       10.0,
-       16.0,
-       14.0,
-       20.0
+       15.5,
+       40,
+       3.5,
+       14
       ]
      },
      {
-      "n": "Locomotive",
+      "n": "Saddle",
       "b": [
-       0.0,
-       28.0,
-       46.0,
-       38.0
+       21,
+       41.5,
+       5.5,
+       18
       ]
      },
      {
-      "n": "Iron column",
+      "n": "Setting sun",
       "b": [
-       48.0,
-       12.0,
-       12.0,
-       36.0
+       47.5,
+       39.5,
+       4,
+       4.5
       ]
      },
      {
-      "n": "Passenger car",
+      "n": "Red neckerchief",
       "b": [
-       42.0,
-       32.0,
-       32.0,
-       32.0
+       60.5,
+       40,
+       4.5,
+       9.5
       ]
      },
      {
-      "n": "Conductor's cap",
+      "n": "Bearded man's brown hat",
       "b": [
-       66.0,
-       34.0,
-       10.0,
-       12.0
+       71,
+       20.5,
+       10.5,
+       11.5
       ]
      },
      {
-      "n": "Conductor",
+      "n": "Large wagon wheel",
       "b": [
-       64.0,
-       38.0,
-       16.0,
-       30.0
+       81.5,
+       50.5,
+       13,
+       32
       ]
      },
      {
-      "n": "Woman with a trunk",
+      "n": "Small wagon wheel",
       "b": [
-       74.0,
-       38.0,
-       16.0,
-       30.0
+       50,
+       53.5,
+       4.5,
+       18
       ]
      },
      {
-      "n": "Steamer trunk",
+      "n": "Canvas tarp",
       "b": [
-       76.0,
-       58.0,
-       16.0,
-       18.0
+       80.5,
+       13.5,
+       18,
+       14
       ]
      },
      {
-      "n": "Pile of luggage",
+      "n": "Pine trees",
       "b": [
-       84.0,
-       48.0,
-       14.0,
-       22.0
-      ]
-     },
-     {
-      "n": "Station platform",
-      "b": [
-       0.0,
-       68.0,
-       100.0,
-       26.0
+       88,
+       8,
+       12,
+       28
       ]
      }
     ]
@@ -2362,145 +2101,109 @@ const ISPY_BOOKS = [
      {
       "n": "Cowboy hat",
       "b": [
-       20.0,
-       6.0,
+       20,
+       6.5,
        8.5,
-       9.0
+       8.5
       ]
      },
      {
       "n": "Horse",
       "b": [
-       11.0,
-       25.0,
-       21.0,
-       55.0
-      ]
-     },
-     {
-      "n": "Barrel of lobsters",
-      "b": [
-       61.0,
-       3.0,
-       13.0,
-       17.0
-      ]
-     },
-     {
-      "n": "Barrel of ice",
-      "b": [
-       83.0,
-       12.0,
-       16.0,
-       30.0
-      ]
-     },
-     {
-      "n": "Apron",
-      "b": [
-       51.0,
-       34.0,
-       12.0,
-       40.0
-      ]
-     },
-     {
-      "n": "Red neckerchief",
-      "b": [
-       57.5,
-       32.0,
-       5.0,
-       6.0
-      ]
-     },
-     {
-      "n": "Frying pan",
-      "b": [
-       53.0,
-       76.0,
-       23.0,
-       12.0
-      ]
-     },
-     {
-      "n": "Fork",
-      "b": [
-       67.0,
-       72.0,
-       6.0,
-       10.0
-      ]
-     },
-     {
-      "n": "Campfire",
-      "b": [
-       59.0,
-       88.0,
-       14.0,
-       12.0
-      ]
-     },
-     {
-      "n": "Cooking pot",
-      "b": [
-       37.0,
-       82.0,
-       11.0,
-       18.0
+       12,
+       24,
+       19,
+       57
       ]
      },
      {
       "n": "Longhorn steer",
       "b": [
-       0.0,
-       40.0,
-       13.0,
-       20.0
+       0,
+       44,
+       11.5,
+       24
+      ]
+     },
+     {
+      "n": "Black longhorn",
+      "b": [
+       34.5,
+       41,
+       10,
+       21.5
+      ]
+     },
+     {
+      "n": "Barrel of lobsters",
+      "b": [
+       61,
+       4,
+       12.5,
+       11
+      ]
+     },
+     {
+      "n": "Barrel of ice",
+      "b": [
+       84,
+       10.5,
+       14.5,
+       25
+      ]
+     },
+     {
+      "n": "Apron",
+      "b": [
+       51,
+       37.5,
+       12.5,
+       44
+      ]
+     },
+     {
+      "n": "Red neckerchief",
+      "b": [
+       58.5,
+       31.5,
+       4,
+       8.5
+      ]
+     },
+     {
+      "n": "Frying pan",
+      "b": [
+       53,
+       75.5,
+       23,
+       14
+      ]
+     },
+     {
+      "n": "Campfire",
+      "b": [
+       60.5,
+       87.5,
+       13,
+       12.5
+      ]
+     },
+     {
+      "n": "Cooking pot",
+      "b": [
+       37,
+       81.5,
+       11,
+       18.5
       ]
      },
      {
       "n": "Wagon wheel",
       "b": [
-       42.0,
-       50.0,
-       9.0,
-       28.0
-      ]
-     },
-     {
-      "n": "Plaid shirt",
-      "b": [
-       72.0,
-       42.0,
-       26.0,
-       40.0
-      ]
-     },
-     {
-      "n": "Cook’s hat",
-      "b": [
-       57.0,
-       19.0,
-       9.0,
-       9.0
-      ]
-     },
-     {
-      "n": "Bearded man’s hat",
-      "b": [
-       76.0,
-       31.0,
-       12.0,
-       11.0
-      ]
-     },
-     {
-      "n": "Metal bowl",
-      "b": [
-       90.0,
-       89.0,
-       10.0,
-       11.0
+       42.5,
+       50,
+       7.5,
+       28.5
       ]
      }
     ]
@@ -2508,115 +2211,115 @@ const ISPY_BOOKS = [
    {
     "id": "art-transcon-s58",
     "src": "images/art/transcon-s58.jpg",
-    "title": "Journey's End",
+    "title": "The Steamer",
     "credit": "Grok image art · Jang & Tom · Transcontinental",
     "items": [
      {
-      "n": "Low sun",
+      "n": "Paddle steamer",
       "b": [
-       72.0,
-       2.0,
-       16.0,
-       18.0
+       24.5,
+       41.5,
+       30,
+       32
       ]
      },
      {
-      "n": "Seagulls",
+      "n": "Smokestack",
       "b": [
-       54.0,
-       6.0,
-       24.0,
-       16.0
+       41.5,
+       45.5,
+       3,
+       16
       ]
      },
      {
-      "n": "Ship sails",
+      "n": "Smoke plume",
       "b": [
-       62.0,
-       18.0,
-       18.0,
-       20.0
+       17,
+       25.5,
+       24,
+       18
       ]
      },
      {
-      "n": "Ship on the bay",
+      "n": "Front paddlewheel",
       "b": [
-       54.0,
-       26.0,
-       30.0,
-       30.0
+       40,
+       64,
+       7.5,
+       12
       ]
      },
      {
-      "n": "Ocean",
+      "n": "Rear paddlewheel",
       "b": [
-       44.0,
-       38.0,
-       56.0,
-       34.0
+       47.5,
+       63.5,
+       5.5,
+       10
       ]
      },
      {
-      "n": "Jang's hat",
+      "n": "Front mast",
       "b": [
-       2.0,
-       30.0,
-       14.0,
-       14.0
+       34,
+       41.5,
+       2.5,
+       18
       ]
      },
      {
-      "n": "Jang",
+      "n": "Rear mast",
       "b": [
-       0.0,
-       38.0,
-       18.0,
-       34.0
+       49,
+       43,
+       2.5,
+       18
       ]
      },
      {
-      "n": "Tom's hat",
+      "n": "Large seagull",
       "b": [
-       16.0,
-       32.0,
-       14.0,
-       14.0
+       26,
+       14.5,
+       7,
+       6
       ]
      },
      {
-      "n": "Tom",
+      "n": "Seagull",
       "b": [
-       14.0,
-       40.0,
-       20.0,
-       36.0
+       4,
+       25,
+       3.5,
+       3.5
       ]
      },
      {
-      "n": "Celebrating crowd",
+      "n": "Sun",
       "b": [
-       30.0,
-       42.0,
-       24.0,
-       32.0
+       76.5,
+       43,
+       5,
+       7.5
       ]
      },
      {
-      "n": "Parked wagon",
+      "n": "Sun on the water",
       "b": [
-       0.0,
-       46.0,
-       16.0,
-       26.0
+       75,
+       61,
+       8,
+       22
       ]
      },
      {
-      "n": "Bonfire",
+      "n": "Rocky headland",
       "b": [
-       6.0,
-       60.0,
-       22.0,
-       26.0
+       81,
+       50.5,
+       16,
+       12
       ]
      }
     ]
@@ -2624,115 +2327,115 @@ const ISPY_BOOKS = [
    {
     "id": "art-philly-s59",
     "src": "images/art/philly-s59.jpg",
-    "title": "Curtain Call",
+    "title": "Wagon Line",
     "credit": "Grok image art · Jang & Tom · Philadelphia Follies",
     "items": [
      {
-      "n": "Red curtain",
+      "n": "Setting sun",
       "b": [
-       0.0,
-       2.0,
-       20.0,
-       64.0
+       71.5,
+       56,
+       4,
+       4.5
       ]
      },
      {
-      "n": "Spotlight",
+      "n": "Lead covered wagon",
       "b": [
-       26.0,
-       0.0,
-       26.0,
-       22.0
+       20,
+       58,
+       16,
+       20
       ]
      },
      {
-      "n": "Jang on stage",
+      "n": "Lead wagon wheel",
       "b": [
-       22.0,
-       26.0,
-       18.0,
-       38.0
+       27,
+       74,
+       4.5,
+       9
       ]
      },
      {
-      "n": "Tom on stage",
+      "n": "Two men walking",
       "b": [
-       40.0,
-       24.0,
-       20.0,
-       40.0
+       14,
+       71,
+       6.5,
+       11
       ]
      },
      {
-      "n": "Bouquet",
+      "n": "Man beside the lead wagon",
       "b": [
-       34.0,
-       50.0,
-       14.0,
-       14.0
+       34,
+       72,
+       2.8,
+       11
       ]
      },
      {
-      "n": "Footlights",
+      "n": "Second covered wagon",
       "b": [
-       18.0,
-       56.0,
-       46.0,
-       12.0
+       42.5,
+       62.5,
+       9.5,
+       13
       ]
      },
      {
-      "n": "Woman in a box",
+      "n": "Third covered wagon",
       "b": [
-       70.0,
-       18.0,
-       18.0,
-       32.0
+       54,
+       64.5,
+       6,
+       9
       ]
      },
      {
-      "n": "Playbill",
+      "n": "Fourth covered wagon",
       "b": [
-       76.0,
-       46.0,
-       14.0,
-       18.0
+       61.5,
+       65.5,
+       4.5,
+       7
       ]
      },
      {
-      "n": "Audience top hats",
+      "n": "Oxen",
       "b": [
-       0.0,
-       64.0,
-       34.0,
-       18.0
+       37.5,
+       70.5,
+       5.5,
+       9
       ]
      },
      {
-      "n": "Orchestra pit",
+      "n": "Man by the second wagon",
       "b": [
-       14.0,
-       72.0,
-       56.0,
-       20.0
+       49,
+       70.5,
+       2.8,
+       10
       ]
      },
      {
-      "n": "Violin in the pit",
+      "n": "Rocky outcrop",
       "b": [
-       20.0,
-       74.0,
-       12.0,
-       14.0
+       0,
+       54,
+       14,
+       8
       ]
      },
      {
-      "n": "Stage",
+      "n": "Sagebrush",
       "b": [
-       16.0,
-       22.0,
-       52.0,
-       40.0
+       83.5,
+       81.5,
+       12,
+       14
       ]
      }
     ]
@@ -2751,120 +2454,84 @@ const ISPY_BOOKS = [
     "credit": "Game art · The Rusty Stack Adventures",
     "items": [
      {
-      "n": "Storm clouds",
+      "n": "Rusty patched panels",
       "b": [
-       0.0,
-       0.0,
-       40.0,
-       34.0
+       39,
+       76,
+       21,
+       24
+      ]
+     },
+     {
+      "n": "Envelope nose",
+      "b": [
+       74,
+       46,
+       12,
+       32
+      ]
+     },
+     {
+      "n": "Brown tail fin",
+      "b": [
+       10.5,
+       69,
+       16.5,
+       26
+      ]
+     },
+     {
+      "n": "Dark tail spike",
+      "b": [
+       9,
+       63,
+       14,
+       8
+      ]
+     },
+     {
+      "n": "Bow spar",
+      "b": [
+       82,
+       37,
+       14,
+       11
+      ]
+     },
+     {
+      "n": "Lightning flash",
+      "b": [
+       5,
+       38,
+       11.5,
+       20
       ]
      },
      {
       "n": "Lightning bolt",
       "b": [
-       68.0,
-       0.0,
-       30.0,
-       44.0
+       29.5,
+       35.5,
+       11.5,
+       27
       ]
      },
      {
-      "n": "Black smoke",
+      "n": "Lower lightning",
       "b": [
-       44.0,
-       0.0,
-       20.0,
-       16.0
+       1,
+       62,
+       13.5,
+       38
       ]
      },
      {
-      "n": "Smokestack",
+      "n": "Distant sky ship",
       "b": [
-       40.0,
-       2.0,
-       16.0,
-       24.0
-      ]
-     },
-     {
-      "n": "Envelope patches",
-      "b": [
-       12.0,
-       8.0,
-       22.0,
-       18.0
-      ]
-     },
-     {
-      "n": "Gas envelope",
-      "b": [
-       2.0,
-       4.0,
-       60.0,
-       34.0
-      ]
-     },
-     {
-      "n": "Rigging",
-      "b": [
-       16.0,
-       24.0,
-       38.0,
-       16.0
-      ]
-     },
-     {
-      "n": "Propeller",
-      "b": [
-       0.0,
-       34.0,
-       18.0,
-       26.0
-      ]
-     },
-     {
-      "n": "Gondola",
-      "b": [
-       22.0,
-       40.0,
-       30.0,
-       22.0
-      ]
-     },
-     {
-      "n": "Running light",
-      "b": [
-       28.0,
-       44.0,
-       10.0,
-       12.0
-      ]
-     },
-     {
-      "n": "Rust streak",
-      "b": [
-       38.0,
-       38.0,
-       14.0,
-       22.0
-      ]
-     },
-     {
-      "n": "Hull plates",
-      "b": [
-       10.0,
-       36.0,
-       64.0,
-       34.0
-      ]
-     },
-     {
-      "n": "Tail fin",
-      "b": [
-       80.0,
-       46.0,
-       16.0,
-       28.0
+       84.5,
+       62.5,
+       12,
+       31
       ]
      }
     ]
@@ -3181,7 +2848,7 @@ const Ambience = (() => {
       start = performance.now();
       clock = setInterval(() => { tEl.textContent = fmt(secs()); }, 250);
     }
-    const tol = 2.4;
+    const tol = 2;
     const hits = targets.map((t, i) => ({ t, i })).filter(({ t, i }) => !found.has(i) && px >= t.b[0] - tol && px <= t.b[0] + t.b[2] + tol && py >= t.b[1] - tol && py <= t.b[1] + t.b[3] + tol)
       .sort((a, b) => a.t.b[2] * a.t.b[3] - b.t.b[2] * b.t.b[3]);
     if (hits.length) {
