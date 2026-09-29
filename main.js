@@ -184,3 +184,158 @@ document.querySelectorAll('.excerpt').forEach((ex, i) => {
   addEventListener('keydown', e => { if (e.key === 'Escape' && nav.classList.contains('open')) { set(false); btn.focus(); } });
   addEventListener('resize', () => { if (innerWidth > 1280) set(false); });
 })();
+
+/* Share: one control, injected on book pages, audiobooks, I Spy, Thorne's Lab, and home */
+(() => {
+  const body = document.body;
+  const show = body.classList.contains('home')
+    || body.classList.contains('page-book')
+    || body.classList.contains('page-audio')
+    || body.classList.contains('page-lab');
+  if (!show || document.getElementById('share-popover')) return;
+
+  const wrap = document.createElement('div');
+  wrap.className = 'share';
+
+  const btn = document.createElement('button');
+  btn.type = 'button';
+  btn.className = 'btn btn-line btn-share';
+  btn.textContent = 'Share';
+  btn.setAttribute('aria-label', 'Share this page');
+  btn.setAttribute('aria-expanded', 'false');
+  btn.setAttribute('aria-haspopup', 'dialog');
+  btn.setAttribute('aria-controls', 'share-popover');
+
+  const pop = document.createElement('div');
+  pop.className = 'share-pop';
+  pop.id = 'share-popover';
+  pop.hidden = true;
+  pop.setAttribute('role', 'dialog');
+  pop.setAttribute('aria-label', 'Share this page');
+
+  const copyBtn = document.createElement('button');
+  copyBtn.type = 'button';
+  copyBtn.className = 'share-action';
+  copyBtn.textContent = 'Copy link';
+
+  const status = document.createElement('p');
+  status.className = 'share-status';
+  status.setAttribute('role', 'status');
+  status.setAttribute('aria-live', 'polite');
+
+  const xLink = document.createElement('a');
+  xLink.className = 'share-action';
+  xLink.target = '_blank';
+  xLink.rel = 'noopener noreferrer';
+  xLink.textContent = 'Share on X';
+
+  const fbLink = document.createElement('a');
+  fbLink.className = 'share-action';
+  fbLink.target = '_blank';
+  fbLink.rel = 'noopener noreferrer';
+  fbLink.textContent = 'Share on Facebook';
+
+  pop.append(copyBtn, status, xLink, fbLink);
+  wrap.append(btn, pop);
+
+  let placed = false;
+  if (body.classList.contains('page-ispy')) {
+    const head = document.querySelector('.ispy-head');
+    if (head) { head.insertAdjacentElement('afterend', wrap); placed = true; }
+  } else if (body.classList.contains('page-lab')) {
+    const intro = document.querySelector('.lab-intro');
+    if (intro) { intro.appendChild(wrap); placed = true; }
+  } else if (body.classList.contains('page-audio')) {
+    const head = document.querySelector('.page-head');
+    if (head) { head.appendChild(wrap); placed = true; }
+  } else if (body.classList.contains('page-book')) {
+    const row = document.querySelector('.buy, .cta-row');
+    if (row) { row.appendChild(wrap); placed = true; }
+  } else if (body.classList.contains('home')) {
+    const row = document.querySelector('.hero .cta-row');
+    if (row) { row.appendChild(wrap); placed = true; }
+  }
+  if (!placed) return;
+
+  const payload = () => ({ title: document.title, text: document.title, url: location.href });
+  const fillLinks = data => {
+    xLink.href = 'https://twitter.com/intent/tweet?url=' + encodeURIComponent(data.url) + '&text=' + encodeURIComponent(data.text);
+    fbLink.href = 'https://www.facebook.com/sharer/sharer.php?u=' + encodeURIComponent(data.url);
+  };
+  fillLinks(payload());
+
+  let timer = 0;
+  const focusables = () => [...pop.querySelectorAll('button, a[href]')];
+  const open = () => {
+    fillLinks(payload());
+    status.textContent = '';
+    pop.hidden = false;
+    btn.setAttribute('aria-expanded', 'true');
+    pop.style.left = '0';
+    pop.style.right = 'auto';
+    pop.style.top = '';
+    pop.style.bottom = 'auto';
+    const rect = pop.getBoundingClientRect();
+    if (rect.right > innerWidth - 8) { pop.style.left = 'auto'; pop.style.right = '0'; }
+    const again = pop.getBoundingClientRect();
+    if (again.bottom > innerHeight - 8) { pop.style.top = 'auto'; pop.style.bottom = 'calc(100% + .4rem)'; }
+    copyBtn.focus();
+  };
+  const close = restore => {
+    if (pop.hidden) return;
+    pop.hidden = true;
+    btn.setAttribute('aria-expanded', 'false');
+    status.textContent = '';
+    clearTimeout(timer);
+    if (restore) btn.focus();
+  };
+
+  btn.addEventListener('click', async () => {
+    if (!pop.hidden) { close(false); return; }
+    const data = payload();
+    if (typeof navigator.share === 'function' && (!navigator.canShare || navigator.canShare(data))) {
+      try { await navigator.share(data); return; }
+      catch (err) { if (err && err.name === 'AbortError') return; }
+    }
+    open();
+  });
+
+  copyBtn.addEventListener('click', async () => {
+    const url = location.href;
+    let ok = false;
+    try {
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        await navigator.clipboard.writeText(url);
+        ok = true;
+      }
+    } catch (e) { ok = false; }
+    if (!ok) {
+      const ta = document.createElement('textarea');
+      ta.value = url;
+      ta.setAttribute('readonly', '');
+      ta.style.position = 'fixed';
+      ta.style.left = '-9999px';
+      document.body.appendChild(ta);
+      ta.select();
+      try { ok = document.execCommand('copy'); } catch (e) { ok = false; }
+      ta.remove();
+      copyBtn.focus();
+    }
+    status.textContent = ok ? 'Link copied' : 'Could not copy link';
+    clearTimeout(timer);
+    timer = setTimeout(() => { status.textContent = ''; }, 2000);
+  });
+
+  pop.addEventListener('click', e => { if (e.target.closest('a')) close(false); });
+  addEventListener('click', e => { if (!pop.hidden && !wrap.contains(e.target)) close(false); });
+  addEventListener('keydown', e => {
+    if (pop.hidden) return;
+    if (e.key === 'Escape') { e.preventDefault(); close(true); return; }
+    if (e.key !== 'Tab') return;
+    const items = focusables();
+    if (!items.length) return;
+    const first = items[0], last = items[items.length - 1];
+    if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
+    else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
+  });
+})();
