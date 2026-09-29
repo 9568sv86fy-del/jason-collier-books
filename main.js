@@ -236,7 +236,7 @@ document.querySelectorAll('.excerpt').forEach((ex, i) => {
   fbLink.textContent = 'Share on Facebook';
 
   pop.append(copyBtn, status, xLink, fbLink);
-  wrap.append(btn, pop);
+  wrap.append(btn);
 
   let placed = false;
   if (body.classList.contains('page-ispy')) {
@@ -256,6 +256,7 @@ document.querySelectorAll('.excerpt').forEach((ex, i) => {
     if (row) { row.appendChild(wrap); placed = true; }
   }
   if (!placed) return;
+  document.body.appendChild(pop);
 
   const payload = () => ({ title: document.title, text: document.title, url: location.href });
   const fillLinks = data => {
@@ -266,19 +267,23 @@ document.querySelectorAll('.excerpt').forEach((ex, i) => {
 
   let timer = 0;
   const focusables = () => [...pop.querySelectorAll('button, a[href]')];
+  const place = () => {
+    const r = btn.getBoundingClientRect();
+    pop.style.top = (r.bottom + 6) + 'px';
+    pop.style.left = Math.max(8, r.left) + 'px';
+    pop.style.right = 'auto';
+    pop.style.bottom = 'auto';
+    const pr = pop.getBoundingClientRect();
+    if (pr.right > innerWidth - 8) pop.style.left = Math.max(8, innerWidth - pr.width - 8) + 'px';
+    const pr2 = pop.getBoundingClientRect();
+    if (pr2.bottom > innerHeight - 8) pop.style.top = Math.max(8, r.top - pr2.height - 6) + 'px';
+  };
   const open = () => {
     fillLinks(payload());
     status.textContent = '';
     pop.hidden = false;
     btn.setAttribute('aria-expanded', 'true');
-    pop.style.left = '0';
-    pop.style.right = 'auto';
-    pop.style.top = '';
-    pop.style.bottom = 'auto';
-    const rect = pop.getBoundingClientRect();
-    if (rect.right > innerWidth - 8) { pop.style.left = 'auto'; pop.style.right = '0'; }
-    const again = pop.getBoundingClientRect();
-    if (again.bottom > innerHeight - 8) { pop.style.top = 'auto'; pop.style.bottom = 'calc(100% + .4rem)'; }
+    place();
     copyBtn.focus();
   };
   const close = restore => {
@@ -327,7 +332,9 @@ document.querySelectorAll('.excerpt').forEach((ex, i) => {
   });
 
   pop.addEventListener('click', e => { if (e.target.closest('a')) close(false); });
-  addEventListener('click', e => { if (!pop.hidden && !wrap.contains(e.target)) close(false); });
+  addEventListener('click', e => { if (!pop.hidden && !wrap.contains(e.target) && !pop.contains(e.target)) close(false); });
+  addEventListener('scroll', () => { if (!pop.hidden) place(); }, {passive:true});
+  addEventListener('resize', () => { if (!pop.hidden) place(); });
   addEventListener('keydown', e => {
     if (pop.hidden) return;
     if (e.key === 'Escape') { e.preventDefault(); close(true); return; }
