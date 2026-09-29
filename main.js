@@ -281,6 +281,7 @@ document.querySelectorAll('.excerpt').forEach((ex, i) => {
   const open = () => {
     fillLinks(payload());
     status.textContent = '';
+    copyBtn.textContent = 'Copy link';
     pop.hidden = false;
     btn.setAttribute('aria-expanded', 'true');
     place();
@@ -291,6 +292,7 @@ document.querySelectorAll('.excerpt').forEach((ex, i) => {
     pop.hidden = true;
     btn.setAttribute('aria-expanded', 'false');
     status.textContent = '';
+    copyBtn.textContent = 'Copy link';
     clearTimeout(timer);
     if (restore) btn.focus();
   };
@@ -310,7 +312,8 @@ document.querySelectorAll('.excerpt').forEach((ex, i) => {
     let ok = false;
     try {
       if (navigator.clipboard && navigator.clipboard.writeText) {
-        await navigator.clipboard.writeText(url);
+        const write = navigator.clipboard.writeText(url);
+        await Promise.race([write, new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 1000))]);
         ok = true;
       }
     } catch (e) { ok = false; }
@@ -326,9 +329,11 @@ document.querySelectorAll('.excerpt').forEach((ex, i) => {
       ta.remove();
       copyBtn.focus();
     }
-    status.textContent = ok ? 'Link copied' : 'Could not copy link';
+    const message = ok ? 'Link copied' : 'Could not copy link';
+    copyBtn.textContent = message;
+    status.textContent = message;
     clearTimeout(timer);
-    timer = setTimeout(() => { status.textContent = ''; }, 2000);
+    timer = setTimeout(() => { copyBtn.textContent = 'Copy link'; status.textContent = ''; }, 2000);
   });
 
   pop.addEventListener('click', e => { if (e.target.closest('a')) close(false); });
