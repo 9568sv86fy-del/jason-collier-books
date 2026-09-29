@@ -181,6 +181,9 @@ document.querySelectorAll('.excerpt').forEach((ex, i) => {
 (() => {
   const el = document.querySelector('.visit-count');
   const SEEN = 'jc-milestone-intro';
+  const milestoneSrc = (document.currentScript && document.currentScript.src)
+    ? new URL('assets/video/milestone-intro.mp4', document.currentScript.src).href
+    : '/jason-collier-books/assets/video/milestone-intro.mp4';
   let active = false;
 
   const seen = () => { try { return localStorage.getItem(SEEN) === '1'; } catch (e) { return true; } };
@@ -276,7 +279,7 @@ document.querySelectorAll('.excerpt').forEach((ex, i) => {
         if (retry && retry.catch) retry.catch(() => { if (!gone) destroy(); });
       });
     }, {once:true});
-    video.src = 'assets/video/milestone-intro.mp4';
+    video.src = milestoneSrc;
   }
 
   const preview = testCount();
