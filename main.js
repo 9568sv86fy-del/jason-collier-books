@@ -177,6 +177,21 @@ document.querySelectorAll('.excerpt').forEach((ex, i) => {
   fromHash(); addEventListener('hashchange', fromHash);
 })();
 
+/* One visit count for the whole site. Stays hidden if the counter cannot be read. */
+(() => {
+  const el = document.querySelector('.visit-count');
+  if (!el || !window.fetch) return;
+  fetch('https://countapi.mileshilliard.com/api/v1/hit/jasoncollierbooks-site')
+    .then(r => r.ok ? r.json() : Promise.reject())
+    .then(data => {
+      const n = Number(data && data.value);
+      if (!Number.isFinite(n) || n < 0) return;
+      el.textContent = 'Visitors: ' + Math.floor(n).toLocaleString('en-US');
+      el.hidden = false;
+    })
+    .catch(() => {});
+})();
+
 /* Grouped nav: hover on a fine pointer, click or tap, and keyboard */
 (() => {
   const nav = document.getElementById('nav');
