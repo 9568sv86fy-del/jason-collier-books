@@ -877,11 +877,11 @@
         an.x += Math.sin(visT * 0.7 + an.phase) * 12 * dt;
         const dist = Math.abs(an.x - state.x);
         let spook = state.crouch ? 62 : (sprinting() ? 340 : 150);
-        if (an.kind === "deer") spook = sprinting() ? 190 : 78;
+        if (an.kind === "deer") spook = sprinting() ? 160 : 46;
         if (an.kind === "cow") spook = sprinting() ? 210 : 96;
         if (dist < spook) an.flee = an.x >= state.x ? 1 : -1;
       }
-      if (an.kind === "deer" && !an.flee && Math.abs(an.x - state.x) < 460) queueScene("deer");
+      if (an.kind === "deer" && Math.abs(an.x - state.x) < 440) queueScene("deer");
     });
     Object.keys(state.alive).forEach((id) => {
       if (ids[id]) return;
@@ -1746,10 +1746,13 @@
     ctx.moveTo(-4, -26 * sc); ctx.lineTo(-6 + step, 0);
     ctx.moveTo(4, -26 * sc); ctx.lineTo(6 - step, 0);
     ctx.stroke();
-    ctx.fillStyle = "#3c342c";
-    ctx.fillRect(-10, -48 * sc - bob, 20, 24 * sc);
-    ctx.fillStyle = "#6e2c24";
-    ctx.fillRect(-7, -48 * sc - bob, 14, 4);
+    ctx.fillStyle = "#6a5340";
+    ctx.fillRect(-11, -50 * sc - bob, 22, 26 * sc);
+    ctx.strokeStyle = "rgba(236,224,206,0.55)";
+    ctx.lineWidth = 1;
+    ctx.strokeRect(-11, -50 * sc - bob, 22, 26 * sc);
+    ctx.fillStyle = "#9a3a2e";
+    ctx.fillRect(-8, -50 * sc - bob, 16, 5);
     ctx.fillStyle = "#c4a07a";
     ctx.beginPath(); ctx.arc(0, -56 * sc - bob, 6.5, 0, 7); ctx.fill();
     ctx.fillStyle = "#d8d2c8";
@@ -1831,8 +1834,8 @@
     ctx.translate(sx, groundY(an.x));
     ctx.scale(face || 1, 1);
     if (an.kind === "deer") drawDeerBody();
-    else if (an.kind === "cow") drawElkBody(false, 0.86);
-    else drawElkBody(!!an.old, an.old ? 1.14 : 0.94);
+    else if (an.kind === "cow") drawElkBody(false, 1);
+    else drawElkBody(!!an.old, an.old ? 1.48 : 1.08);
     ctx.restore();
   }
   function drawBeast(sx, gy, alpha) {
@@ -2126,16 +2129,21 @@
     g.addColorStop(0, sky.top); g.addColorStop(1, "#0c1210");
     ctx.fillStyle = g;
     ctx.fillRect(0, 0, viewW, viewH);
-    ctx.fillStyle = "#0e1a16";
-    for (let i = 0; i < 14; i++) {
-      const x = ((i * 90 - visT * 280) % (viewW + 80) + viewW + 80) % (viewW + 80) - 40;
+    ctx.fillStyle = "#10201a";
+    for (let i = 0; i < 16; i++) {
+      const x = ((i * 78 - visT * 320) % (viewW + 100) + viewW + 100) % (viewW + 100) - 50;
+      const h = 90 + (i % 4) * 28;
       ctx.beginPath();
       ctx.moveTo(x, groundBase());
-      ctx.lineTo(x + 10, groundBase() - 120 - (i % 3) * 20);
-      ctx.lineTo(x + 24, groundBase());
+      ctx.lineTo(x + 6, groundBase() - h);
+      ctx.lineTo(x + 18, groundBase());
       ctx.fill();
     }
-    ctx.fillStyle = "#1a2420";
+    ctx.fillStyle = "#f4efe4";
+    ctx.globalAlpha = 0.85;
+    ctx.beginPath(); ctx.arc(viewW * 0.72, 78, 14, 0, 7); ctx.fill();
+    ctx.globalAlpha = 1;
+    ctx.fillStyle = "#24302a";
     ctx.fillRect(0, groundBase(), viewW, viewH);
     ctx.strokeStyle = "rgba(210,100,40,0.7)";
     ctx.setLineDash([8, 10]);
