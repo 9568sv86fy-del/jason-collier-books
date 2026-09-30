@@ -127,7 +127,7 @@ document.querySelectorAll('.excerpt').forEach((ex, i) => {
   document.querySelectorAll('.audiobook').forEach(box => {
     const v = box.querySelector('.ab-player video');
     if (!v) return;
-    const parts = [...box.querySelectorAll('.ab-part')];
+    const parts = [...box.querySelectorAll('.ab-part')].filter(p => p.dataset.src && !p.disabled);
     const title = box.querySelector('.ab-now span');
     const synopsis = box.querySelector('.ab-synopsis');
     const meta = box.querySelector('.ab-meta');
