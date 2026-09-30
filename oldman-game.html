@@ -1,0 +1,261 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Old Man On The Mountain — The Hunt</title>
+<meta name="description" content="A playable campfire story from Old Man On The Mountain by Jason Collier. Seven days to tag the old bull and get off the mountain.">
+<link rel="icon" href="data:,">
+<style>
+:root{
+  --bg:#060b10;
+  --ink:#f3f7fb;
+  --muted:#b7c6d4;
+  --ice:#bcd9ee;
+  --fire:#e07a32;
+  --line:rgba(188,217,238,.28);
+  --panel:rgba(6,10,16,.88);
+}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%;background:var(--bg);color:var(--ink);overflow:hidden;
+  font:18px/1.45 Georgia,"Iowan Old Style","Palatino Linotype",Palatino,serif;
+  -webkit-tap-highlight-color:transparent;touch-action:none}
+button,a{font:inherit;color:inherit}
+button{cursor:pointer}
+#c{position:fixed;inset:0;width:100%;height:100%;display:block;z-index:0}
+.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}
+#hud{position:fixed;z-index:2;left:0;right:0;top:0;padding:10px 14px 0;pointer-events:none;
+  text-shadow:0 1px 2px rgba(0,0,0,.8)}
+#hud .row{display:flex;flex-wrap:wrap;gap:8px 14px;align-items:center}
+#hud .row b{font-weight:700;color:#fff}
+#hud .place{color:var(--ice);letter-spacing:.08em;text-transform:uppercase;font-size:.78rem}
+#meters{display:flex;gap:14px;margin-top:6px;max-width:520px}
+.meter{flex:1;min-width:120px}
+.meter span{display:flex;justify-content:space-between;font-size:.72rem;letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}
+.meter i{display:block;height:7px;margin-top:3px;background:rgba(255,255,255,.12);border-radius:99px;overflow:hidden}
+.meter i b{display:block;height:100%;width:0;background:linear-gradient(90deg,#8fb4c8,#e7f2f8)}
+.meter.fear i b{background:linear-gradient(90deg,#6a3030,#e07050)}
+#route{list-style:none;display:flex;flex-wrap:wrap;gap:4px;margin:8px 0 0;padding:0}
+#route li{font-size:.68rem;letter-spacing:.08em;text-transform:uppercase;color:#8fa3b3;padding:2px 6px;border:1px solid transparent}
+#route li.on{color:#160c06;background:var(--fire);border-color:var(--fire)}
+#obj{margin:6px 0 0;max-width:46rem;color:#e5eef5;font-size:.95rem}
+#prompt{margin:4px 0 0;min-height:1.3em;color:#ffd7a8;font-size:1rem}
+#toast{margin:2px 0 0;min-height:1.2em;color:#d5e4f0;font-size:.92rem;font-style:italic}
+#hud .btns{pointer-events:auto;margin-left:auto;display:flex;gap:6px}
+#hud .btns button,#touch button,.panel button,.ghost{
+  background:rgba(6,11,16,.55);border:1px solid var(--line);color:var(--ink);
+  padding:.45rem .7rem;border-radius:3px;letter-spacing:.08em;text-transform:uppercase;font-size:.72rem}
+#hud .btns button[aria-pressed="true"],#b-still[aria-pressed="true"]{border-color:var(--ice);color:var(--ice)}
+#touch{position:fixed;z-index:3;left:0;right:0;bottom:0;display:flex;justify-content:space-between;gap:10px;
+  padding:8px 10px calc(8px + env(safe-area-inset-bottom));pointer-events:none}
+#touch .move,#touch .acts{display:flex;gap:8px;pointer-events:auto}
+#touch button{min-width:58px;min-height:52px;font-size:.8rem;background:rgba(6,11,16,.72)}
+#b-left,#b-right{min-width:72px;font-size:1.3rem}
+.panel{position:fixed;z-index:5;inset:0;display:grid;place-items:center;padding:18px;
+  background:rgba(4,7,12,.72)}
+.panel[hidden],#hud[hidden],#touch[hidden]{display:none}
+.card{width:min(920px,100%);max-height:min(92vh,860px);overflow:auto;
+  background:var(--panel);border:1px solid var(--line);border-radius:8px;
+  padding:22px 22px 18px;box-shadow:0 24px 80px rgba(0,0,0,.45)}
+.kicker{letter-spacing:.22em;text-transform:uppercase;color:var(--ice);font-size:.75rem;margin:0 0 8px}
+h1{font-weight:normal;font-size:clamp(2.4rem,6vw,4.4rem);line-height:.92;margin:0 0 8px;letter-spacing:.02em}
+h1 small{display:block;font-size:.38em;letter-spacing:.18em;color:var(--ice);margin-top:.35em}
+h2{font-weight:normal;font-size:1.8rem;margin:0 0 8px}
+.lede{font-style:italic;color:#d5e0ea;font-size:1.15rem}
+.actions{display:flex;flex-wrap:wrap;gap:8px;margin-top:16px}
+.actions .go{background:linear-gradient(180deg,#f0a05a,#c65a22);color:#1a0c06;border-color:transparent;font-weight:700}
+.ghost{display:inline-block;text-decoration:none;touch-action:manipulation}
+#touch button{touch-action:manipulation}
+.title-card{display:flex;gap:26px;align-items:center}
+.title-card img{width:min(220px,42vw);height:auto;border-radius:4px;box-shadow:0 16px 40px rgba(0,0,0,.5)}
+.fine{color:var(--muted);font-size:.9rem}
+.fine a{color:var(--ice)}
+#cut-img{width:100%;max-height:38vh;object-fit:cover;border-radius:4px;background:#111;margin-bottom:10px}
+#cut-body p{margin:.55em 0;color:#e4edf4}
+#j-list{list-style:none;margin:0;padding:0;display:grid;gap:10px}
+#j-list li{border-top:1px solid var(--line);padding-top:8px}
+#j-list small{display:block;color:var(--ice);letter-spacing:.12em;text-transform:uppercase;font-size:.68rem}
+#cam-wrap{background:#050806;border:8px solid #1a1c18;border-radius:6px;padding:8px;box-shadow:inset 0 0 0 1px #2c3828}
+#cam-canvas{width:100%;height:auto;display:block;background:#04140a}
+#cam-cap{color:#cfe8d2;font-style:italic}
+#aim-box{width:min(560px,100%);text-align:center}
+.pend{position:relative;height:28px;margin:18px 0;background:rgba(255,255,255,.08);border-radius:99px;overflow:hidden}
+#aim-zone{position:absolute;top:0;bottom:0;background:rgba(188,217,238,.45)}
+#aim-mark{position:absolute;top:2px;bottom:2px;width:4px;margin-left:-2px;background:#fff6e8;box-shadow:0 0 8px #fff}
+#howl{white-space:pre-wrap}
+.help-grid{display:grid;grid-template-columns:8rem 1fr;gap:4px 10px;font-size:.95rem}
+.help-grid b{color:var(--ice);font-weight:normal}
+@media(max-width:720px){
+  .title-card{flex-direction:column;align-items:flex-start;gap:12px}
+  .title-card img{width:88px}
+  #title h1{font-size:2.05rem}
+  #title .card{padding:14px}
+  #title p{font-size:.95rem;margin:.3em 0}
+  #hud .btns{margin-left:0}
+  .help-grid{grid-template-columns:1fr}
+}
+@media(prefers-reduced-motion:reduce){#c{image-rendering:auto}}
+</style>
+</head>
+<body>
+<canvas id="c" aria-hidden="true"></canvas>
+<div id="live" class="sr" aria-live="polite"></div>
+
+<div id="hud" hidden>
+  <div class="row">
+    <b id="hud-day">Day 1 of 7</b>
+    <span id="hud-phase">Dawn</span>
+    <span class="place" id="hud-place">Trailhead</span>
+    <span class="btns">
+      <button type="button" id="h-sound" aria-pressed="false">Sound</button>
+      <button type="button" id="h-journal">Journal</button>
+      <button type="button" id="h-pause">Pause</button>
+    </span>
+  </div>
+  <div id="meters">
+    <div class="meter"><span>Warmth <b id="m-w">0</b></span><i><b id="bar-w"></b></i></div>
+    <div class="meter fear"><span>Fear <b id="m-f">0</b></span><i><b id="bar-f"></b></i></div>
+  </div>
+  <ol id="route" aria-label="Game trail"></ol>
+  <p id="obj"></p>
+  <p id="prompt"></p>
+  <p id="toast"></p>
+  <p class="fine" id="pack"></p>
+</div>
+
+<div id="touch" hidden>
+  <div class="move">
+    <button type="button" id="b-left" aria-label="Walk left">←</button>
+    <button type="button" id="b-right" aria-label="Walk right">→</button>
+  </div>
+  <div class="acts">
+    <button type="button" id="b-still" aria-pressed="false">Still</button>
+    <button type="button" id="b-use">Look</button>
+    <button type="button" id="b-glass">Glass</button>
+    <button type="button" id="b-journal">Journal</button>
+  </div>
+</div>
+
+<section id="title" class="panel">
+  <div class="card title-card">
+    <img src="images/old-man-on-the-mountain.jpg" alt="Cover of Old Man On The Mountain by Jason Collier">
+    <div>
+      <p class="kicker">A campfire story</p>
+      <h1>Old Man<small>On The Mountain</small></h1>
+      <p class="lede">Seven days. One bull. The mountain is not empty.</p>
+      <p>You are Harlan Wade, sixty-eight, walking into the high country with your father’s rifle. Tag the old bull. Be off the mountain before the seventh day ends. Keep a fire when the dark comes.</p>
+      <div class="actions">
+        <button type="button" class="go" id="btn-continue" hidden>Continue the hunt</button>
+        <button type="button" class="go" id="btn-new">Begin the hunt</button>
+        <button type="button" id="btn-how">How to hunt</button>
+      </div>
+      <p class="fine">From the book by Jason Collier. <a href="old-man-on-the-mountain.html">Back to the book</a></p>
+    </div>
+  </div>
+</section>
+
+<section id="cut" class="panel" hidden>
+  <div class="card">
+    <img id="cut-img" alt="">
+    <p class="kicker" id="cut-k"></p>
+    <h2 id="cut-h"></h2>
+    <div id="cut-body"></div>
+    <div class="actions"><button type="button" class="go" id="cut-next">Continue</button></div>
+  </div>
+</section>
+
+<section id="journal" class="panel" hidden>
+  <div class="card">
+    <p class="kicker">Day journal</p>
+    <h2>What the mountain has shown</h2>
+    <ol id="j-list"></ol>
+    <div class="actions"><button type="button" class="go" id="j-close">Close</button></div>
+  </div>
+</section>
+
+<section id="cam" class="panel" hidden>
+  <div class="card">
+    <p class="kicker">Trail camera</p>
+    <h2>The card</h2>
+    <div id="cam-wrap"><canvas id="cam-canvas" width="640" height="360"></canvas></div>
+    <p id="cam-cap"></p>
+    <div class="actions"><button type="button" class="go" id="cam-close">Pocket the card</button></div>
+  </div>
+</section>
+
+<section id="aim" class="panel" hidden style="background:rgba(0,0,0,.35)">
+  <div class="card" id="aim-box">
+    <p class="kicker">The shot</p>
+    <h2 id="aim-name">Hold still</h2>
+    <p id="aim-note"></p>
+    <div class="pend" aria-hidden="true"><b id="aim-zone"></b><i id="aim-mark"></i></div>
+    <p>Fire when the sight sits in the pale notch.</p>
+    <div class="actions">
+      <button type="button" class="go" id="aim-fire">Fire</button>
+      <button type="button" id="aim-cancel">Lower the rifle</button>
+    </div>
+  </div>
+</section>
+
+<section id="help" class="panel" hidden>
+  <div class="card">
+    <p class="kicker">How to hunt</p>
+    <h2>Seven days on the ridge</h2>
+    <div class="help-grid">
+      <b>Trail</b><span>Follow the orange blazes: Trailhead, Ridge, Meadow, Creek, Dark Timber, Camp. Side trails split off to the Seep and the High Basin.</span>
+      <b>Day</b><span>Each day runs dawn to night in a few minutes. The sky tells you. Sleep at the tent, or stay up and pay for it.</span>
+      <b>Fire</b><span>Pick up dead wood. Feed the ring at camp. Nights without a flame grow cold, and the timber comes in close.</span>
+      <b>Glass</b><span>In open country, raise the binoculars. The old bull is heavy, pale in the rack, with a notched brow. A younger bull is lighter and even.</span>
+      <b>Cameras</b><span>You carry two. Hang them, give them time, then check the card. Elk, mule deer, or a smudge that should not be standing there.</span>
+      <b>Sign</b><span>Step off your hurry. Tracks, a broken limb, claw marks, a place where the noise stops. Look, or tap the ground beside them.</span>
+      <b>The shot</b><span>Get still. When he is close, aim, and fire as the sight crosses the notch. Then get down to the truck.</span>
+      <b>The dark</b><span>If it finds you, run and jump the deadfall. You do not shoot this thing.</span>
+    </div>
+    <p class="fine">Keys: A D or arrows walk · Shift hurry · C or ↓ still · E look · G glass · Space aim, fire, or jump · J journal · Esc pause. Touch buttons do the same.</p>
+    <div class="actions"><button type="button" class="go" id="help-close">Close</button></div>
+  </div>
+</section>
+
+<section id="pause" class="panel" hidden>
+  <div class="card">
+    <p class="kicker">The ridge waits</p>
+    <h2>Paused</h2>
+    <p>The hunt is saved on this machine.</p>
+    <div class="actions">
+      <button type="button" class="go" id="p-resume">Resume</button>
+      <button type="button" id="p-journal">Journal</button>
+      <button type="button" id="p-how">How to hunt</button>
+      <a class="ghost" id="p-leave" href="old-man-on-the-mountain.html">Save and return to the book</a>
+    </div>
+  </div>
+</section>
+
+<section id="confirm" class="panel" hidden>
+  <div class="card">
+    <p class="kicker" id="cf-k">Are you sure</p>
+    <h2 id="cf-h"></h2>
+    <p id="cf-p"></p>
+    <div class="actions">
+      <button type="button" class="go" id="cf-yes">Yes</button>
+      <button type="button" id="cf-no">Not yet</button>
+    </div>
+  </div>
+</section>
+
+<section id="end" class="panel" hidden>
+  <div class="card">
+    <img id="end-img" alt="" style="width:100%;max-height:36vh;object-fit:cover;border-radius:4px;margin-bottom:10px">
+    <p class="kicker" id="end-k"></p>
+    <h2 id="end-h"></h2>
+    <p id="end-p"></p>
+    <p class="fine" id="end-s"></p>
+    <div class="actions">
+      <button type="button" class="go" id="end-again">Hunt again</button>
+      <a class="ghost" href="old-man-on-the-mountain.html">Back to the book</a>
+    </div>
+  </div>
+</section>
+
+<script src="oldman-game.js"></script>
+</body>
+</html>
