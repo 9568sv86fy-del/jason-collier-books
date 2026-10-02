@@ -1,0 +1,187 @@
+/* =====================================================================
+   polish.css: v2 refinement layer (preview)
+   Loaded AFTER styles.css on every top-level page. It only refines
+   typography, spacing, mobile layout and finish. Same palette, fonts,
+   structure and content. Delete this file (and its <link>) to return to
+   the exact current live look.
+   Deliberately untouched: the audiobook players (.audiobook, .ab-*,
+   audiobooks.html sections, old-man-audiobook/), I Spy, Coloring and
+   Thorne's Lab app UIs.
+   ===================================================================== */
+
+/* ---------- 1. Global type and rhythm ---------- */
+html{-webkit-text-size-adjust:100%;text-size-adjust:100%}
+body{text-rendering:optimizeLegibility;font-feature-settings:"kern","liga"}
+/* (scoped away from the audiobooks page and the audiobook players) */
+body:not(.page-audio) :is(h1,h2,h3,.home-h,.title,.hero-name):not(.audiobook *){text-wrap:balance}
+body:not(.page-audio) :is(p,em,li,.lede,.hero-line):not(.audiobook *){text-wrap:pretty}
+::selection{background:rgba(255,138,42,.35);color:#fff}
+body:not(.page-audio) a:not(.audiobook *){text-underline-offset:.18em;text-decoration-thickness:1px}
+body:not(.page-audio) .kicker{letter-spacing:.24em}
+
+/* Short pages: keep the footer at the bottom of the screen */
+body{min-height:100vh;min-height:100svh;display:flex;flex-direction:column}
+body>main{flex:1 0 auto}
+
+/* Buttons: crisper edges, consistent height, softer hover */
+body:not(.page-audio) .btn:not(.audiobook *):not(.milestone *){border-radius:3px;min-height:46px;justify-content:center;line-height:1.2}
+body:not(.page-audio) .btn-line:not(.audiobook *):not(.milestone *){background:rgba(10,8,7,.35);backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px)}
+body:not(.page-audio) .btn-line:not(.audiobook *):not(.milestone *):hover{background:rgba(255,138,42,.08)}
+body:not(.page-audio) .btn:not(.audiobook *):active{transform:translateY(0) scale(.98)}
+
+/* ---------- 2. Nav ---------- */
+.nav.scrolled,body:not(.home) .nav{box-shadow:0 10px 30px -22px #000}
+.brand{display:inline-flex;align-items:center;min-height:44px}
+
+/* ---------- 3. Home hero ---------- */
+.home .hero{padding-top:5.6rem;padding-bottom:4.4rem}
+.home .hero-text{padding:1.5rem 1.6rem 1.6rem;border-radius:12px;
+  background:linear-gradient(180deg,rgba(22,12,6,.82),rgba(16,9,5,.7));
+  backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);
+  border-color:rgba(255,193,94,.24);box-shadow:0 30px 70px -36px #000,inset 0 1px 0 rgba(255,236,200,.06)}
+.home .hero-text .kicker{font-size:.68rem;letter-spacing:.2em;line-height:1.7}
+.home .hero-name{font-size:clamp(2.8rem,6vw,5.4rem);margin:.6rem 0 1rem;letter-spacing:.005em}
+.home .hero-line{font-size:clamp(1.2rem,1.8vw,1.5rem);line-height:1.4;max-width:30rem}
+.home .hero-feature{border-radius:0 6px 6px 0;padding:.9rem 1.1rem;margin:1.2rem 0 1.2rem;max-width:none}
+.home .hero-feature strong{font-size:1.2rem;line-height:1.25}
+.home .hero-feature em{display:block;margin-top:.15rem}
+/* "Play the game / Buy the book" inline links become tidy text links */
+.home .hero-feature .cta-row{display:flex;flex-wrap:wrap;gap:.35rem 1.2rem;margin-top:.55rem}
+.home .hero-feature .cta-row a{font-size:.74rem;font-weight:700;letter-spacing:.14em;text-transform:uppercase;text-decoration:none;color:var(--fire2);border-bottom:1px solid rgba(255,193,94,.35);padding-bottom:.1rem}
+.home .hero-feature .cta-row a::after{content:" →"}
+.home .hero-feature .cta-row a:hover{color:#fff;border-color:#fff}
+.home .hero-actions{gap:.6rem}
+.home .hero-actions .btn{padding:.9rem 1.35rem}
+/* cover stack a touch larger and better seated */
+.home .hero-stack{height:clamp(240px,30vw,380px);margin-top:1rem}
+.home .stack{border-radius:5px}
+/* Play / Color previews: equal, airy cards */
+.home .hero-previews{gap:1rem;margin-top:.9rem}
+.home .hero-preview{grid-template-columns:120px 1fr;gap:1rem;padding:.55rem 1rem .55rem .55rem;border-radius:10px;
+  border-color:rgba(255,193,94,.22);background:rgba(14,8,5,.8);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);transition:border-color .25s,transform .25s var(--ease)}
+.home .hero-preview:hover{transform:translateY(-2px)}
+.home .hero-preview img{width:120px;height:74px;border-radius:6px}
+.home .hero-preview strong{font-size:1rem}
+.home .hero-preview em{font-size:.92rem;color:#d9c9b4}
+.home .marquee{background:rgba(10,8,7,.78)}
+
+/* ---------- 4. Home: books + explore cards ---------- */
+.home-books{padding-top:clamp(4.5rem,8vw,6.5rem)}
+.home-h{letter-spacing:.01em;margin-bottom:2.2rem}
+.bcards{gap:1.4rem}
+.bcard{border-radius:10px;background:linear-gradient(180deg,rgba(255,255,255,.035),rgba(255,255,255,.01));box-shadow:0 24px 50px -34px #000}
+.bcard-text{padding:1.2rem 1.3rem 1.4rem;gap:.45rem}
+.bcard-genre{font-size:.64rem;letter-spacing:.22em}
+.bcard em{line-height:1.35}
+.bcard-go{display:inline-flex;align-items:center;gap:.4rem;color:#cdbda9;padding-top:.9rem;border-top:1px solid var(--line);margin-top:auto}
+.home-more{padding-bottom:clamp(4.5rem,8vw,6.5rem)}
+.more-grid{gap:1.4rem}
+.mcard{border-radius:10px;box-shadow:0 24px 50px -34px #000}
+.mcard-text{padding:1.2rem 1.3rem 1.4rem;gap:.45rem}
+.mcard strong{letter-spacing:.02em}
+.mcard em{line-height:1.5}
+.mcard-img img{transition:transform .9s var(--ease)}
+.mcard:hover .mcard-img img{transform:scale(1.04)}
+/* Thorne's Lab banner: keep the specimen in frame, not the clipped title */
+.mcard[href="thorne-lab.html"] .mcard-img img{object-position:78% 50%}
+
+/* ---------- 5. Book pages ---------- */
+.book-ready .book-body{padding:1.5rem 1.6rem 1.6rem;border-radius:12px;box-shadow:0 30px 70px -40px #000}
+.book .meta{line-height:1.8}
+.book .buy{gap:.6rem;align-items:center}
+.book .buy .btn-line{min-height:42px;padding:.7rem 1.05rem;font-size:.72rem}
+.book .buy + p,.book .buy + .review{margin-top:1.3rem}
+.book-body > p:last-child{margin-bottom:0}
+.duo>div{border-radius:8px}
+.parts span{border-radius:3px}
+.review{border-radius:0 6px 6px 0}
+.cover{border-radius:6px}
+/* Excerpts: solid hairline frame instead of the dashed "placeholder" look,
+   and a comfortable book-page measure */
+.excerpt{border-style:solid;border-width:1px;border-radius:12px;padding:2.2rem clamp(1.4rem,4vw,3.2rem) 2rem;background:rgba(0,0,0,.42)}
+.excerpt>.excerpt-body{font-size:1.32rem;line-height:1.65;column-gap:3.5rem}
+.excerpt>.excerpt-body p{break-inside:auto;orphans:3;widows:3}
+.excerpt>.excerpt-label{margin-bottom:1.1rem}
+.more{border-radius:3px;min-height:42px}
+.jt-game{border-radius:12px}
+.gallery figure,.art-item,.photo-item{border-radius:6px}
+.gallery-head h3{line-height:1.1}
+
+
+/* First Pulse: inline "Buy the book / Play" text links get the same tidy treatment as the home hero */
+.book-body>p.cta-row{gap:.35rem 1.3rem;margin:0 0 1rem}
+.book-body>p.cta-row a{font-size:.74rem;font-weight:700;letter-spacing:.14em;text-transform:uppercase;text-decoration:none;color:var(--sf,var(--fire2));border-bottom:1px solid currentColor;padding-bottom:.1rem;opacity:.9}
+.book-body>p.cta-row a::after{content:" →"}
+.book-body>p.cta-row a:hover{opacity:1;color:#fff}
+/* Decorative book number: keep it clear of the genre label on flipped layouts */
+@media (min-width:901px){.book-ready .book-inner.flip .book-num{left:auto;right:0;top:auto;bottom:0}}
+
+/* ---------- 6. About / contact ---------- */
+.about p{line-height:1.75}
+.contact .email{word-break:break-word;padding-bottom:.2rem;transition:color .2s,border-color .2s}
+.contact .email:hover{color:#fff;border-color:#fff}
+
+/* ---------- 7. Play hub (play.html) ---------- */
+body:not(.page-audio) .ab-page-inner>p{margin-top:1.6rem;color:var(--muted)}
+body:not(.page-audio) .ab-page-inner>p a{color:var(--fire2)}
+body:not(.page-audio) .ab-page .ab-jump a{min-height:44px;display:inline-flex;align-items:center}
+
+/* ---------- 8. Footer ---------- */
+footer{padding:2rem clamp(1.2rem,4vw,3rem);gap:1rem 2rem;background:linear-gradient(180deg,rgba(255,255,255,.015),transparent);color:#8a7b6a}
+footer .foot-links{flex-wrap:wrap;gap:.6rem 1.8rem}
+footer a{color:#b9ab9a;transition:color .2s}
+
+/* ---------- 9. Tablet ---------- */
+@media (max-width:900px){
+  .home .hero{padding-top:4.6rem}
+  .home .hero-stack{height:150px;max-width:240px;margin:0 auto .4rem}
+  .home .hero-text{padding:1.2rem 1.2rem 1.3rem}
+}
+
+/* ---------- 10. Phone ---------- */
+@media (max-width:640px){
+  body:not(.page-audio) .kicker{letter-spacing:.2em}
+  /* hero */
+  .home .hero{padding-top:4.4rem;padding-bottom:4rem}
+  .home .hero-stack{height:140px;max-width:220px}
+  .home .hero-text{padding:1.15rem 1.1rem 1.2rem;border-radius:10px}
+  .home .hero-text .kicker{font-size:.62rem;letter-spacing:.16em}
+  .home .hero-name{font-size:clamp(2.5rem,12.5vw,3.3rem);margin:.45rem 0 .7rem}
+  .home .hero-line{font-size:1.15rem}
+  .home .hero-feature{padding:.8rem .9rem;gap:.6rem}
+  .home .hero-feature strong{font-size:1.1rem}
+  .home .hero-actions{display:grid;grid-template-columns:repeat(3,1fr);gap:.5rem}
+  .home .hero-actions .btn{padding:.8rem .4rem;min-width:0;font-size:.72rem;letter-spacing:.12em}
+  .home .hero-actions .btn-fire{grid-column:1 / -1}
+  .home .hero-previews{grid-template-columns:1fr;gap:.6rem}
+  .home .hero-preview{grid-template-columns:96px 1fr;gap:.8rem;padding:.45rem .8rem .45rem .45rem}
+  .home .hero-preview img{width:96px;height:60px}
+  .home .hero-preview strong{font-size:.85rem}
+  .home .hero-preview em{font-size:.85rem}
+  /* home cards */
+  .home-h{margin-bottom:1.6rem}
+  .bcards,.more-grid{gap:1rem}
+  .bcard-text,.mcard-text{padding:1rem 1.05rem 1.1rem}
+  /* book pages: stack cover above the details instead of a cramped side column */
+  .book-ready .book-inner,.book-ready .book-inner.flip{grid-template-columns:1fr;gap:1.4rem}
+  .book-ready .cover{max-width:190px}
+  .book-ready .book-body{padding:1.2rem 1.15rem 1.3rem}
+  .book-ready.scifi .title{font-size:clamp(2rem,9vw,2.6rem)}
+  .book-ready.woods .title{font-size:clamp(2.2rem,10vw,2.8rem)}
+  .book .buy{display:grid;grid-template-columns:1fr 1fr;gap:.5rem;align-items:stretch}
+  .book .buy .btn-line:last-child:nth-child(even){grid-column:1 / -1}
+  .book .buy .btn{width:100%;padding:.75rem .6rem;font-size:.7rem;letter-spacing:.1em;text-align:center}
+  .book .buy .btn-fire{grid-column:1 / -1;min-height:50px;font-size:.76rem}
+  .cover{max-width:240px}
+  .excerpt{padding:1.6rem 1.15rem 1.4rem;border-radius:10px}
+  .excerpt>.excerpt-body{font-size:1.2rem;line-height:1.6}
+  .jt-game{padding:1.2rem}
+  /* footer */
+  footer{flex-direction:column;align-items:flex-start;gap:.9rem;padding:1.8rem 1.2rem 2.2rem}
+  footer .foot-links{flex-direction:column;gap:.75rem}
+}
+
+/* ---------- 11. Art page: placeholder for Jason's painting stills ---------- */
+.paint-slot{margin:0 0 3.5rem;padding:2.2rem clamp(1.2rem,4vw,2.4rem);border:1.5px dashed rgba(255,193,94,.4);border-radius:12px;
+  background:repeating-linear-gradient(45deg,rgba(255,138,42,.035) 0 14px,transparent 14px 28px);text-align:center}
+.paint-slot p:not(.kicker){color:var(--muted);max-width:34rem;margin:.6rem auto 0}
