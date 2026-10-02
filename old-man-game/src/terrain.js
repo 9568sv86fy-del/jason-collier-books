@@ -1,5 +1,6 @@
 // The mountain: places, trails, height field and the ground mesh.
 import * as THREE from "three";
+import { terrainMaterial } from "./materials.js";
 import { clamp, distToSeg, fbm, hash2, lerp, rng, smooth } from "./util.js";
 
 /** Named places (meters). y comes from the height field. */
@@ -211,7 +212,7 @@ export function buildGround() {
   const x0 = BOUNDS.x0 - 20, z0 = BOUNDS.z0 - 20;
   const res = 2.5;
   const tw = W / TILE, th = H / TILE;
-  const mat = new THREE.MeshLambertMaterial({ vertexColors: true });
+  const mat = terrainMaterial();
   const col = new THREE.Color();
   for (let ty = 0; ty < TILE; ty++)
     for (let tx = 0; tx < TILE; tx++) {
@@ -222,31 +223,55 @@ export function buildGround() {
       geo.translate(cx, 0, cz);
       const pos = geo.attributes.position;
       const colors = new Float32Array(pos.count * 3);
+      const splat = new Float32Array(pos.count * 3);
+      const uv = geo.attributes.uv;
       for (let i = 0; i < pos.count; i++) {
         const x = pos.getX(i), z = pos.getZ(i);
         const y = heightAt(x, z);
         pos.setY(i, y);
+        uv.setXY(i, x / 4, -z / 4);
         groundColor(x, z, y, col);
-        colors[i * 3] = col.r; colors[i * 3 + 1] = col.g; colors[i * 3 + 2] = col.b;
+        // the old palette becomes a gentle tint over the textures (snow ~ 1.0)
+        colors[i * 3] = clamp(col.r / 0.88, 0.5, 1.08); colors[i * 3 + 1] = clamp(col.g / 0.9, 0.5, 1.08); colors[i * 3 + 2] = clamp(col.b / 0.94, 0.5, 1.08);
+        const d = groundDirt(x, z);
+        splat[i * 3] = 1 - d; splat[i * 3 + 1] = d; splat[i * 3 + 2] = 0;
       }
       geo.setAttribute("color", new THREE.BufferAttribute(colors, 3));
       geo.computeVertexNormals();
-      // darken steep faces (rock shows through)
+      // steep faces: rock shows through the snow
       const nrm = geo.attributes.normal;
       for (let i = 0; i < pos.count; i++) {
         const ny = nrm.getY(i);
-        const rock = 1 - smooth(0.72, 0.86, ny);
+        const rock = (1 - smooth(0.62, 0.82, ny)) * 0.85;
         if (rock > 0) {
-          colors[i * 3] = lerp(colors[i * 3], 0.36, rock);
-          colors[i * 3 + 1] = lerp(colors[i * 3 + 1], 0.35, rock);
-          colors[i * 3 + 2] = lerp(colors[i * 3 + 2], 0.34, rock);
+          splat[i * 3] *= 1 - rock; splat[i * 3 + 1] *= 1 - rock; splat[i * 3 + 2] = rock;
+          colors[i * 3] = lerp(colors[i * 3], 1, rock); colors[i * 3 + 1] = lerp(colors[i * 3 + 1], 1, rock); colors[i * 3 + 2] = lerp(colors[i * 3 + 2], 1, rock);
         }
       }
+      geo.setAttribute("splat", new THREE.BufferAttribute(splat, 3));
       const mesh = new THREE.Mesh(geo, mat);
-      mesh.receiveShadow = false;
+      mesh.receiveShadow = true;
       group.add(mesh);
     }
   return group;
+}
+
+/** how much frozen dirt / trodden ground shows through the snow, 0..1 */
+function groundDirt(x, z) {
+  let d = 0;
+  const tr = trailDist(x, z);
+  const t = 1 - smooth(0.5, 2.2, tr);
+  if (t > 0) d = Math.max(d, t * clamp(0.35 + fbm(x / 2.2, z / 2.2, 2) * 0.9, 0, 0.85));
+  const rd = roadDist(x, z);
+  const rt = 1 - smooth(2.5, 5, rd);
+  if (rt > 0) d = Math.max(d, rt * (Math.abs(Math.sin(rd * 1.6)) < 0.3 ? 0.9 : 0.45));
+  const md = Math.hypot(x - PLACES.meadow.x, z - PLACES.meadow.z);
+  if (md < 75) d = Math.max(d, clamp((fbm(x / 4, z / 4, 3) + 0.1) * 1.6, 0, 0.75) * (1 - smooth(40, 75, md)));
+  const bd = Math.hypot(x - PLACES.burn.x, z - PLACES.burn.z);
+  if (bd < 70) d = Math.max(d, clamp((fbm(x / 5 + 4, z / 5, 3) + 0.05) * 1.2, 0, 0.38) * (1 - smooth(30, 70, bd)));
+  const cd = Math.hypot(x - PLACES.camp.x, z - PLACES.camp.z);
+  if (cd < 9) d = Math.max(d, (1 - smooth(2, 9, cd)) * 0.7);
+  return d;
 }
 
 function groundColor(x, z, y, out) {

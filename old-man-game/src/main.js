@@ -1,5 +1,7 @@
 // Old Man on the Mountain — main loop. Glues the engine (pictures), game (rules), hud and audio.
 import * as THREE from "three";
+import { whenLoaded } from "./loadprog.js";
+import { Q } from "./quality.js";
 import { createEngine, CAM_SPOTS, CAMP_FIRE } from "./engine.js";
 import { createHud } from "./hud.js";
 import { createInput } from "./input.js";
@@ -7,8 +9,10 @@ import * as A from "./audio.js";
 import * as X from "./audio-extra.js";
 import * as G from "./game.js";
 import { lightAt, moonOf, snowAt } from "./light.js";
+import { fireGame } from "./firegame.js";
+import { cinchGame } from "./tactile.js";
 import { BOUNDS, OVERLOOKS, PLACES, PLACE_IDS, VIEWS, heightAt, placeAt, trailBetween, trailDist } from "./terrain.js";
-import { collide, occlusion, trunksNear } from "./forest.js";
+import { collide, occlusion, trunksNear, crownDepth } from "./forest.js";
 import { clamp, damp, dampAngle, fmtClock, hash2, lerp, smooth, wrapPi } from "./util.js";
 
 const SAVE_KEY = "oldman-v2-save";
@@ -24,7 +28,36 @@ const cam = E.rig;
 let mode = "title"; // title | play | optic | ending
 let optic = null; // {kind:'binos'|'scope', yaw, pitch, hold, progress, target}
 let paused = false;
+let frostK = 0;
+const frostEl = (() => {
+  // procedural frost: dendrite crystals grown from the four corners, drawn once to a canvas
+  const el = document.getElementById("frost"); if (!el) return null;
+  const c = document.createElement("canvas"); c.width = 1024; c.height = 640; const g = c.getContext("2d");
+  let seed = 7; const rnd = () => ((seed = (seed * 16807) % 2147483647) / 2147483647);
+  g.strokeStyle = "rgba(225,238,255,0.55)"; g.lineCap = "round";
+  const branch = (x, y, a, len, w, d) => {
+    if (d <= 0 || len < 3) return;
+    const x2 = x + Math.cos(a) * len, y2 = y + Math.sin(a) * len;
+    g.lineWidth = w; g.beginPath(); g.moveTo(x, y); g.lineTo(x2, y2); g.stroke();
+    const n = 2 + Math.floor(rnd() * 2);
+    for (let i = 0; i < n; i++) { const t = 0.3 + rnd() * 0.6, bx = x + (x2 - x) * t, by = y + (y2 - y) * t; branch(bx, by, a + (rnd() < 0.5 ? -1 : 1) * (0.9 + rnd() * 0.3), len * 0.45, w * 0.6, d - 1); }
+    branch(x2, y2, a + (rnd() - 0.5) * 0.4, len * 0.7, w * 0.8, d - 1);
+  };
+  for (const [cx, cy, a0] of [[0, 0, 0.78], [1024, 0, 2.36], [0, 640, -0.78], [1024, 640, -2.36]])
+    for (let i = 0; i < 26; i++) branch(cx + (rnd() - 0.5) * 120, cy + (rnd() - 0.5) * 120, a0 + (rnd() - 0.5) * 1.6, 40 + rnd() * 90, 2.2, 5);
+  el.style.backgroundImage = `url(${c.toDataURL()})`;
+  return el;
+})();
+let harlanPose = null; // e.g. kneeling at the fire / the camera strap while an overlay is up
 let lastT = performance.now();
+let hintDone = (() => { try { return !!localStorage.getItem("oldman-walked"); } catch { return false; } })();
+// the joystick is for touch screens only; a keyboard press hides it, a touch brings it back
+{
+  const touchy = "ontouchstart" in window || navigator.maxTouchPoints > 0;
+  document.body.classList.toggle("touch", touchy);
+  addEventListener("keydown", () => document.body.classList.remove("touch"), { passive: true });
+  addEventListener("touchstart", () => document.body.classList.add("touch"), { passive: true });
+}
 let gameClockAcc = 0;
 let lookIdleT = 0;
 let fps = { acc: 0, n: 0, avg: 16 };
@@ -130,6 +163,7 @@ function showTitle() {
         <button class="btn ${has ? "" : "hot"}" id="tNew">LEAVE THE TRUCK</button>
       </div>
       <p class="small" style="margin-top:14px">Headphones. Lights off.</p>
+      <div class="tload" id="tLoad"><div class="loadtrack"><i class="loadbar-fill"></i></div><small class="loadbar-msg">Loading the mountain…</small></div>
      </div>`,
   );
   c.querySelector("#tNew").onclick = () => { A.unlockAudio(); freshGame(); intro(); };
@@ -203,8 +237,10 @@ function notesSheet() {
   hud.sheet(`<h3>FIELD NOTES</h3>${notes}<button class="btn" id="nClose">CLOSE</button>`);
   document.getElementById("nClose").onclick = () => { hud.closeSheet(); paused = false; };
 }
+const JOB_POSE = { "LAYING THE FIRE": "Fixing_Kneeling", "THE WALL": "PickUp_Table", "THE DEADFALL": "Interact", "THE WORK": "Fixing_Kneeling" };
 function job(title, text, secs, gameMins, done) {
   paused = true;
+  harlanPose = JOB_POSE[title] || "Interact";
   input.clear();
   const c = hud.overlay(`<h2>${title}</h2><p>${text}</p><div class="optic-bar" style="position:relative;left:auto;top:auto;margin:16px auto"><i id="jobFill"></i></div>`, { clear: true });
   const t0 = performance.now();
@@ -216,7 +252,7 @@ function job(title, text, secs, gameMins, done) {
     if (k >= 1) {
       clearInterval(iv);
       hud.closeOverlay();
-      paused = false;
+      paused = false; harlanPose = null;
       if (gameMins) advance(gameMins);
       done();
     }
@@ -239,6 +275,7 @@ function ctxActions() {
   if (st) out.push({ id: "stick", label: "TAKE WOOD", key: "E" });
   if (atCamp()) {
     if (G.canBuildFire(S) && S.minutes < 23 * 60) out.push({ id: "fire", label: "LAY FIRE", key: "E" });
+    if (G.canLightFire(S)) out.push({ id: "light", label: "LIGHT FIRE", key: "E" });
     if (S.carried >= 3 && S.wall < 4 && S.day >= 2) out.push({ id: "wall", label: `BUILD WALL ${S.wall}/4`, key: "B" });
     if (S.carried >= 2 && !S.deadfall && S.day >= 4) out.push({ id: "deadfall", label: "RIG DEADFALL", key: "G" });
     if (G.fireLit(S) && !S.watch && S.minutes >= 16 * 60 + 30 && S.minutes < 22 * 60) out.push({ id: "situp", label: "SIT UP", key: "Z" });
@@ -262,7 +299,21 @@ function doAction(id) {
     const st = nearestStick();
     if (st && G.pickStick(S, st.id)) X.stick();
   } else if (id === "fire") {
-    job("LAYING THE FIRE", "Tinder, kindling, four dry sticks teepeed in the stones.", 2.2, 15, () => { G.buildFire(S); X.lighter(); });
+    job("LAYING THE FIRE", "Birch bark and dry grass for tinder, a fist of kindling, four dry sticks laid by.", 2.2, 15, () => { G.buildFire(S); });
+  } else if (id === "light") {
+    paused = true;
+    harlanPose = "Fixing_Kneeling";
+    input.clear();
+    const snowNow = snowAt(S.day, S.minutes);
+    const L0 = lightAt(S.minutes);
+    fireGame(hud, {
+      wind: clamp(snowNow * 0.8 + (S.day >= 5 ? 0.15 : 0), 0, 1), wet: clamp(snowNow, 0, 1), dark: L0.dark,
+      fear: clamp(1 - S.heart / 100, 0, 1), learned: !!S.flags.fireLearned, auto: !!window.__autoFire,
+    }, (ok) => {
+      paused = false; harlanPose = null;
+      if (ok) { G.lightFire(S); X.lighter(); advance(10); save(); }
+      else G.say(S, "You set the flint and steel down. The fire is laid, waiting.");
+    }, { strike: () => X.lighter?.(), crackle: () => {} });
   } else if (id === "wall") {
     job("THE WALL", "Drag deadfall into the line. Pack snow on it.", 2.6, 35, () => G.addWall(S));
   } else if (id === "deadfall") {
@@ -273,7 +324,13 @@ function doAction(id) {
     doSleep(true);
   } else if (id.startsWith("hang:")) {
     const spot = id.slice(5);
-    job("TRAIL CAMERA", "Strap it low on the trunk. Stills and short bursts after dark.", 2, 12, () => { G.hangCam(S, spot); X.beep(); });
+    paused = true;
+    input.clear();
+    harlanPose = "Interact";
+    cinchGame(hud, { learned: !!S.flags.camLearned, auto: !!(window.__autoFire || window.__autoTactile), cold: S.minutes < 9 * 60 ? 1 : 0 }, (ok) => {
+      paused = false; harlanPose = null;
+      if (ok) { S.flags.camLearned = 1; advance(12); G.hangCam(S, spot); X.beep(); }
+    });
   } else if (id.startsWith("pull:")) {
     showCard(id.slice(5));
   } else if (id === "pack") {
@@ -545,6 +602,7 @@ function updateBull(dt) {
       if (Math.sin(bull.wander * 0.13) > 0.97) bull.yaw += dt * 0.6;
     }
     bull.alertT -= dt;
+    E.bull.look?.(P.x, P.z);
     E.bull.animate(bull.alertT > 0 ? "alert" : st === "bed" ? "bed" : Math.sin(bull.wander * 0.3) > -0.2 ? "graze" : "stand", dt, t);
     bull.vis = Math.hypot(bull.x - P.x, bull.z - P.z) < 320;
     // detection: wind, noise, sight
@@ -559,6 +617,7 @@ function updateBull(dt) {
   const cp = G.cowsPlace(S);
   cows.forEach((c, i) => {
     const m = E.cows[i];
+    m.look?.(P.x, P.z);
     if (!cp || S.day > 6) { m.root.visible = false; c.place = null; return; }
     if (c.place !== cp) { const sp = placeSpot(cp, 9 + i); c.x = sp.x + c.off[0]; c.z = sp.z + c.off[1]; c.place = cp; c.yaw = i * 2; }
     if (c.run) {
@@ -1005,50 +1064,71 @@ addEventListener("keyup", (e) => { if (e.key === "Shift" && optic) optic.hold = 
 document.addEventListener("visibilitychange", () => { if (document.hidden && mode === "play" && !paused) pauseMenu(); });
 
 /* --------------------------------- frame --------------------------------- */
+const TURN_RATE = 1.9; // rad/s at full stick / A-D
 const tmpV = new THREE.Vector3();
 let stepAcc = 0, heartKey = "", ambT = 0, crackleT = 0, saveT = 0, breathT = 0;
+// Real-time simulation (playtest): game time follows the wall clock even when the frame rate drops.
+// Each rendered frame advances by the real elapsed time (capped at 0.5 s, e.g. after a tab switch),
+// split into sub-steps of at most 50 ms so movement, AI and collisions stay stable; only the last
+// sub-step renders.
 function frame(now) {
   requestAnimationFrame(frame);
-  const dt = Math.min(0.05, (now - lastT) / 1000) * (window.__warp || 1);
+  const real = Math.min(0.5, Math.max(0, (now - lastT) / 1000));
   lastT = now;
+  const warp = window.__warp || 1;
+  const total = real * warp;
+  const n = Math.min(40, Math.max(1, Math.ceil(total / 0.05)));
+  // adaptive quality watches the real frame time
+  fps.acc += real; fps.n++;
+  for (let i = 0; i < n; i++) tick(now - ((n - 1 - i) * real * 1000) / n, total / n, i === n - 1);
+}
+function tick(now, dt, last) {
   T.now = now;
-  if (!S) { E.renderer.render(E.scene, E.camera); return; }
+  if (!S) { if (last) E.render(E.camera); return; }
   const t = now / 1000;
   const live = mode === "play" && !paused && S.mode === "play";
-  // adaptive resolution
-  fps.acc += dt; fps.n++;
+  if (last) {
   if (fps.acc > 2) {
     const avg = (fps.acc / fps.n) * 1000;
     fps.avg = avg;
-    if (avg > 40 && E.quality > 0.55) E.setQuality(Math.max(0.55, E.quality - 0.15));
+    if (avg > 40 && E.quality > 0.7) E.setQuality(Math.max(0.7, E.quality - 0.15));
+    else if (avg > 40 && !document.hidden && !Q.locked) {
+      // still slow at reduced resolution: shed post effects, then remember a lower tier for the session
+      fps.slow = (fps.slow || 0) + 1;
+      if (fps.slow >= 2) { fps.slow = 0; const what = E.degrade(); if (!what) { if (E.quality > 0.55) E.setQuality(0.55); else Q.drop(); } }
+    }
     else if (avg < 22 && E.quality < 1) E.setQuality(Math.min(1, E.quality + 0.1));
     fps.acc = 0; fps.n = 0;
+  }
   }
 
   // ---- movement ----
   let speed = 0;
   if (live && W.mode !== "still") {
     const ax = auto ? autoAxes(dt) : input.axes();
-    cam.yaw -= input.lookDX * 0.0055 + ax.turn * dt * 1.9;
+    // tank steering (playtest): left/right turns Harlan in place at a steady rate, forward walks where he
+    // faces, back steps backward. Heading never snaps toward the stick direction.
+    let steer = ax.turn + (Math.abs(ax.strafe) > 0.12 ? (ax.strafe - Math.sign(ax.strafe) * 0.12) / 0.88 : 0);
+    steer = clamp(steer, -1, 1);
+    P.yaw = wrapPi(P.yaw - steer * TURN_RATE * (ax.sneak && !ax.run ? 0.75 : 1) * dt);
+    cam.yaw -= input.lookDX * 0.0055;
     cam.pitch = clamp(cam.pitch + input.lookDY * 0.003, -0.1, 0.55);
     if (input.lookDX || input.lookDY) lookIdleT = 0; else lookIdleT += dt;
     input.lookDX = 0; input.lookDY = 0;
-    const mag = Math.min(1, Math.hypot(ax.fwd, ax.strafe));
+    // the camera settles in behind Harlan unless the player is looking around
+    if (lookIdleT > 1.2) cam.yaw = dampAngle(cam.yaw, P.yaw, Math.abs(steer) > 0.05 ? 5 : 2.2, dt);
+    const mag = Math.min(1, Math.abs(ax.fwd));
     if (mag > 0.08) {
-      const dirYaw = cam.yaw + Math.atan2(-ax.strafe, ax.fwd);
-      // walking backwards with S/down: step back, keep facing
-      const back = ax.fwd < -0.3 && Math.abs(ax.strafe) < 0.3;
-      if (!back) P.yaw = dampAngle(P.yaw, dirYaw, 9, dt);
+      const back = ax.fwd < 0;
+      const dirYaw = P.yaw;
       const sneaking = ax.sneak && !ax.run;
-      const running = ax.run && !S.elk.packed;
-      speed = (running ? 4.8 : sneaking ? 1.5 : 2.7) * (back ? 0.5 : 1) * (S.elk.packed ? 0.8 : 1);
+      const running = ax.run && !S.elk.packed && !back;
+      speed = (running ? 4.8 : sneaking ? 1.5 : 2.7) * (back ? 0.45 : 1) * (S.elk.packed ? 0.8 : 1);
       if (input.my && !input.keys.size) speed *= clamp(mag * 1.15, 0.45, 1);
-      // slope
-      const fx = -Math.sin(dirYaw), fz = -Math.cos(dirYaw);
+      const fx = -Math.sin(dirYaw) * (back ? -1 : 1), fz = -Math.cos(dirYaw) * (back ? -1 : 1);
       const slope = (heightAt(P.x + fx, P.z + fz) - heightAt(P.x, P.z));
       speed *= clamp(1 - slope * 0.35, 0.55, 1.15);
-      let nx = P.x + fx * speed * dt, nz = P.z + fz * speed * dt;
-      if (back) { nx = P.x + Math.sin(P.yaw) * speed * dt; nz = P.z + Math.cos(P.yaw) * speed * dt; }
+      const nx = P.x + fx * speed * dt, nz = P.z + fz * speed * dt;
       let c = collide(nx, nz, 0.42);
       for (const pc of E.propColliders) {
         const dx = c.x - pc.x, dz = c.z - pc.z, d = Math.hypot(dx, dz);
@@ -1060,8 +1140,6 @@ function frame(now) {
       if (P.x !== c.x || P.z !== c.z) hud.setWarn("Too steep. Turn back.");
       P.travelled += Math.hypot(P.x - wasX, P.z - wasZ);
       P.running = running; P.sneaking = sneaking;
-      // camera drifts in behind Harlan while walking, unless the player is looking around
-      if (lookIdleT > 1.4 && !back) cam.yaw = dampAngle(cam.yaw, P.yaw, 1.1, dt);
     } else { P.running = false; P.sneaking = false; }
   } else if (mode === "optic" && optic) {
     optic.yaw -= input.lookDX * 0.0016 + input.axes().turn * dt * 0.35;
@@ -1093,8 +1171,16 @@ function frame(now) {
   // good glass gathers light: the last of dusk and the firelight read better through the scope
   if (mode === "optic" && optic) E.hemi.intensity *= 1.7;
   const dark = L.dark;
-  E.setFire(G.fireLit(S));
+  if (window.__autoFire === true && live && atCamp() && G.canLightFire(S) && !hud.overlayOpen) G.lightFire(S); // test hook
+  E.setFire(G.fireLit(S), G.fireLaid(S));
   const fl = E.updateFire(dt, t);
+  // frost creeps in from the screen corners when it's cold and dark away from the fire (and when fear spikes)
+  if (last) {
+    const nearFire = G.fireLit(S) && Math.hypot(P.x - CAMP_FIRE.x, P.z - CAMP_FIRE.z) < 9 ? 1 : 0;
+    const want = clamp(dark * 0.55 + snow * 0.25 + (S.heart < 30 ? 0.25 : 0) - nearFire * 0.6 + (S.minutes < 7 * 60 ? 0.15 : 0), 0, 0.85);
+    frostK += (want - frostK) * (1 - Math.exp(-0.4 * dt));
+    if (frostEl) frostEl.style.opacity = frostK.toFixed(3);
+  }
   E.setSticks(S.sticks, S.day === 1 || dark > 0.5);
   updateBull(dt);
   updateWalker(dt);
@@ -1107,11 +1193,14 @@ function frame(now) {
   H.setRifle(S.rifle);
   H.setMeat(S.elk.packed);
   const afraid = S.heart < 40 || W.walkerNear || W.mode === "still";
-  const an = H.animate(P.speed, dt, { sneak: P.sneaking, afraid, aiming: mode === "optic" });
+  const sitWatch = !harlanPose && S.watch && !P.moving && P.speed < 0.1 && mode !== "optic";
+  const an = H.animate(harlanPose || sitWatch ? 0 : P.speed, dt, { sneak: P.sneaking, afraid, aiming: mode === "optic", pose: harlanPose, sitting: sitWatch });
   // footsteps + prints
   const ph = H.phase();
-  if (Math.floor(ph / Math.PI) !== Math.floor(P.lastStepPhase / Math.PI) && P.moving) {
-    const side = Math.floor(ph / Math.PI) % 2 ? 1 : -1;
+  const crossed = Math.floor(ph / Math.PI) !== Math.floor(P.lastStepPhase / Math.PI);
+  const real = an && an.plant !== undefined; // rigged Harlan reports actual foot plants
+  if ((real ? an.plant : crossed) && P.moving) {
+    const side = real ? (an.plant === "l" ? -1 : 1) : Math.floor(ph / Math.PI) % 2 ? 1 : -1;
     A.footstep(P.running ? 1 : P.sneaking ? 0.2 : 0.6);
     E.prints.add(P.x + Math.cos(P.yaw) * 0.14 * side, P.z - Math.sin(P.yaw) * 0.14 * side, P.yaw);
   }
@@ -1129,6 +1218,7 @@ function frame(now) {
 
   // headlamp: on after sunset or in deep murk
   const lampOn = dark > 0.35;
+  H.setLamp?.(lampOn);
   const fwdX = -Math.sin(P.yaw), fwdZ = -Math.cos(P.yaw);
   const lampYaw = mode === "optic" && optic ? optic.yaw : lerp(P.yaw, cam.yaw, 0.0) ;
   const lx = -Math.sin(lampYaw), lz = -Math.cos(lampYaw);
@@ -1169,10 +1259,24 @@ function frame(now) {
     const dist = cam.dist + (P.running ? 0.5 : 0) + (S.elk.packed ? 0.3 : 0);
     const fx = -Math.sin(yaw), fz = -Math.cos(yaw), rx = Math.cos(yaw), rz = -Math.sin(yaw);
     const side = 0.85;
-    let cx = P.x - fx * dist + rx * side, cz = P.z - fz * dist + rz * side;
-    let cy = hy + cam.height + cam.pitch * 3.2;
+    // never put the lens inside a spruce: march out from Harlan's head and stop short of the first bough
+    // (playtest: the camera must not clip trees; pull in rather than fill the screen with needles)
+    const wantY = hy + cam.height + cam.pitch * 3.2;
+    let k = 1;
+    for (let i = 1; i <= 12; i++) {
+      const f = i / 12;
+      const sx = P.x + (-fx * dist + rx * side) * f, sz = P.z + (-fz * dist + rz * side) * f;
+      const sy = lerp(hy + 1.6, wantY, f);
+      if (crownDepth(sx, sy, sz) > 0) { k = Math.max(0.28, (i - 1) / 12); break; }
+    }
+    cam.boom = damp(cam.boom ?? 1, k, k < (cam.boom ?? 1) ? 14 : 2.5, dt); // snap in fast, ease back out
+    const kb = cam.boom;
+    let cx = P.x + (-fx * dist + rx * side) * kb, cz = P.z + (-fz * dist + rz * side) * kb;
+    let cy = lerp(hy + 1.75, wantY, Math.max(kb, 0.6));
     cy = Math.max(cy, heightAt(cx, cz) + 0.9);
     cam.x = damp(cam.x || cx, cx, 12, dt); cam.z = damp(cam.z || cz, cz, 12, dt); cam.y = damp(cam.y || cy, cy, 9, dt);
+    // last guard after smoothing: if the lens still ends up in a bough, slide it straight toward Harlan
+    for (let g = 0; g < 4 && crownDepth(cam.x, cam.y, cam.z, 0.15) > 0; g++) { cam.x = lerp(cam.x, P.x, 0.3); cam.z = lerp(cam.z, P.z, 0.3); }
     camT.position.set(cam.x, cam.y, cam.z);
     cam.shake = Math.max(0, cam.shake - dt * 1.5);
     const sh = cam.shake * 0.12;
@@ -1201,7 +1305,7 @@ function frame(now) {
   E.deadfall.visible = S.deadfall;
   if (!S.deadfallSprung) E.deadfall.rotation.z = -0.5;
 
-  E.renderer.render(E.scene, camT);
+  if (last) E.render(camT);
 
   // ---- audio ----
   ambT -= dt;
@@ -1221,7 +1325,7 @@ function frame(now) {
   if (saveT > 20 && live) { saveT = 0; save(); }
 
   // ---- HUD ----
-  updateHud(dark);
+  if (last) updateHud(dark);
 }
 
 function updateOpticInfo(dt) {
@@ -1322,8 +1426,9 @@ function updateHud(dark) {
     const ty = heightAt(ob.target.x, ob.target.z) + 3.2;
     hud.waypoint(project(ob.target.x, ty, ob.target.z), ob.target.label, dist);
   } else hud.waypoint(null);
-  if (P.travelled > 12 || mode !== "play") document.getElementById("touchhint").classList.add("gone");
-  else document.getElementById("touchhint").classList.remove("gone");
+  // "PUSH TO WALK" goes for good after the first real walk
+  if (P.travelled > 3 && !hintDone) { hintDone = true; try { localStorage.setItem("oldman-walked", "1"); } catch {} }
+  document.getElementById("touchhint").classList.toggle("gone", hintDone || mode !== "play");
   // keyboard hint (desktop)
   const kh = hud.el.keyhint;
   const txt = mode === "optic" ? (optic.kind === "scope" ? "DRAG/WASD AIM · SHIFT HOLD BREATH · SPACE FIRE · R/X LOWER" : "DRAG/WASD PAN · HOLD THE RING ON HIM · F/X LOWER") : "WASD WALK · DRAG LOOK · SHIFT RUN · C SNEAK · F LOOK · R RIFLE · E ACT · J NOTES · H HELP";
@@ -1354,11 +1459,11 @@ function autoAxes(dt) {
   while (tgt && Math.hypot(tgt.x - P.x, tgt.z - P.z) < (a.i === a.pts.length - 1 ? 1.6 : 3.5)) { a.i++; tgt = a.pts[a.i]; }
   if (!tgt) { auto = null; return { fwd: 0, strafe: 0, turn: 0, run: false, sneak: false }; }
   const want = Math.atan2(-(tgt.x - P.x), -(tgt.z - P.z));
-  cam.yaw = dampAngle(cam.yaw, want, 6, dt);
+  const diff = wrapPi(want - P.yaw);
   a.t += dt;
   if (a.t > 1.5) { const moved = Math.hypot(P.x - a.last.x, P.z - a.last.z); a.stuck = moved < 0.5 ? a.stuck + 1 : 0; a.last = { x: P.x, z: P.z }; a.t = 0; }
   const wiggle = a.stuck > 1 ? Math.sin(T.now / 400) : 0;
-  return { fwd: 1, strafe: wiggle, turn: 0, run: a.run, sneak: a.sneak };
+  return { fwd: Math.abs(diff) > 1.3 ? 0.15 : 1, strafe: 0, turn: clamp(-diff * 2.5, -1, 1) + wiggle * 0.5, run: a.run, sneak: a.sneak };
 }
 
 /* --------------------------------- test hooks --------------------------------- */
@@ -1390,8 +1495,7 @@ window.__oldman = {
 };
 
 /* --------------------------------- go --------------------------------- */
-document.getElementById("loadMsg").textContent = "Ready";
-setTimeout(() => document.getElementById("loading").classList.add("gone"), 300);
+whenLoaded(12000).then(() => { document.getElementById("loadMsg").textContent = "Ready"; setTimeout(() => document.getElementById("loading").classList.add("gone"), 250); });
 freshGame();
 showTitle();
 requestAnimationFrame(frame);

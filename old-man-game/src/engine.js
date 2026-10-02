@@ -4,10 +4,13 @@ import { buildSky } from "./sky.js";
 import { BOUNDS, CREEK, PLACES, PLACE_IDS, TRAILS, buildCreekWater, buildGround, heightAt, normalAt, trailDist } from "./terrain.js";
 import { buildForest, collide, logGeometry, occlusion, occlude, paint, rockGeometry } from "./forest.js";
 import { buildHarlan } from "./harlan.js";
-import { buildElk, buildWalker } from "./creatures.js";
+import { buildWalker } from "./creatures.js";
+import { buildElk } from "./elk.js";
+import { Q } from "./quality.js";
+import { createPost } from "./post.js";
 import { clamp, damp, dampAngle, hash2, lerp, rng, smooth, wrapPi } from "./util.js";
 
-THREE.ColorManagement.enabled = false;
+THREE.ColorManagement.enabled = true;
 
 export const CAM_SPOTS = {
   saddle: { x: PLACES.saddle.x - 16, z: PLACES.saddle.z - 10, face: "meadow", label: "the saddle trail" },
@@ -19,8 +22,13 @@ export const CAMP_FIRE = { x: PLACES.camp.x + 1.5, z: PLACES.camp.z - 1.5 };
 export function createEngine(canvas) {
   const lowEnd = /iPhone|iPad|Android/i.test(navigator.userAgent) || Math.min(screen.width, screen.height) < 500;
   const renderer = new THREE.WebGLRenderer({ canvas, antialias: !lowEnd || devicePixelRatio < 2, powerPreference: "high-performance", preserveDrawingBuffer: false });
-  renderer.outputColorSpace = THREE.LinearSRGBColorSpace;
-  renderer.toneMapping = THREE.NoToneMapping;
+  renderer.outputColorSpace = THREE.SRGBColorSpace;
+  renderer.toneMapping = THREE.ACESFilmicToneMapping;
+  renderer.toneMappingExposure = 1.0;
+  if (Q.shadows) {
+    renderer.shadowMap.enabled = true;
+    renderer.shadowMap.type = THREE.PCFShadowMap;
+  }
   let quality = 1;
   const scene = new THREE.Scene();
   scene.fog = new THREE.FogExp2(0x9aa4ae, 0.008);
@@ -32,10 +40,46 @@ export function createEngine(canvas) {
   scene.add(hemi);
   const sun = new THREE.DirectionalLight(0xfff2e0, 1.6);
   scene.add(sun, sun.target);
+  if (Q.shadows) {
+    // one shadow map that follows Harlan (applyLight re-centres it every frame)
+    sun.castShadow = true;
+    sun.shadow.mapSize.set(Q.shadowSize, Q.shadowSize);
+    const r = Q.high ? 34 : 24;
+    Object.assign(sun.shadow.camera, { left: -r, right: r, top: r, bottom: -r, near: 20, far: 220 });
+    sun.shadow.bias = -0.0004;
+    sun.shadow.normalBias = 0.05;
+    sun.shadow.radius = 3;
+  }
   const lamp = new THREE.SpotLight(0xfff1d8, 0, 34, 0.42, 0.7, 1.3);
   const lampFill = new THREE.PointLight(0xffe2c0, 0, 7, 1.6);
   const fireLight = new THREE.PointLight(0xff8a3a, 0, 26, 1.25);
   scene.add(lamp, lamp.target, lampFill, fireLight);
+  // headlamp cookie: hot LED centre, a brighter reflector ring, soft spill, slight unevenness
+  {
+    const c = document.createElement("canvas"); c.width = c.height = 128;
+    const g = c.getContext("2d");
+    g.fillStyle = "#000"; g.fillRect(0, 0, 128, 128);
+    const gr = g.createRadialGradient(64, 64, 0, 64, 64, 64);
+    gr.addColorStop(0, "#fffaf0"); gr.addColorStop(0.18, "#f4ecdc"); gr.addColorStop(0.42, "#a49c8e");
+    gr.addColorStop(0.52, "#cfc6b4"); gr.addColorStop(0.6, "#6e685e"); gr.addColorStop(0.85, "#2a2724"); gr.addColorStop(1, "#000");
+    g.fillStyle = gr; g.beginPath(); g.arc(64, 64, 64, 0, Math.PI * 2); g.fill();
+    g.globalAlpha = 0.07; for (let i = 0; i < 40; i++) { g.fillStyle = i % 2 ? "#000" : "#fff"; g.beginPath(); g.arc(64 + Math.cos(i) * 30 * Math.random(), 64 + Math.sin(i * 1.7) * 30 * Math.random(), 6 + Math.random() * 10, 0, 7); g.fill(); }
+    const ct = new THREE.CanvasTexture(c); ct.colorSpace = THREE.SRGBColorSpace;
+    lamp.map = ct;
+  }
+  // a faint visible beam in the cold air (stronger when it snows / mist)
+  const beamU = { amt: { value: 0 } };
+  const beamGeo = new THREE.ConeGeometry(Math.tan(0.42) * 16, 16, 24, 1, true);
+  beamGeo.translate(0, -8, 0); beamGeo.rotateX(-Math.PI / 2); // apex at the lamp, opening along +Z (lookAt aims +Z)
+  const beam = new THREE.Mesh(beamGeo, new THREE.ShaderMaterial({
+    uniforms: beamU, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide, fog: false,
+    vertexShader: `varying float vD; varying vec3 vN; varying vec3 vV; void main(){ vD = length(position) / 16.0; vec4 mv = modelViewMatrix * vec4(position, 1.0); vN = normalize(normalMatrix * normal); vV = normalize(-mv.xyz); gl_Position = projectionMatrix * mv; }`,
+    fragmentShader: `uniform float amt; varying float vD; varying vec3 vN; varying vec3 vV; void main(){ float edge = pow(abs(dot(vN, vV)), 1.5); float a = amt * edge * smoothstep(0.0, 0.08, vD) * (1.0 - vD) * (1.0 - vD); gl_FragColor = vec4(vec3(1.0, 0.96, 0.88) * a, a);
+#include <colorspace_fragment>
+}`,
+  }));
+  beam.frustumCulled = false; beam.renderOrder = 2; beam.visible = false;
+  scene.add(beam);
 
   const sky = buildSky(scene);
   const ground = buildGround();
@@ -204,20 +248,49 @@ export function createEngine(canvas) {
     fireLogs.add(l);
   }
   fire.add(fireLogs);
-  const flameMat = new THREE.ShaderMaterial({
-    uniforms: { t: { value: 0 }, k: { value: 1 } },
-    transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, fog: false, side: THREE.DoubleSide,
-    vertexShader: `uniform float t; varying vec2 vUv; void main(){ vUv = uv; vec3 p = position; float w = sin(t*7.0 + p.y*6.0 + position.x*9.0)*0.06*p.y; p.x += w; p.z += cos(t*5.0+p.y*5.0)*0.05*p.y; gl_Position = projectionMatrix * modelViewMatrix * vec4(p,1.0); }`,
-    fragmentShader: `uniform float t; uniform float k; varying vec2 vUv; void main(){ float y = vUv.y; vec3 c = mix(vec3(1.0,0.85,0.4), vec3(0.9,0.25,0.05), y); float a = (1.0 - y) * (0.55 + 0.45*sin(t*13.0 + vUv.x*20.0)) * k; gl_FragColor = vec4(c * a, a); }`,
-  });
+  // v3 fire: camera-facing flame cards with a scrolling-noise shader (tongues that lick up, split and
+  // flicker; white-hot core, orange body, red tips) + a coal-bed glow. Additive, no depth write.
+  const flameVS = `uniform vec2 size; varying vec2 vUv; void main(){ vUv = uv;
+      vec4 mv = modelViewMatrix * vec4(0.0, 0.0, 0.0, 1.0);
+      mv.xy += vec2(position.x * size.x, (position.y + 0.5) * size.y);
+      gl_Position = projectionMatrix * mv; }`;
+  const flameFS = `uniform float t; uniform float k; uniform float seed; varying vec2 vUv;
+    float h(vec2 p){ return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
+    float n(vec2 p){ vec2 i = floor(p), f = fract(p); f = f*f*(3.0-2.0*f);
+      return mix(mix(h(i), h(i+vec2(1.0,0.0)), f.x), mix(h(i+vec2(0.0,1.0)), h(i+vec2(1.0,1.0)), f.x), f.y); }
+    float fbm(vec2 p){ float s = 0.0, a = 0.5; for (int i = 0; i < 4; i++) { s += a * n(p); p *= 2.03; a *= 0.5; } return s; }
+    void main(){
+      float y = vUv.y, x = (vUv.x - 0.5) * 2.0;
+      float nz = fbm(vec2(vUv.x * 3.0 + seed, y * 2.6 - t * 2.4));
+      float nz2 = fbm(vec2(vUv.x * 6.0 - seed, y * 5.0 - t * 3.6));
+      float w = (1.0 - y) * (0.55 + 0.7 * nz) + 0.04;
+      float body = smoothstep(w, w * 0.25, abs(x + (nz - 0.5) * 0.7 * y));
+      float fade = smoothstep(1.0, 0.25, y + (nz2 - 0.5) * 0.55) * smoothstep(0.0, 0.06, y);
+      float a = clamp(body * fade * k, 0.0, 1.0);
+      float heat = a * (1.25 - y);
+      vec3 c = mix(vec3(0.85, 0.16, 0.02), vec3(1.0, 0.58, 0.14), smoothstep(0.08, 0.55, heat));
+      c = mix(c, vec3(1.0, 0.93, 0.7), smoothstep(0.6, 1.05, heat));
+      gl_FragColor = vec4(c * a * 1.7, a);
+    #include <colorspace_fragment>
+    }`;
   const flames = [];
-  for (let i = 0; i < 4; i++) {
-    const f = new THREE.Mesh(new THREE.ConeGeometry(0.28 - i * 0.04, 0.9 + i * 0.15, 8, 4, true), flameMat);
-    f.position.set((i - 1.5) * 0.08, 0.5 + i * 0.05, (i % 2) * 0.06);
-    f.rotation.y = i;
-    fire.add(f);
-    flames.push(f);
-  }
+  const flameMat = { uniforms: { t: { value: 0 }, k: { value: 1 } } }; // shared clock/strength for the cards
+  const cardGeo = new THREE.PlaneGeometry(1, 1);
+  [[0, 0.95, 1.75, 0.0, 1.0], [-0.13, 0.7, 1.25, 0.06, 3.7], [0.14, 0.65, 1.15, -0.05, 7.3], [0.02, 0.5, 0.9, 0.12, 11.1]].forEach(([x, w, hgt, z, seed]) => {
+    const m = new THREE.ShaderMaterial({
+      uniforms: { t: flameMat.uniforms.t, k: flameMat.uniforms.k, seed: { value: seed }, size: { value: new THREE.Vector2(w, hgt) } },
+      vertexShader: flameVS, fragmentShader: flameFS,
+      transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, fog: false,
+    });
+    const f = new THREE.Mesh(cardGeo, m);
+    f.position.set(x, 0.12, z); f.frustumCulled = false; f.renderOrder = 3;
+    f.userData.h = hgt;
+    fire.add(f); flames.push(f);
+  });
+  // coal bed: a low orange glow under the flames
+  const coalTex = (() => { const c = document.createElement("canvas"); c.width = c.height = 64; const g = c.getContext("2d"); const gr = g.createRadialGradient(32, 32, 1, 32, 32, 32); gr.addColorStop(0, "rgba(255,170,80,1)"); gr.addColorStop(0.4, "rgba(255,90,20,0.55)"); gr.addColorStop(1, "rgba(255,40,0,0)"); g.fillStyle = gr; g.fillRect(0, 0, 64, 64); return new THREE.CanvasTexture(c); })();
+  const coals = new THREE.Mesh(new THREE.PlaneGeometry(1.3, 1.3), new THREE.MeshBasicMaterial({ map: coalTex, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, fog: false }));
+  coals.rotation.x = -Math.PI / 2; coals.position.y = 0.14; fire.add(coals);
   const emberGeo = new THREE.BufferGeometry();
   const EM = 60;
   const emberPos = new Float32Array(EM * 3), emberLife = new Float32Array(EM);
@@ -265,7 +338,7 @@ export function createEngine(canvas) {
   const camMeshes = {};
   for (const [id, s] of Object.entries(CAM_SPOTS)) {
     const g = new THREE.Group();
-    const trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.22, 0.28, 4, 7), mat(0x3a2a1e));
+    const trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.22, 0.28, 4, 7), occlude(mat(0x3a2a1e).clone())); // dissolves between camera and Harlan like the forest
     trunk.position.y = 2;
     const box = new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.24, 0.1), mat(0x3b4030));
     box.position.set(0, 1.1, -0.26);
@@ -335,6 +408,7 @@ export function createEngine(canvas) {
   // ---------- creatures ----------
   const harlan = buildHarlan();
   scene.add(harlan.root);
+  harlan.root.traverse((o) => { if (o.isMesh && o.material && !o.material.transparent && o.material.visible !== false) o.castShadow = true; });
   lamp.position.set(0, 0, 0);
   const bull = buildElk({ bull: true });
   bull.root.visible = false;
@@ -351,10 +425,26 @@ export function createEngine(canvas) {
   scene.add(walker.root);
 
   // ---------- tracks (Harlan's prints, elk line, walker's parallel line) ----------
-  function trackLayer(n, w, l, color, opacity) {
+  // soft-edged print shapes (playtest: the old flat quads read as "white squares" on the snow)
+  function printTex(kind) {
+    const c = document.createElement("canvas");
+    c.width = 64; c.height = 128;
+    const g = c.getContext("2d");
+    g.filter = "blur(2px)";
+    g.fillStyle = "#fff";
+    const ell = (x, y, rx, ry, a = 0) => { g.beginPath(); g.ellipse(x, y, rx, ry, a, 0, Math.PI * 2); g.fill(); };
+    if (kind === "boot") { ell(32, 40, 20, 30); ell(32, 98, 15, 18); }
+    else if (kind === "hoof") { ell(22, 64, 10, 40, 0.12); ell(42, 64, 10, 40, -0.12); }
+    else if (kind === "walker") { ell(32, 72, 15, 48); for (let i = 0; i < 4; i++) ell(16 + i * 11, 16 - Math.abs(i - 1.5) * 3, 5, 8); }
+    else { ell(32, 64, 22, 26); ell(18, 40, 9, 9); ell(46, 92, 7, 10); ell(40, 30, 5, 5); }
+    const t = new THREE.CanvasTexture(c);
+    t.colorSpace = THREE.SRGBColorSpace;
+    return t;
+  }
+  function trackLayer(n, w, l, color, opacity, kind) {
     const geo = new THREE.PlaneGeometry(w, l);
     geo.rotateX(-Math.PI / 2);
-    const m = new THREE.MeshBasicMaterial({ color, transparent: true, opacity, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2 });
+    const m = new THREE.MeshBasicMaterial({ color, alphaMap: printTex(kind), transparent: true, opacity, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2 });
     const im = new THREE.InstancedMesh(geo, m, n);
     im.count = 0;
     im.frustumCulled = false;
@@ -379,10 +469,10 @@ export function createEngine(canvas) {
       clear() { head = 0; used = 0; im.count = 0; },
     };
   }
-  const prints = trackLayer(260, 0.16, 0.3, 0x5d6878, 0.32);
-  const elkTracks = trackLayer(400, 0.14, 0.18, 0x3c3630, 0.5);
-  const walkerTracks = trackLayer(160, 0.15, 0.5, 0x26282c, 0.62);
-  const blood = trackLayer(120, 0.22, 0.22, 0x8a1a12, 0.85);
+  const prints = trackLayer(260, 0.16, 0.3, 0x5d6878, 0.38, "boot");
+  const elkTracks = trackLayer(400, 0.14, 0.18, 0x3c3630, 0.6, "hoof");
+  const walkerTracks = trackLayer(160, 0.15, 0.5, 0x26282c, 0.7, "walker");
+  const blood = trackLayer(120, 0.22, 0.22, 0x8a1a12, 0.9, "blood");
 
   // ---------- snow + breath ----------
   const SN = 2600;
@@ -391,10 +481,11 @@ export function createEngine(canvas) {
   const sr = rng(9);
   for (let i = 0; i < SN; i++) snowPos.set([(sr() - 0.5) * 50, sr() * 24, (sr() - 0.5) * 50], i * 3);
   snowGeo.setAttribute("position", new THREE.BufferAttribute(snowPos, 3));
-  const snowU = { t: { value: 0 }, origin: { value: new THREE.Vector3() }, wind: { value: new THREE.Vector2(0.6, 0.2) }, alpha: { value: 0.6 }, px: { value: 1 }, tint: { value: new THREE.Color(1, 1, 1) } };
+  const snowU = { t: { value: 0 }, origin: { value: new THREE.Vector3() }, wind: { value: new THREE.Vector2(0.6, 0.2) }, alpha: { value: 0.6 }, px: { value: 1 }, tint: { value: new THREE.Color(1, 1, 1) },
+    lampPos: { value: new THREE.Vector3() }, lampDir: { value: new THREE.Vector3(0, 0, -1) }, lampOn: { value: 0 } };
   const snow = new THREE.Points(snowGeo, new THREE.ShaderMaterial({
     uniforms: snowU, transparent: true, depthWrite: false, fog: false,
-    vertexShader: `uniform float t; uniform vec3 origin; uniform vec2 wind; uniform float px; varying float vA;
+    vertexShader: `uniform float t; uniform vec3 origin; uniform vec2 wind; uniform float px; uniform vec3 lampPos; uniform vec3 lampDir; uniform float lampOn; varying float vA; varying float vB;
       void main(){
         vec3 p = position;
         p.y = mod(p.y - t * (1.1 + fract(position.x*3.7)*0.6), 24.0);
@@ -404,10 +495,17 @@ export function createEngine(canvas) {
         vec4 mv = modelViewMatrix * vec4(w, 1.0);
         gl_Position = projectionMatrix * mv;
         float d = -mv.z;
-        gl_PointSize = clamp(px * 16.0 / d, 1.5, 12.0 * px);
+        // flakes / ice crystals crossing the headlamp cone catch the light
+        vec3 dv = w - lampPos; float dl = max(length(dv), 0.001);
+        vB = lampOn * smoothstep(0.86, 0.94, dot(dv / dl, lampDir)) * smoothstep(20.0, 1.2, dl) * smoothstep(0.3, 1.0, d);
+        gl_PointSize = clamp(px * 16.0 / d, 1.5, 12.0 * px) * (1.0 + vB * 1.3);
         vA = smoothstep(32.0, 4.0, d) * smoothstep(0.3, 1.5, d);
       }`,
-    fragmentShader: `uniform float alpha; uniform vec3 tint; varying float vA; void main(){ vec2 d = gl_PointCoord - 0.5; float k = smoothstep(0.5, 0.1, length(d)); gl_FragColor = vec4(tint, k * vA * alpha); }`,
+    fragmentShader: `uniform float alpha; uniform vec3 tint; varying float vA; varying float vB; void main(){ vec2 d = gl_PointCoord - 0.5; float k = smoothstep(0.5, 0.1, length(d)); float beam = vB * max(alpha * 2.2, 0.6);
+  gl_FragColor = vec4(mix(tint, vec3(1.6, 1.5, 1.35), clamp(vB, 0.0, 1.0)), k * clamp(vA * alpha + beam, 0.0, 1.0));
+#include <tonemapping_fragment>
+#include <colorspace_fragment>
+}`,
   }));
   snow.frustumCulled = false;
   scene.add(snow);
@@ -466,14 +564,23 @@ export function createEngine(canvas) {
   const rig = { yaw: 0, pitch: 0.12, dist: 4.6, height: 2.35, x: 0, y: 0, z: 0, mode: "follow", fov: 60, shake: 0, firstPerson: 0, lookYaw: 0, lookPitch: 0 };
   const _v = new THREE.Vector3();
 
+  // shadows: solid meshes cast; the ground and props receive
+  if (Q.shadows) scene.traverse((o) => {
+    if (!o.isMesh || !o.material || o === ground) return;
+    const m = o.material;
+    if (m.transparent || m.visible === false || m.isShaderMaterial || m.isMeshBasicMaterial) return;
+    o.castShadow = true;
+    if (!o.isInstancedMesh) o.receiveShadow = true;
+  });
+  const post = createPost(renderer, scene, camera);
   function resize() {
     const w = canvas.clientWidth, h = canvas.clientHeight;
-    const dpr = Math.min(devicePixelRatio || 1, lowEnd ? 2 : 1.75) * quality;
-    // cap pixels on phones (~1.6 MP)
-    const maxPx = lowEnd ? 1.6e6 : 2.6e6;
+    const dpr = Math.min(devicePixelRatio || 1, Q.maxDpr) * quality;
+    const maxPx = Q.maxPixels;
     const scale = Math.min(dpr, Math.sqrt(maxPx / (w * h)));
     renderer.setPixelRatio(scale);
     renderer.setSize(w, h, false);
+    post.setSize(w, h, scale);
     camera.aspect = w / h;
     camera.updateProjectionMatrix();
     sky.starU.px.value = scale;
@@ -481,10 +588,46 @@ export function createEngine(canvas) {
   }
 
   // ---------- lighting ----------
-  const C = (a) => new THREE.Color(a[0] / 255, a[1] / 255, a[2] / 255);
+  // the light.js palette is authored as display (sRGB) values; light and shade in linear
+  const C = (a) => new THREE.Color().setRGB(a[0] / 255, a[1] / 255, a[2] / 255, THREE.SRGBColorSpace);
+  const S = (r, g, b) => new THREE.Color().setRGB(r, g, b, THREE.SRGBColorSpace);
+  // low-sun light shafts slanting through the timber (dawn/dusk, clear air). Additive cards aligned with the
+  // sun direction and turned to face the camera around that axis; trunks occlude them through the depth test.
+  const rays = [];
+  if (Q.tier !== "low") {
+    const rayMat = new THREE.ShaderMaterial({
+      uniforms: { amt: { value: 0 }, col: { value: new THREE.Color(1.0, 0.82, 0.55) } },
+      transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide, fog: false,
+      vertexShader: `varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }`,
+      fragmentShader: `uniform float amt; uniform vec3 col; varying vec2 vUv; void main(){ float x = abs(vUv.x - 0.5) * 2.0; float a = amt * smoothstep(1.0, 0.0, x) * smoothstep(0.0, 0.35, vUv.y) * smoothstep(1.0, 0.6, vUv.y) * (0.75 + 0.25 * sin(vUv.x * 19.0)); gl_FragColor = vec4(col * a, a);
+#include <colorspace_fragment>
+}`,
+    });
+    const rg = new THREE.PlaneGeometry(1, 1); rg.translate(0, 0.5, 0);
+    for (let i = 0; i < 7; i++) { const m = new THREE.Mesh(rg, rayMat); m.frustumCulled = false; m.visible = false; m.userData.o = [(Math.random() - 0.5) * 40, (Math.random() - 0.5) * 40, 1.5 + Math.random() * 3.5]; scene.add(m); rays.push(m); }
+    rays.mat = rayMat;
+  }
+  const _rx = new THREE.Vector3(), _ry = new THREE.Vector3(), _rz = new THREE.Vector3(), _rm = new THREE.Matrix4();
+  function updateRays(sunDir, amt) {
+    if (!rays.length) return;
+    rays.mat.uniforms.amt.value = amt;
+    const p = harlan.root.position, cp = camera.position;
+    for (const r of rays) {
+      r.visible = amt > 0.003;
+      if (!r.visible) continue;
+      const [ox, oz, w] = r.userData.o;
+      // anchor on the ground near Harlan, shaft rises toward the sun
+      r.position.set(p.x + ox, heightAt(p.x + ox, p.z + oz), p.z + oz);
+      _ry.copy(sunDir);
+      _rz.subVectors(cp, r.position); _rz.addScaledVector(_ry, -_rz.dot(_ry)).normalize();
+      _rx.crossVectors(_ry, _rz).normalize();
+      _rm.makeBasis(_rx, _ry, _rz); r.quaternion.setFromRotationMatrix(_rm);
+      r.scale.set(w, 34, 1);
+    }
+  }
   function applyLight(L, minutes, o) {
     const dark = L.dark;
-    const amb = new THREE.Color(L.amb[0], L.amb[1], L.amb[2]);
+    const amb = S(L.amb[0], L.amb[1], L.amb[2]);
     // sun path: rises east ~06:30, sets west ~18:10
     const dayT = (minutes - 390) / (1090 - 390);
     const sunUp = dayT > -0.05 && dayT < 1.05;
@@ -497,8 +640,8 @@ export function createEngine(canvas) {
     sun.position.set(p.x + dir.x * 100, p.y + dir.y * 100, p.z + dir.z * 100);
     sun.target.position.copy(p);
     const dayK = 1 - dark;
-    sun.color.copy(amb).lerp(new THREE.Color(1, 0.95, 0.85), 0.3);
-    if (dark > 0.6) sun.color.setRGB(0.55, 0.65, 0.9);
+    sun.color.copy(amb).lerp(S(1, 0.95, 0.85), 0.3);
+    if (dark > 0.6) sun.color.setRGB(0.55, 0.65, 0.9, THREE.SRGBColorSpace);
     sun.intensity = sunUp && dark < 0.6 ? 1.35 * dayK * (1 - o.storm * 0.55) : 0.1 + o.moon * 0.22;
     hemi.color.copy(C(L.skyTop)).lerp(amb, 0.6);
     hemi.groundColor.copy(amb).multiplyScalar(0.45);
@@ -521,21 +664,40 @@ export function createEngine(canvas) {
     sky.far.material.color.copy(C(L.ridgeFar)).lerp(fogC, clamp(o.snow * 0.8 + L.fogDensity * 0.25, 0, 0.9));
     sky.near.material.color.copy(C(L.ridgeNear)).lerp(fogC, clamp(o.snow * 0.6 + L.fogDensity * 0.15, 0, 0.8));
     // snow tint follows the light
-    snowU.tint.value.copy(amb).lerp(new THREE.Color(0.6, 0.65, 0.75), dark * 0.6);
+    snowU.tint.value.copy(amb).lerp(S(0.6, 0.65, 0.75), dark * 0.6);
     snowU.alpha.value = o.snow * (0.85 - dark * 0.35) + (dark > 0.6 ? 0.05 : 0);
+    snowU.lampOn.value = lamp.intensity > 0 ? 1 : 0;
+    beam.visible = lamp.intensity > 0;
+    if (beam.visible) { beam.position.copy(lamp.position); beam.lookAt(lamp.target.position); beamU.amt.value = 0.06 + o.snow * 0.1 + (L.fogDensity || 0) * 0.02; }
+    snowU.lampPos.value.copy(lamp.position);
+    snowU.lampDir.value.subVectors(lamp.target.position, lamp.position).normalize();
+    renderer.toneMappingExposure = lerp(0.95, 1.25, dark);
+    // image-based fill from the HDRI: strong by day, a cold trace at night
+    if (post.env.loaded) {
+      scene.environmentIntensity = (0.05 + dayK * 0.55) * (1 - o.storm * 0.3);
+      hemi.intensity *= 0.7;
+    }
+    if (sun.castShadow) sun.shadow.intensity = sunUp && dark < 0.6 ? 0.85 * (1 - o.storm * 0.6) : 0.5;
+    post.setLook(dark, fireK);
+    // shafts only when the sun is low and the air is clear: strongest just after sunrise, a little at sunset
+    const low = sunUp ? smooth(0.04, 0.12, sy) * (1 - smooth(0.18, 0.42, sy)) : 0;
+    updateRays(sunDir, low * (1 - clamp(o.snow * 1.5, 0, 1)) * (1 - dark) * (dayT < 0.5 ? 0.12 : 0.06));
     return { dark, sunDir };
   }
 
   // ---------- per-frame visuals ----------
-  let fireOn = false, fireK = 0;
-  function setFire(on) { fireOn = on; }
+  let fireOn = false, fireLaid = false, fireK = 0;
+  function setFire(on, laid = false) { fireOn = on; fireLaid = laid; }
   function updateFire(dt, t) {
     fireK = damp(fireK, fireOn ? 1 : 0, 1.5, dt);
-    fire.visible = fireK > 0.02 || true;
+    fire.visible = true;
+    fireLogs.visible = fireOn || fireLaid || fireK > 0.02; // stones only until the fire is laid
     flames.forEach((f, i) => {
       f.visible = fireK > 0.05;
-      f.scale.set(1, (0.8 + Math.sin(t * (6 + i) + i) * 0.18) * fireK, 1);
+      f.material.uniforms.size.value.y = f.userData.h * (0.85 + Math.sin(t * (5 + i * 1.7) + i) * 0.12) * (0.4 + 0.6 * fireK);
     });
+    coals.visible = fireK > 0.02;
+    coals.material.opacity = fireK * (0.75 + Math.sin(t * 2.3) * 0.15);
     flameMat.uniforms.t.value = t;
     flameMat.uniforms.k.value = fireK;
     const fl = 0.85 + Math.sin(t * 11) * 0.08 + Math.sin(t * 23.3) * 0.06 + Math.sin(t * 3.1) * 0.05;
@@ -668,6 +830,9 @@ export function createEngine(canvas) {
     resize, applyLight, updateFire, setFire, puff, updatePuffs, updateMist, worldToScreen, renderCard, setSticks, sticks, snowU,
     fireP,
     setQuality(q) { quality = q; resize(); },
+    render(cam) { post.render(cam || camera); },
+    degrade() { return post.degrade(); },
+    post,
     get quality() { return quality; },
     lowEnd,
   };

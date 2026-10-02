@@ -25,13 +25,14 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <link rel="stylesheet" href="./vendor/fonts/fonts.css">
 <link rel="stylesheet" href="./styles.css">
-<script type="importmap">{ "imports": { "three": "./vendor/three.min.js" } }</script>
+<script type="importmap">{ "imports": { "three": "./vendor/three.min.js", "three/addons": "./vendor/three-addons.min.js" } }</script>
 </head>
 <body>
 <div id="app">
   <canvas id="view"></canvas>
   <div id="grain"></div>
   <div id="vignette"></div>
+  <div id="frost"></div>
   <div id="fear"></div>
   <div id="flash"></div>
   <div id="labels"></div>
@@ -80,7 +81,7 @@
 
   <div id="overlay" class="overlay hidden"><div class="overlay-card ui" id="overlayCard"></div></div>
   <div id="sheet" class="sheet hidden ui"></div>
-  <div id="loading" class="loading"><p>Old Man on the Mountain</p><small id="loadMsg">Loading the mountain…</small></div>
+  <div id="loading" class="loading"><p>Old Man on the Mountain</p><small id="loadMsg">Loading the mountain…</small><div class="loadtrack"><i id="loadBar"></i></div></div>
 </div>
 <script type="module" src="./src/main.js"></script>
 </body>

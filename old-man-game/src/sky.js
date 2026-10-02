@@ -31,6 +31,8 @@ export function buildSky(scene) {
           c = mix(c, fogCol, fogAmt * exp(-max(h, 0.0) * 5.0));
           if (h < 0.0) c = mix(c, fogCol, clamp(-h * 6.0, 0.0, 1.0));
           gl_FragColor = vec4(c, 1.0);
+          #include <tonemapping_fragment>
+          #include <colorspace_fragment>
         }`,
     }),
   );

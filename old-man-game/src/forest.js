@@ -4,6 +4,8 @@
 import * as THREE from "three";
 import { BOUNDS, PLACES, VIEWS, clearing, creekDist, heightAt, roadDist, trailDist } from "./terrain.js";
 import { clamp, fbm, hash2, rng, smooth } from "./util.js";
+import { Q } from "./quality.js";
+import { tex } from "./materials.js";
 
 export const occlusion = {
   uCam: { value: new THREE.Vector3() },
@@ -80,49 +82,64 @@ function paint(geo, fn) {
   const tmp = new THREE.Color();
   for (let i = 0; i < p.count; i++) {
     fn(p.getX(i), p.getY(i), p.getZ(i), nrm.getX(i), nrm.getY(i), nrm.getZ(i), tmp, i);
+    tmp.convertSRGBToLinear(); // palettes are authored as display values
     c[i * 3] = tmp.r; c[i * 3 + 1] = tmp.g; c[i * 3 + 2] = tmp.b;
   }
   geo.setAttribute("color", new THREE.BufferAttribute(c, 3));
   return geo;
 }
 
-/** a spruce, unit height (1), base at y=0. Tiers of drooping cones with snow on top. */
-function spruceGeometry(seed, snowy = 0.55) {
+/** a spruce, unit height (1), base at y=0. v3: many tiers of star-shaped bough whorls; the tips droop under
+ *  their load, the whorl bulges (heavy snow), snow sits thick on the inner, upper faces and thins out to green
+ *  tips; undersides and the inner crown go dark (cheap baked occlusion). */
+function spruceGeometry(seed, snowy = 0.55, detail = Q.tier) {
   const r = rng(seed);
-  const tiers = 6;
+  // detail by quality tier: high 10 whorls with a bulging mid ring; medium 8; low 6 flat cones
+  const hi = detail === "high", lo = detail === "low";
+  const tiers = hi ? 10 : lo ? 6 : 8;
   const parts = [];
   for (let k = 0; k < tiers; k++) {
     const t = k / (tiers - 1);
-    const base = 0.16 + t * 0.66;
-    const h = 0.3 - t * 0.08;
-    const rad = 0.27 * (1 - t * 0.78) + 0.03;
-    const g = new THREE.ConeGeometry(rad, h, 9, 1, true);
-    // droop the rim + jitter so it reads as boughs, not a party hat
+    const base = 0.12 + t * 0.74 + (r() - 0.5) * 0.015;
+    const h = 0.2 - t * 0.07;
+    const rad = 0.29 * Math.pow(1 - t * 0.86, 0.95) + 0.025;
+    const nb = (lo ? 5 : 7) + Math.floor(r() * (lo ? 2 : 3)), rot = r() * 6.28;
+    const g = new THREE.ConeGeometry(rad * (hi ? 1 : 1.04), h * (10 / tiers) * (hi ? 1 : 0.85), nb * 2, hi ? 2 : 1, true);
     const p = g.attributes.position;
+    const tag = new Float32Array(p.count); // 0 apex, 0.5 mid, 1 rim; stored for painting
     for (let i = 0; i < p.count; i++) {
-      const y = p.getY(i);
-      if (y < 0) {
-        const a = Math.atan2(p.getZ(i), p.getX(i));
-        const j = 1 + (Math.sin(a * 5 + seed + k) * 0.12 + (r() - 0.5) * 0.1);
-        p.setX(i, p.getX(i) * j);
-        p.setZ(i, p.getZ(i) * j);
-        p.setY(i, y - 0.03 - r() * 0.03);
+      const y = p.getY(i), a = Math.atan2(p.getZ(i), p.getX(i)) + rot;
+      const star = Math.pow(Math.abs(Math.cos(a * nb / 2)), 0.7); // 1 at a bough tip, 0 between
+      let x = p.getX(i), z = p.getZ(i), yy = y;
+      if (y < -h * 0.25) { // rim: bough tips reach out and droop
+        const j = 0.68 + 0.5 * star + (r() - 0.5) * 0.08;
+        x *= j; z *= j; yy = y - (0.015 + 0.05 * star) * (0.6 + rad * 2.5);
+        tag[i] = 1;
+      } else if (y < h * 0.25) { // mid ring: bulge out and up, like a whorl carrying snow
+        const j = 1.12 + 0.12 * star;
+        x *= j; z *= j; yy = y + 0.008;
+        tag[i] = 0.5;
       }
+      p.setXYZ(i, x, yy, z);
     }
+    g.setAttribute("tag", new THREE.BufferAttribute(tag, 1));
     g.translate(0, base + h / 2, 0);
-    g.computeVertexNormals();
-    parts.push(g);
+    g.computeVertexNormals(); // smooth across the whorl (indexed), kept through the merge
+    parts.push(g.toNonIndexed());
   }
+  const tags = []; for (const g of parts) tags.push(...g.attributes.tag.array);
+  for (const g of parts) g.deleteAttribute("tag");
   const geo = merge(parts);
-  geo.computeVertexNormals();
-  return paint(geo, (x, y, z, nx, ny, nz, c) => {
+  return paint(geo, (x, y, z, nx, ny, nz, c, i) => {
     const n = hash2(Math.floor(x * 97 + seed), Math.floor(y * 131 + z * 71));
-    const snow = ny > 0.25 && n < snowy + ny * 0.25;
-    if (snow) c.setRGB(0.83 + n * 0.08, 0.87 + n * 0.07, 0.92 + n * 0.05);
-    else {
-      const d = 0.65 + n * 0.45;
-      c.setRGB(0.1 * d, 0.24 * d, 0.16 * d);
-    }
+    const tg = tags[i] ?? 1;
+    // snow: thick inside/up top, patchy toward the tips, none on undersides
+    const load = snowy * (lo ? 0.8 : 1) * (1.1 - tg * 0.75) + ny * 0.3 + (n - 0.5) * 0.55 - (1 - y) * 0.1;
+    const snow = ny > 0.2 ? smooth(0.42, 0.66, load) : 0;
+    const occl = 0.55 + 0.45 * tg; // inner crown darker
+    const d = (0.6 + n * 0.4) * occl * (0.75 + y * 0.35);
+    const gr = 0.09 * d, gg = 0.2 * d, gb = 0.14 * d;
+    c.setRGB(gr + (0.84 + n * 0.06 - gr) * snow, gg + (0.88 + n * 0.05 - gg) * snow, gb + (0.93 + n * 0.04 - gb) * snow);
   });
 }
 function trunkGeometry() {
@@ -162,17 +179,23 @@ function snagGeometry(seed) {
   });
 }
 function rockGeometry(seed) {
-  const g = new THREE.DodecahedronGeometry(1, 0);
-  const r = rng(seed);
-  const p = g.attributes.position;
+  // rounded, lumpy boulder (subdivided, noise-displaced by position so shared corners never crack),
+  // smooth normals, and a snow cap that feathers down the sides instead of a flat white facet
+  const g = new THREE.IcosahedronGeometry(1, 2);
+  const p = g.attributes.position, nr = g.attributes.normal;
+  const d = new THREE.Vector3();
   for (let i = 0; i < p.count; i++) {
-    const k = 0.75 + r() * 0.5;
-    p.setXYZ(i, p.getX(i) * k, p.getY(i) * k * 0.65, p.getZ(i) * k);
+    d.set(p.getX(i), p.getY(i), p.getZ(i)).normalize();
+    const k = 0.8 + 0.35 * fbm(d.x * 1.7 + seed, d.z * 1.7 + d.y * 1.3, 3);
+    nr.setXYZ(i, d.x, d.y / 0.75, d.z);
+    p.setXYZ(i, d.x * k, Math.max(-0.25, d.y * k * 0.62), d.z * k * 1.05);
   }
-  g.computeVertexNormals();
-  return paint(g.index ? g.toNonIndexed() : g, (x, y, z, nx, ny, nz, c) => {
-    if (ny > 0.55) c.setRGB(0.87, 0.9, 0.94);
-    else c.setRGB(0.38, 0.37, 0.36);
+  for (let i = 0; i < nr.count; i++) { d.set(nr.getX(i), nr.getY(i), nr.getZ(i)).normalize(); nr.setXYZ(i, d.x, d.y, d.z); }
+  return paint(g, (x, y, z, nx, ny, nz, c, i) => {
+    const n = hash2(Math.floor(x * 9 + 40), Math.floor(z * 9 + 40));
+    const snow = smooth(0.35, 0.7, ny + (n - 0.5) * 0.25);
+    const rk = 0.33 + n * 0.08;
+    c.setRGB(rk + (0.84 - rk) * snow, rk * 0.98 + (0.87 - rk * 0.98) * snow, rk * 0.95 + (0.92 - rk * 0.95) * snow);
   });
 }
 function willowGeometry(seed) {
@@ -189,6 +212,21 @@ function willowGeometry(seed) {
   }
   return paint(merge(parts), (x, y, z, nx, ny, nz, c) => c.setRGB(0.42 + y * 0.12, 0.22 + y * 0.05, 0.14));
 }
+function tuftGeometry(seed) {
+  // dead grass and sedge poking through the snow: pale straw blades, darker at the base
+  const r = rng(seed);
+  const parts = [];
+  for (let k = 0; k < 11; k++) {
+    const h = 0.5 + r() * 0.6;
+    const b = new THREE.CylinderGeometry(0.003, 0.012, h, 3, 2, true);
+    b.translate(0, h / 2, 0);
+    b.rotateZ((r() - 0.5) * 0.9);
+    b.rotateY(r() * 6.28);
+    b.translate((r() - 0.5) * 0.25, 0, (r() - 0.5) * 0.25);
+    parts.push(b);
+  }
+  return paint(merge(parts), (x, y, z, nx, ny, nz, c) => { const k = Math.min(1, y * 1.6); c.setRGB(0.32 + k * 0.4, 0.26 + k * 0.33, 0.16 + k * 0.2); });
+}
 function logGeometry() {
   const g = new THREE.CylinderGeometry(0.22, 0.26, 1, 7, 1);
   g.rotateZ(Math.PI / 2);
@@ -203,6 +241,33 @@ function logGeometry() {
 const CHUNK = 64;
 export const colliders = new Map(); // cell key -> [{x,z,r}]
 const CC = 4;
+// spruce crowns as cones, for keeping the follow camera out of the boughs
+const crowns = new Map(); // cell key -> [{x, z, y0, h, r}]
+const CRC = 8;
+function addCrown(x, z, y0, h, r) {
+  const k = `${Math.floor(x / CRC)},${Math.floor(z / CRC)}`;
+  let a = crowns.get(k);
+  if (!a) crowns.set(k, (a = []));
+  a.push({ x, z, y0, h, r });
+}
+/** how deep a point sits inside a crown or trunk (m); 0 when clear */
+export function crownDepth(x, y, z, pad = 0.35) {
+  const cx = Math.floor(x / CRC), cz = Math.floor(z / CRC);
+  let worst = 0;
+  for (let j = -1; j <= 1; j++)
+    for (let i = -1; i <= 1; i++) {
+      const a = crowns.get(`${cx + i},${cz + j}`);
+      if (!a) continue;
+      for (const c of a) {
+        const f = (y - c.y0) / c.h;
+        if (f > 1) continue;
+        const rr = (f < 0 ? 0.35 : c.r * (1 - f) + 0.35) + pad;
+        const d = Math.hypot(x - c.x, z - c.z);
+        if (d < rr) worst = Math.max(worst, rr - d);
+      }
+    }
+  return worst;
+}
 function addCollider(x, z, r) {
   const k = `${Math.floor(x / CC)},${Math.floor(z / CC)}`;
   let a = colliders.get(k);
@@ -299,8 +364,17 @@ export function buildForest(scene) {
   const rockGeo = rockGeometry(9);
   const willowGeo = willowGeometry(3);
   const logGeo = logGeometry();
+  // faceted shading reads crisper on snow-loaded boughs than smooth normals (tried both, 08:40)
   const foliageMat = occlude(new THREE.MeshLambertMaterial({ vertexColors: true, flatShading: true }));
   const woodMat = occlude(new THREE.MeshLambertMaterial({ vertexColors: true }));
+  // bark on spruce trunks (CC0 Poly Haven bark, tiled up the trunk); low tier stays flat colour
+  let barkMat = woodMat;
+  if (Q.tier !== "low") {
+    const bc = tex("bark_col", true).clone(), bn = tex("bark_nrm").clone();
+    for (const t of [bc, bn]) t.repeat.set(1, 10); // clones share the Source, which updates when the jpg arrives
+    barkMat = occlude(new THREE.MeshLambertMaterial({ vertexColors: true, map: bc, normalMap: bn }));
+    barkMat.color.setScalar(2.4); // the trunk's vertex colour is authored as the final tone; the map is ~0.4
+  }
   const chunks = new Map();
   const bucket = (x, z, type, m) => {
     const k = `${Math.floor(x / CHUNK)},${Math.floor(z / CHUNK)}`;
@@ -336,6 +410,7 @@ export function buildForest(scene) {
         bucket(jx, jz, "spruce" + Math.floor(r() * SPRUCE_V), mtx.clone());
         bucket(jx, jz, "trunk", mtx.clone());
         addCollider(jx, jz, Math.max(0.3, W * 0.045));
+        addCrown(jx, jz, y + H * 0.08, H, W * 0.48);
         count++;
       } else if (kind === "snag") {
         const H = 7 + r() * 9;
@@ -380,20 +455,51 @@ export function buildForest(scene) {
       bucket(x, z, "log", mtx.clone());
     }
   }
-  const geos = { trunk: trunkGeo, snag: snagGeo, rock: rockGeo, willow: willowGeo, log: logGeo };
+  // undergrowth: snowed-under spruce saplings along the timber edges, dead grass tufts in the open
+  const UNDER = Q.tier === "high" ? 5200 : Q.tier === "medium" ? 2600 : 700;
+  for (let i = 0; i < UNDER; i++) {
+    const x = BOUNDS.x0 + r() * (BOUNDS.x1 - BOUNDS.x0), z = BOUNDS.z0 + r() * (BOUNDS.z1 - BOUNDS.z0);
+    if (trailDist(x, z) < 1.6 || roadDist(x, z) < 5 || Math.hypot(x - PLACES.camp.x, z - PLACES.camp.z) < 9) continue;
+    const { kind } = densityAt(x, z);
+    const y = heightAt(x, z);
+    q.setFromAxisAngle(up, r() * 6.28);
+    if (kind === "spruce" && r() < 0.5) {
+      const H = 0.7 + r() * 1.6;
+      s.set(H * 0.7, H, H * 0.7); p.set(x, y - 0.15, z);
+      mtx.compose(p, q, s); bucket(x, z, "sapling", mtx.clone());
+    } else if (kind !== "spruce" || r() < 0.25) {
+      const H = 0.5 + r() * 0.7;
+      s.set(H, H, H); p.set(x, y - 0.12, z);
+      mtx.compose(p, q, s); bucket(x, z, "tuft" + (i % 2), mtx.clone());
+    }
+  }
+  const geos = { trunk: trunkGeo, snag: snagGeo, rock: rockGeo, willow: willowGeo, log: logGeo, sapling: spruceGeometry(901, 0.75), tuft0: tuftGeometry(5), tuft1: tuftGeometry(9) };
   spruceGeos.forEach((g, i) => (geos["spruce" + i] = g));
+  // distance LOD: beyond LOD_D a chunk's spruce swap to the 6-whorl version (same silhouette, ~1/5 the verts)
+  const LOD_D = 34; // metres from the camera to the chunk's nearest edge
+  const spruceLo = Q.tier === "low" ? null : spruceGeos.map((_, i) => spruceGeometry(11 + i * 17, 0.55, "low"));
   const meshes = [];
   for (const c of chunks.values()) {
     const group = new THREE.Group();
     for (const [type, list] of Object.entries(c.items)) {
       const geo = geos[type];
-      const mat = type.startsWith("spruce") ? foliageMat : woodMat;
-      const im = new THREE.InstancedMesh(geo, mat, list.length);
-      list.forEach((m, i) => im.setMatrixAt(i, m));
-      im.instanceMatrix.needsUpdate = true;
-      im.computeBoundingSphere();
-      im.frustumCulled = true;
-      group.add(im);
+      const mat = type.startsWith("spruce") || type === "sapling" ? foliageMat : type === "trunk" ? barkMat : woodMat;
+      const mk = (g) => {
+        const im = new THREE.InstancedMesh(g, mat, list.length);
+        list.forEach((m, i) => im.setMatrixAt(i, m));
+        im.instanceMatrix.needsUpdate = true;
+        im.computeBoundingSphere();
+        im.frustumCulled = true;
+        im.castShadow = !type.startsWith("tuft");
+        group.add(im);
+        return im;
+      };
+      const im = mk(geo);
+      if (spruceLo && type.startsWith("spruce")) {
+        const lo = mk(spruceLo[+type.slice(6)]);
+        lo.visible = false;
+        (group.userData.lod ||= []).push([im, lo]);
+      }
     }
     group.userData.cx = c.cx;
     group.userData.cz = c.cz;
@@ -403,9 +509,13 @@ export function buildForest(scene) {
   return {
     count,
     update(camX, camZ, far) {
-      for (const g of meshes) g.visible = Math.hypot(g.userData.cx - camX, g.userData.cz - camZ) < far + CHUNK * 0.75;
+      for (const g of meshes) {
+        const d = Math.hypot(g.userData.cx - camX, g.userData.cz - camZ);
+        g.visible = d < far + CHUNK * 0.75;
+        if (g.visible && g.userData.lod) { const ex = Math.max(0, Math.abs(g.userData.cx - camX) - CHUNK / 2), ez = Math.max(0, Math.abs(g.userData.cz - camZ) - CHUNK / 2); const near = Math.hypot(ex, ez) < LOD_D; for (const [h, l] of g.userData.lod) { h.visible = near; l.visible = !near; } }
+      }
     },
-    materials: [foliageMat, woodMat],
+    materials: [foliageMat, woodMat, barkMat],
   };
 }
 export { spruceGeometry, logGeometry, rockGeometry, paint, merge };

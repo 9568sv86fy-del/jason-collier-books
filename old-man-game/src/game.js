@@ -38,7 +38,7 @@ export function newGame(seed = (Date.now() & 0xffff) | 1) {
     wind: winds.map((_, i) => winds[Math.floor(r() * 4)]),
     carried: 0, rounds: 5, colt: 7, rifle: true, rifleAt: null,
     camsLeft: 3, cams: {}, cards: [],
-    fireDay: 0, wall: 0, deadfall: false, deadfallSprung: false,
+    fireDay: 0, laidDay: 0, wall: 0, deadfall: false, deadfallSprung: false,
     elk: { marked: 0, markedAt: null, down: false, wounded: false, packed: false, spoiled: false, x: 0, z: 0, spooked: null, bloodTo: null, shotDay: 0 },
     beats: [], notes: [], tut: 0, flags: {}, lineAt: -999, line: "",
     sticks: [], stickSeq: 1, sticksDay: 0,
@@ -53,7 +53,8 @@ export function newGame(seed = (Date.now() & 0xffff) | 1) {
 
 export const windOf = (s) => s.wind[(s.day - 1) % s.wind.length];
 export const atFireNow = (s, x, z) => s.fireDay === s.day && Math.hypot(x - CAMP_FIRE.x, z - CAMP_FIRE.z) < 15 && (s.minutes >= 16 * 60 || s.minutes < 7 * 60);
-export const fireLit = (s) => s.fireDay === s.day && (s.minutes >= 16 * 60 + 20 || s.minutes < 7 * 60);
+// laid (laidDay) and lit (fireDay) are separate: the fire only burns once you light it with flint and steel
+export const fireLit = (s) => s.fireDay === s.day;
 export const absMin = (s) => s.day * 1440 + s.minutes;
 
 export function say(s, text, journal = false) {
@@ -94,12 +95,20 @@ export function pickStick(s, id) {
   } else say(s, `Firewood: ${s.carried}.`);
   return true;
 }
-export function canBuildFire(s) { return s.fireDay !== s.day && s.carried >= 4; }
+export function canBuildFire(s) { return s.fireDay !== s.day && s.laidDay !== s.day && s.carried >= 4; }
+export const fireLaid = (s) => s.laidDay === s.day && s.fireDay !== s.day;
+/** light it from dusk on (or any time in the small hours) */
+export function canLightFire(s) { return fireLaid(s) && (s.minutes >= 15 * 60 + 30 || s.minutes < 4 * 60); }
+export function lightFire(s) {
+  s.fireDay = s.day;
+  s.flags.fireLearned = 1;
+  if (s.tut >= 3 && s.tut < 5) s.tut = 5;
+  say(s, "The fire takes. Small. Enough.", true);
+}
 export function buildFire(s) {
   s.carried -= 4;
-  s.fireDay = s.day;
-  if (s.tut >= 3 && s.tut < 5) s.tut = 5;
-  say(s, s.minutes < 16 * 60 ? "You lay the fire in the stones: tinder, kindling, the four sticks teepeed. You will touch it off when the light goes." : "You teepee the dry stuff and touch it. The fire takes. Small. Enough.", true);
+  s.laidDay = s.day;
+  say(s, s.minutes < 15 * 60 + 30 ? "You lay the fire in the stones: birch bark and dry grass for tinder, kindling, the four sticks set by. You will strike it when the light goes." : "You lay the fire in the stones: birch bark, kindling, four sticks. Now the flint and steel.", true);
 }
 export function addWall(s) {
   s.carried -= 3;
@@ -380,7 +389,7 @@ export function objective(s, ctx) {
   const evening = m < 4 * 60 || m >= SUNSET + 30 || (m >= 15 * 60 && (ctx.atCamp ? m >= 17 * 60 : darkIn < homeMin + 30));
   if (evening) {
     if (!ctx.atCamp) return { text: darkIn > 0 ? `Get back to camp — dark in ${Math.max(5, Math.round(darkIn / 5) * 5)} min` : "Get back to the fire", target: C, urgent: darkIn < 40 };
-    if (s.fireDay !== s.day) return s.carried >= 4 ? { text: "Light the fire", target: C } : { text: `Gather firewood close to camp (${s.carried}/4)`, target: C, urgent: true };
+    if (s.fireDay !== s.day) return s.laidDay === s.day ? { text: "Light the fire: flint and steel", target: C, urgent: m >= 17 * 60 } : s.carried >= 4 ? { text: "Lay the fire in the stones", target: C } : { text: `Gather firewood close to camp (${s.carried}/4)`, target: C, urgent: true };
     if (s.day >= 3 && s.wall < 4 && s.carried >= 3) return { text: `Add to the log wall (${s.wall}/4)`, target: C };
     if (s.day >= 5 && !s.deadfall && s.carried >= 2) return { text: "Rig the deadfall over the approach", target: C };
     if (m >= 19 * 60 + 30 || m < 4 * 60) return { text: s.watch ? "Sit up by the fire. You sleep at 22:00" : "Stay in the firelight. SLEEP or SIT UP", target: null };

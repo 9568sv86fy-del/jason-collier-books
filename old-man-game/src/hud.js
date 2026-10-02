@@ -57,11 +57,12 @@ export function createHud() {
       el.warn.classList.toggle("hot", !!hot);
     },
     setLine(text, now) {
+      const clamp4 = (ms) => Math.max(4000, Math.min(6000, ms));
       if (text && text !== lastLine) {
         lastLine = text;
         el.line.textContent = text;
         el.line.classList.add("show");
-        lineTimer = now + Math.max(6000, text.length * 70);
+        lineTimer = now + clamp4(text.length * 40); // playtest: narration fades after ~4 s
       }
       if (lineTimer && now > lineTimer) {
         el.line.classList.remove("show");

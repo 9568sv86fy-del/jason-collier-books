@@ -109,10 +109,10 @@ export function createInput(root, stickEl, knobEl) {
     if (k.has("s") || k.has("arrowdown")) fwd = -1;
     if (k.has("a") || k.has("arrowleft")) turn -= 1;
     if (k.has("d") || k.has("arrowright")) turn += 1;
-    // touch stick: x steers (a thumb pushed right walks right, relative to camera)
+    // touch stick: x turns Harlan in place (tank steering), y walks forward/back
     strafe += st.mx;
-    const run = k.has("shift") || (Math.hypot(st.mx, st.my) > 0.85 && !!st.runLatch);
-    const sneak = k.has("c") || k.has("control") || (Math.hypot(st.mx, st.my) > 0.08 && Math.hypot(st.mx, st.my) < 0.5);
+    const run = k.has("shift") || (st.my > 0.85 && !!st.runLatch);
+    const sneak = k.has("c") || k.has("control") || (Math.abs(st.my) > 0.08 && Math.abs(st.my) < 0.5);
     return { fwd, strafe, turn, run, sneak };
   };
   return st;
