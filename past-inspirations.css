@@ -2,8 +2,69 @@
    Uses the site palette, type, and card language from styles.css. */
 
 .pi-stage{margin-top:1.5rem;scroll-margin-top:5.5rem}
-.pi-frame{position:relative;width:100%;aspect-ratio:16/9;background:#000;border-radius:6px;border:1px solid var(--line);box-shadow:0 40px 80px -30px #000;overflow:hidden}
+
+/* 1950s/60s tabletop set. Cabinet, bezel, and grille are CSS only.
+   The glass layer never takes clicks, so the Archive player stays usable. */
+.tv-set{position:relative;display:grid;grid-template-columns:minmax(0,1fr) 5.6rem;gap:.85rem;align-items:stretch;
+  margin:0 0 .85rem;padding:1.05rem 1.05rem 1.2rem;border-radius:1.15rem 1.15rem 1.55rem 1.55rem;
+  background-color:#5a341c;
+  background-image:
+    linear-gradient(180deg,rgba(255,226,180,.16),transparent 22%),
+    repeating-linear-gradient(88deg,rgba(255,214,160,.06) 0 1px,transparent 1px 3px),
+    repeating-linear-gradient(92deg,rgba(28,10,4,.22) 0 2px,transparent 3px 8px),
+    radial-gradient(ellipse at 18% 0%,rgba(255,196,130,.22),transparent 46%),
+    radial-gradient(ellipse at 90% 110%,rgba(0,0,0,.38),transparent 52%),
+    linear-gradient(168deg,#8b5a32 0%,#6b3e20 42%,#4a2b16 78%,#2c1a0e 100%);
+  box-shadow:
+    inset 0 0 0 1px rgba(255,224,176,.32),
+    inset 0 0 0 7px rgba(36,18,8,.62),
+    inset 0 0 0 8px rgba(201,163,96,.34),
+    0 26px 48px -22px #000}
+.tv-set::before,.tv-set::after{content:"";position:absolute;bottom:-8px;width:18%;max-width:6.5rem;height:8px;border-radius:0 0 3px 3px;
+  background:linear-gradient(#3a2414,#140c08);box-shadow:0 3px 4px rgba(0,0,0,.45)}
+.tv-set::before{left:8%}
+.tv-set::after{right:8%}
+.tv-screen{padding:.62rem;border-radius:1.35rem;
+  background:radial-gradient(120% 90% at 50% 0%,#6a6158 0%,#2c2824 46%,#100e0c 100%);
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.32),inset 0 -8px 12px rgba(0,0,0,.55),0 0 0 2px #161310,0 10px 16px rgba(0,0,0,.28)}
+.pi-frame{position:relative;width:100%;aspect-ratio:16/9;background:#050403;border:0;border-radius:.95rem;overflow:hidden;
+  box-shadow:inset 0 0 0 2px rgba(0,0,0,.85),0 0 0 1px rgba(255,255,255,.12)}
 .pi-frame iframe{position:absolute;inset:0;width:100%;height:100%;border:0}
+.tv-glass{position:absolute;inset:0;z-index:1;border-radius:inherit;pointer-events:none;
+  background:
+    linear-gradient(118deg,rgba(255,255,255,.26) 0%,rgba(255,255,255,.07) 14%,rgba(255,255,255,0) 30%),
+    radial-gradient(ellipse at 50% 45%,rgba(255,255,255,.04) 0%,rgba(0,0,0,0) 52%,rgba(0,0,0,.42) 100%),
+    repeating-linear-gradient(to bottom,rgba(0,0,0,.15) 0 1px,transparent 1px 4px)}
+.tv-glass::after{content:"";position:absolute;left:7%;top:5%;width:34%;height:18%;border-radius:50%;
+  background:linear-gradient(180deg,rgba(255,255,255,.28),rgba(255,255,255,0));transform:rotate(-12deg)}
+.tv-side{display:flex;flex-direction:column;justify-content:space-between;align-items:center;gap:.7rem;min-width:0;padding:.15rem 0 .05rem}
+.tv-knobs{display:flex;flex-direction:column;align-items:center;gap:.72rem}
+.tv-dial{position:relative;display:grid;place-items:center;width:3.35rem;height:3.35rem}
+.tv-dial-ring{position:absolute;inset:0;width:100%;height:100%}
+.tv-knob{position:relative;width:1.85rem;height:1.85rem;border-radius:50%;
+  background:radial-gradient(circle at 32% 28%,#fff6e6 0 8%,#e7d0a4 22%,#a67c48 48%,#5a3a20 74%,#24160c 100%);
+  box-shadow:0 1px 0 rgba(255,236,200,.45),0 3px 4px rgba(0,0,0,.55),inset 0 -3px 4px rgba(0,0,0,.4)}
+.tv-knob::before{content:"";position:absolute;left:50%;top:14%;width:2px;height:28%;border-radius:1px;background:#1a1008;transform:translateX(-50%)}
+.tv-knob-channel{width:1.7rem;height:1.7rem}
+.tv-knob-channel::before{transform:translateX(-50%) rotate(32deg);transform-origin:50% 150%}
+.tv-knob-volume::before{transform:translateX(-50%) rotate(-18deg);transform-origin:50% 160%}
+.tv-lamp{width:.48rem;height:.48rem;border-radius:50%;background:radial-gradient(circle at 35% 35%,#ffe7b0,#e07020 55%,#6a2408);
+  box-shadow:0 0 6px rgba(255,140,40,.9),inset 0 0 0 1px rgba(80,20,0,.6)}
+.tv-speaker{display:block;width:100%;flex:1 1 auto;min-height:5.2rem;border-radius:.4rem;
+  background-color:#3a2718;
+  background-image:radial-gradient(circle,#120c08 1.05px,transparent 1.25px);
+  background-size:5px 5px;
+  box-shadow:inset 0 0 0 2px rgba(16,8,4,.75),inset 0 0 0 3px rgba(201,163,96,.32),inset 0 10px 14px rgba(0,0,0,.28)}
+@media (max-width:700px){
+  .tv-set{grid-template-columns:1fr;gap:.55rem;padding:.5rem .5rem .65rem;border-radius:.85rem .85rem 1.05rem 1.05rem}
+  .tv-screen{padding:.4rem;border-radius:.85rem}
+  .pi-frame{border-radius:.55rem}
+  .tv-side{flex-direction:row;align-items:center;gap:.7rem;padding:0 .1rem}
+  .tv-knobs{flex-direction:row;gap:.65rem}
+  .tv-dial{width:2.7rem;height:2.7rem}
+  .tv-speaker{min-height:2.15rem;height:2.15rem;flex:1}
+  .tv-set::before,.tv-set::after{height:6px;bottom:-6px}
+}
 .pi-now{margin-top:.75rem;font-size:.95rem;color:var(--muted)}
 .pi-now strong{color:#ffe2b0;font-family:"Cinzel",serif;font-weight:700;letter-spacing:.02em}
 .pi-now span{margin-left:.35rem;letter-spacing:.12em;font-size:.8rem}

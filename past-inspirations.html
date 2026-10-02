@@ -46,6 +46,11 @@
     <div class="nav-group">
       <button type="button" class="nav-label" aria-expanded="false" aria-haspopup="true" aria-controls="menu-play">Play</button>
       <div class="nav-menu" id="menu-play" role="group" aria-label="Play">
+        <a href="old-man-game/">Old Man on the Mountain</a>
+        <a href="https://kite-bolt-fleet-honey.grok.me/" target="_blank" rel="noopener" data-jc-link="hub">Jang &amp; Tom</a>
+        <a href="https://kite-bolt-fleet-honey.grok.me/" target="_blank" rel="noopener" data-jc-link="hub">The Rusty Stack</a>
+        <a href="https://delta-branch-breeze-daisy.grok.me/" target="_blank" rel="noopener" data-jc-link="bornTwice">Born Twice</a>
+        <a href="https://fern-valley-glow-reef.grok.me/" target="_blank" rel="noopener" data-jc-link="firstPulse">The First Pulse</a>
         <a href="i-spy.html">I Spy</a>
         <a href="coloring.html">Coloring Pages</a>
       </div>
@@ -55,7 +60,6 @@
       <div class="nav-menu" id="menu-extra" role="group" aria-label="Extra">
         <a href="art.html">Art</a>
         <a href="thorne-lab.html">Thorne’s Lab</a>
-        <a href="play.html">Play</a>
         <a href="past-inspirations.html" class="on" aria-current="page">Past Inspirations</a>
       </div>
     </div>
@@ -73,8 +77,34 @@
     </header>
 
     <figure class="pi-stage" id="player">
-      <div class="pi-frame">
-        <iframe id="pi-embed" title="The Flying Deuces (1939)" src="https://archive.org/embed/TheFlyingDeuces" allow="autoplay; fullscreen; picture-in-picture" allowfullscreen></iframe>
+      <div class="tv-set">
+        <div class="tv-screen">
+          <div class="pi-frame">
+            <iframe id="pi-embed" title="The Flying Deuces (1939)" src="https://archive.org/embed/TheFlyingDeuces" allow="autoplay; fullscreen; picture-in-picture" allowfullscreen></iframe>
+            <div class="tv-glass" aria-hidden="true"></div>
+          </div>
+        </div>
+        <div class="tv-side" aria-hidden="true">
+          <div class="tv-knobs">
+            <span class="tv-dial">
+              <svg class="tv-dial-ring" viewBox="0 0 64 64" focusable="false">
+                <circle cx="32" cy="32" r="30" fill="none" stroke="#c9a36a" stroke-width="1.25" opacity=".85"/>
+                <g stroke="#f0ddb4" stroke-width="1.6" stroke-linecap="round">
+                  <line x1="32" y1="5" x2="32" y2="10"/><line x1="45.5" y1="8.6" x2="43" y2="12.9"/>
+                  <line x1="55.4" y1="18.5" x2="51.1" y2="21"/><line x1="59" y1="32" x2="54" y2="32"/>
+                  <line x1="55.4" y1="45.5" x2="51.1" y2="43"/><line x1="45.5" y1="55.4" x2="43" y2="51.1"/>
+                  <line x1="32" y1="59" x2="32" y2="54"/><line x1="18.5" y1="55.4" x2="21" y2="51.1"/>
+                  <line x1="8.6" y1="45.5" x2="12.9" y2="43"/><line x1="5" y1="32" x2="10" y2="32"/>
+                  <line x1="8.6" y1="18.5" x2="12.9" y2="21"/><line x1="18.5" y1="8.6" x2="21" y2="12.9"/>
+                </g>
+              </svg>
+              <span class="tv-knob tv-knob-channel"></span>
+            </span>
+            <span class="tv-knob tv-knob-volume"></span>
+            <span class="tv-lamp"></span>
+          </div>
+          <span class="tv-speaker"></span>
+        </div>
       </div>
       <figcaption>
         <p class="pi-now">Now playing <strong id="pi-now-title">The Flying Deuces</strong> <span id="pi-now-year">1939</span></p>
