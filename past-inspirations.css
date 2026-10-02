@@ -125,7 +125,7 @@
 .otr-h{font-family:"Cinzel",serif;font-weight:900;text-transform:uppercase;font-size:clamp(2rem,6vw,3.4rem);line-height:.95;margin:.35rem 0 .75rem}
 .otr-layout{display:grid;grid-template-columns:minmax(260px,400px) minmax(0,1fr);gap:1.4rem 1.6rem;align-items:start;margin-top:1.15rem}
 .otr-cabinet{position:relative}
-.otr-set{position:relative;overflow:hidden;padding:1.35rem 1rem 1rem;border-radius:12rem 12rem 18px 18px;
+.otr-set{position:relative;overflow:hidden;padding:4.6rem 1rem 1rem;border-radius:8rem 8rem 16px 16px;
   background-color:#5a341c;
   background-image:
     linear-gradient(180deg,rgba(255,226,180,.18),transparent 18%),
@@ -142,7 +142,7 @@
 .otr-cabinet::before,.otr-cabinet::after{content:"";position:absolute;bottom:-7px;width:16%;height:7px;border-radius:0 0 3px 3px;background:linear-gradient(#3a2414,#140c08);box-shadow:0 3px 4px rgba(0,0,0,.45);z-index:1}
 .otr-cabinet::before{left:14%}
 .otr-cabinet::after{right:14%}
-.otr-grille{position:relative;height:7.4rem;margin:.35rem .15rem .85rem;border-radius:46% 46% 10px 10px / 78% 78% 10px 10px;
+.otr-grille{position:relative;height:6.6rem;margin:.15rem .45rem .8rem;border-radius:46% 46% 10px 10px / 78% 78% 10px 10px;
   background-color:#5c3d24;
   background-image:
     repeating-linear-gradient(90deg,rgba(28,12,4,.55) 0 1px,transparent 1px 4px),
@@ -221,8 +221,8 @@
   .otr-layout{grid-template-columns:1fr}
 }
 @media (max-width:420px){
-  .otr-set{padding:.9rem .7rem .8rem;border-radius:9.5rem 9.5rem 14px 14px}
-  .otr-grille{height:5.6rem;margin-bottom:.55rem}
+  .otr-set{padding:3.6rem .7rem .8rem;border-radius:6.5rem 6.5rem 14px 14px}
+  .otr-grille{height:5.4rem;margin:.1rem .25rem .55rem}
   .otr-knob{width:2.85rem;height:2.85rem}
   .otr-play{width:3.15rem;height:3.15rem}
   .otr-readout em{letter-spacing:.08em}
