@@ -230,4 +230,63 @@
 @media (prefers-reduced-motion:reduce){
   .otr-needle{transition:none}
   .otr-set.is-on .otr-dial-svg{filter:drop-shadow(0 8px 10px rgba(0,0,0,.35))}
+  .tv-screen.is-flicker,.otr-dial.is-warm .otr-dial-svg{animation:none}
+  .set-power-knob::before{transition:none}
+}
+
+/* The two sets sit together under the title. One is on; the other stays as a smaller dark set. */
+.pi-pair{display:grid;grid-template-columns:minmax(0,1.5fr) minmax(220px,.72fr);gap:1rem 1.15rem;align-items:start;margin-top:.35rem}
+html[data-set="radio"] .pi-pair{grid-template-columns:minmax(220px,.72fr) minmax(0,1.5fr)}
+.pi-slot{min-width:0;scroll-margin-top:4.75rem}
+.pi-slot .pi-stage{margin-top:0}
+.pi-slot .tv-set{margin-bottom:0}
+.set-face{min-width:0;border-radius:1rem;transition:filter .35s var(--ease)}
+html:not([data-set="radio"]) .pi-slot-radio .set-face,
+html[data-set="radio"] .pi-slot-tv .set-face{filter:brightness(.38) saturate(.55);pointer-events:none}
+html:not([data-set="radio"]) .otr-transport,
+html:not([data-set="radio"]) .otr-now,
+html[data-set="radio"] .pi-slot-tv figcaption{display:none}
+html[data-set="radio"] .pi-frame::after{content:"";position:absolute;inset:0;background:#070605;z-index:3}
+html:not([data-set="radio"]) #radio-shelf{display:none}
+html[data-set="radio"] #movies-shelf{display:none}
+.pi-shelf-lead{color:var(--muted);max-width:44rem;font-size:1.05rem;margin:1.5rem 0 0}
+.set-power{display:flex;flex-direction:column;align-items:center;gap:.22rem;width:100%;margin:.75rem auto 0;padding:.2rem .4rem .05rem;border:0;background:none;cursor:pointer;color:#f3e2c0}
+.set-power-knob{position:relative;width:3.4rem;height:3.4rem;min-width:48px;min-height:48px;border-radius:50%;
+  background:radial-gradient(circle at 32% 28%,#fff6e6 0 8%,#e7d0a4 20%,#b18448 46%,#5a3a20 74%,#24160c 100%);
+  box-shadow:0 0 0 6px #3a2414,0 0 0 8px rgba(232,201,138,.8),0 6px 8px rgba(0,0,0,.55),inset 0 -4px 6px rgba(0,0,0,.45)}
+.set-power-knob::before{content:"";position:absolute;left:50%;top:12%;width:4px;height:30%;border-radius:2px;background:#1a1008;
+  transform:translateX(-50%) rotate(-42deg);transform-origin:50% 160%;transition:transform .5s cubic-bezier(.34,1.35,.64,1)}
+html[data-set="tv"] .pi-slot-tv .set-power-knob::before,
+html[data-set="radio"] .pi-slot-radio .set-power-knob::before{transform:translateX(-50%) rotate(50deg)}
+.set-power-name{font:800 .74rem/1 "Inter",system-ui,sans-serif;letter-spacing:.24em}
+html[data-set="tv"] .pi-slot-tv .set-power-name,
+html[data-set="radio"] .pi-slot-radio .set-power-name{color:#ffe7b8;text-shadow:0 0 10px rgba(255,160,40,.85)}
+.set-power:focus-visible{outline:2px solid var(--fire2);outline-offset:3px;border-radius:10px}
+@keyframes crt-power{
+  0%{filter:brightness(0)}
+  12%{filter:brightness(2.4) contrast(1.3)}
+  22%{filter:brightness(.15)}
+  38%{filter:brightness(1.7)}
+  52%{filter:brightness(.45)}
+  70%{filter:brightness(1.15)}
+  100%{filter:none}
+}
+.tv-screen.is-flicker{animation:crt-power .65s linear}
+@keyframes dial-warm{
+  0%{filter:brightness(.25) saturate(.3)}
+  45%{filter:brightness(1.45) saturate(1.25)}
+  100%{filter:brightness(1) saturate(1)}
+}
+.otr-dial.is-warm .otr-dial-svg{animation:dial-warm .8s ease-out}
+@media (max-width:760px){
+  .pi-pair,html[data-set="radio"] .pi-pair{grid-template-columns:1fr;gap:.35rem}
+  html:not([data-set="radio"]) .pi-slot-tv,html[data-set="radio"] .pi-slot-radio{order:1}
+  html:not([data-set="radio"]) .pi-slot-radio,html[data-set="radio"] .pi-slot-tv{order:2}
+  /* Whole cabinet, shrunk, so the dark set still reads as a set and both fit near the top. */
+  html:not([data-set="radio"]) .pi-slot-radio .set-face,
+  html[data-set="radio"] .pi-slot-tv .set-face{zoom:.5}
+  .set-power{margin-top:.35rem}
+}
+@media (prefers-reduced-motion:reduce){
+  .set-face{transition:none}
 }

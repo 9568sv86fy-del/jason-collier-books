@@ -182,3 +182,97 @@
       });
   });
 })();
+
+/* Power knobs: one set on at a time. The other stays visible, smaller and dark. */
+(function () {
+  var root = document.documentElement;
+  var embed = document.getElementById("pi-embed");
+  var tvPower = document.getElementById("tv-power");
+  var radioPower = document.getElementById("radio-power");
+  var screen = document.querySelector(".tv-screen");
+  var dial = document.getElementById("otr-dial");
+  if (!embed || !tvPower || !radioPower) return;
+
+  var BLANK = "about:blank";
+  var savedFilm = window.__piFilm || "";
+  if (!savedFilm) {
+    var current = embed.getAttribute("src") || "";
+    if (current && current.indexOf(BLANK) !== 0) savedFilm = current;
+  }
+
+  function reduceMotion() {
+    return window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  }
+
+  function mode() {
+    return root.getAttribute("data-set") === "radio" ? "radio" : "tv";
+  }
+
+  function syncButtons() {
+    var radioOn = mode() === "radio";
+    tvPower.setAttribute("aria-pressed", radioOn ? "false" : "true");
+    radioPower.setAttribute("aria-pressed", radioOn ? "true" : "false");
+    tvPower.setAttribute("aria-label", radioOn ? "Turn on the television" : "Television is on");
+    radioPower.setAttribute("aria-label", radioOn ? "Radio is on" : "Turn on the radio");
+  }
+
+  function pauseRadio() {
+    var audio = document.getElementById("otr-audio");
+    if (audio && !audio.paused) audio.pause();
+  }
+
+  function stopFilm() {
+    var src = embed.getAttribute("src") || "";
+    if (src && src.indexOf(BLANK) !== 0) savedFilm = src;
+    if (src !== BLANK) embed.setAttribute("src", BLANK);
+  }
+
+  function restoreFilm() {
+    if (!savedFilm || savedFilm.indexOf(BLANK) === 0) return;
+    if (embed.getAttribute("src") !== savedFilm) embed.setAttribute("src", savedFilm);
+  }
+
+  function flicker() {
+    if (!screen || reduceMotion()) return;
+    screen.classList.remove("is-flicker");
+    void screen.offsetWidth;
+    screen.classList.add("is-flicker");
+  }
+
+  function warmDial() {
+    if (!dial || reduceMotion()) return;
+    dial.classList.remove("is-warm");
+    void dial.offsetWidth;
+    dial.classList.add("is-warm");
+  }
+
+  function setMode(next, animate) {
+    if (mode() === next) {
+      syncButtons();
+      return;
+    }
+    root.setAttribute("data-set", next);
+    try { localStorage.setItem("pi-set", next === "radio" ? "radio" : "tv"); } catch (e) {}
+    var hash = next === "radio" ? "#radio" : "#movies";
+    if (location.hash !== hash) history.replaceState(null, "", hash);
+    if (next === "tv") {
+      pauseRadio();
+      restoreFilm();
+      if (animate) flicker();
+    } else {
+      stopFilm();
+      if (animate) warmDial();
+    }
+    syncButtons();
+  }
+
+  tvPower.addEventListener("click", function () { setMode("tv", true); });
+  radioPower.addEventListener("click", function () { setMode("radio", true); });
+  window.addEventListener("hashchange", function () {
+    if (location.hash === "#radio") setMode("radio", true);
+    else if (location.hash === "#movies") setMode("tv", true);
+  });
+
+  if (mode() === "radio") stopFilm();
+  syncButtons();
+})();
