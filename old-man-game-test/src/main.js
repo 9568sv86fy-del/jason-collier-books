@@ -1,0 +1,1397 @@
+// Old Man on the Mountain — main loop. Glues the engine (pictures), game (rules), hud and audio.
+import * as THREE from "three";
+import { createEngine, CAM_SPOTS, CAMP_FIRE } from "./engine.js";
+import { createHud } from "./hud.js";
+import { createInput } from "./input.js";
+import * as A from "./audio.js";
+import * as X from "./audio-extra.js";
+import * as G from "./game.js";
+import { lightAt, moonOf, snowAt } from "./light.js";
+import { BOUNDS, OVERLOOKS, PLACES, PLACE_IDS, VIEWS, heightAt, placeAt, trailBetween, trailDist } from "./terrain.js";
+import { collide, occlusion, trunksNear } from "./forest.js";
+import { clamp, damp, dampAngle, fmtClock, hash2, lerp, smooth, wrapPi } from "./util.js";
+
+const SAVE_KEY = "oldman-v2-save";
+const canvas = document.getElementById("view");
+const E = createEngine(canvas);
+const hud = createHud();
+const input = createInput(document.getElementById("app"), document.getElementById("stick"), document.getElementById("knob"));
+for (const id of PLACE_IDS) PLACES[id].y = heightAt(PLACES[id].x, PLACES[id].z);
+
+let S = null; // game state
+const P = { x: PLACES.truck.x - 2, z: PLACES.truck.z - 6, yaw: 0, speed: 0, moving: false, running: false, sneaking: false, lastStepPhase: 0, travelled: 0, stillFor: 0 };
+const cam = E.rig;
+let mode = "title"; // title | play | optic | ending
+let optic = null; // {kind:'binos'|'scope', yaw, pitch, hold, progress, target}
+let paused = false;
+let lastT = performance.now();
+let gameClockAcc = 0;
+let lookIdleT = 0;
+let fps = { acc: 0, n: 0, avg: 16 };
+const TIME_SCALE = 1; // game minutes per real second while walking
+const T = { now: 0 };
+
+/* --------------------------------- creatures state --------------------------------- */
+const bull = { x: 0, z: 0, yaw: 0, mode: "graze", vis: false, place: null, run: null, alertT: 0, wander: 0 };
+const cows = [0, 1, 2].map((i) => ({ x: 0, z: 0, yaw: 0, off: [Math.cos(i * 2.1) * 9, Math.sin(i * 2.1) * 7], run: null, place: null }));
+const W = { mode: "away", x: 0, z: 0, yaw: 0, t: 0, side: 1, hideT: 0, lastTrack: { x: 0, z: 0 }, seenNight: 0, eyes: 0, stillT: 0, charge: null, nextApproachAbs: 0, ridge: null, assault: null, pinned: 0 };
+
+/* --------------------------------- boot --------------------------------- */
+function resize() { E.resize(); }
+addEventListener("resize", resize);
+resize();
+
+function freshGame() {
+  S = G.newGame();
+  P.x = PLACES.truck.x - 2; P.z = PLACES.truck.z - 7; P.yaw = 0.05;
+  cam.yaw = P.yaw;
+  E.prints.clear(); E.elkTracks.clear(); E.walkerTracks.clear(); E.blood.clear();
+  layElkTracks();
+}
+function save() {
+  if (!S || S.mode !== "play") return;
+  try { localStorage.setItem(SAVE_KEY, JSON.stringify({ S, P: { x: P.x, z: P.z, yaw: P.yaw } })); } catch {}
+}
+function load() {
+  try {
+    const raw = localStorage.getItem(SAVE_KEY);
+    if (!raw) return false;
+    const d = JSON.parse(raw);
+    if (!d.S || d.S.v !== 2 || d.S.mode !== "play") return false;
+    S = d.S;
+    if (S.flags.finale) S.flags.finale = 0; // a chase resumes when you near the truck again
+    Object.assign(P, d.P);
+    cam.yaw = P.yaw;
+    layElkTracks();
+    return true;
+  } catch { return false; }
+}
+
+/* elk tracks: a followable line of prints from the spur toward wherever he feeds today */
+let elkPts = [];
+let signRing = null;
+function layElkTracks() {
+  E.elkTracks.clear();
+  elkPts = [];
+  const dest = G.bullPlace(S) || G.cowsPlace(S) || "meadow";
+  const from = ["spur", "burn", "camp", "knob", "saddle"].find((p) => p !== dest) || "spur";
+  const path = G.route(from, dest);
+  for (let i = 0; i < path.length - 1; i++) {
+    const pts = trailBetween(path[i], path[i + 1]);
+    if (!pts) continue;
+    for (let k = 0; k < pts.length - 1; k++) {
+      const a = pts[k], b = pts[k + 1];
+      const L = Math.hypot(b.x - a.x, b.z - a.z);
+      const yaw = Math.atan2(-(b.x - a.x), -(b.z - a.z));
+      for (let s = 0; s < L; s += 1.6) {
+        const t = s / L;
+        const side = (Math.floor(s / 1.6) % 2 ? 1 : -1) * 0.18;
+        const x = lerp(a.x, b.x, t) + Math.cos(yaw) * (1.2 + side), z = lerp(a.z, b.z, t) - Math.sin(yaw) * (1.2 + side);
+        E.elkTracks.add(x, z, yaw, 1.3);
+        elkPts.push(x, z);
+      }
+    }
+  }
+  // Day 1 tutorial: the first fresh prints by the spur glow faintly until read
+  if (S.day === 1 && !S.flags.signRead && elkPts.length > 20) {
+    const sx = elkPts[14], sz = elkPts[15];
+    S.flags.signAt = { x: sx, z: sz };
+    if (!signRing) {
+      signRing = new THREE.Mesh(new THREE.RingGeometry(0.9, 1.5, 40), new THREE.MeshBasicMaterial({ color: 0xffd9a0, transparent: true, opacity: 0.3, depthWrite: false, depthTest: false, blending: THREE.AdditiveBlending, fog: false }));
+      signRing.rotation.x = -Math.PI / 2;
+      E.scene.add(signRing);
+    }
+    signRing.position.set(sx, heightAt(sx, sz) + 0.12, sz);
+    signRing.renderOrder = 5;
+    signRing.visible = true;
+  } else if (signRing) signRing.visible = false;
+}
+function updateSignRing(t) {
+  if (!signRing || !signRing.visible) return;
+  if (S.flags.signRead || S.day > 1) { signRing.visible = false; return; }
+  signRing.material.opacity = 0.18 + Math.sin(t * 2.4) * 0.12;
+  const s = 1 + Math.sin(t * 2.4) * 0.08;
+  signRing.scale.set(s, s, s);
+}
+
+/* --------------------------------- overlays --------------------------------- */
+const TITLE_BG = "./assets/title.jpg";
+function showTitle() {
+  mode = "title";
+  const has = !!localStorage.getItem(SAVE_KEY);
+  const c = hud.overlay(
+    `<div class="title-bg" style="background-image:url(${TITLE_BG})"></div>
+     <div style="position:relative">
+      <h2>A HORROR HUNT · SEVEN DAYS</h2>
+      <h1>Old Man<br>on the Mountain</h1>
+      <p class="small">After the novel by Jason Collier</p>
+      <div style="margin-top:22px">
+        ${has ? `<button class="btn hot" id="tContinue">CONTINUE</button>` : ""}
+        <button class="btn ${has ? "" : "hot"}" id="tNew">LEAVE THE TRUCK</button>
+      </div>
+      <p class="small" style="margin-top:14px">Headphones. Lights off.</p>
+     </div>`,
+  );
+  c.querySelector("#tNew").onclick = () => { A.unlockAudio(); freshGame(); intro(); };
+  const cont = c.querySelector("#tContinue");
+  if (cont) cont.onclick = () => { A.unlockAudio(); if (load()) startPlay(); else { freshGame(); intro(); } };
+}
+function intro() {
+  const lines = [
+    "Seven days. One bull.",
+    "Something on this mountain has been watching hunters a long time.",
+    "Find his tracks. Glass him from high ground. Be back at the fire before dark.",
+  ];
+  let i = 0;
+  const step = () => {
+    if (i >= lines.length) { controlsCard(true); return; }
+    const c = hud.overlay(`<p style="font-size:26px;font-style:italic">${lines[i]}</p><p class="small">tap to continue</p>`, { clear: false });
+    i++;
+    const next = () => { clearTimeout(tm); document.getElementById("overlay").onclick = null; step(); };
+    const tm = setTimeout(next, 3800);
+    document.getElementById("overlay").onclick = next;
+  };
+  X.truckDoor();
+  step();
+}
+function controlsCard(first) {
+  const touch = matchMedia("(pointer: coarse)").matches;
+  const c = hud.overlay(
+    `<h2>HOW TO HUNT</h2>
+     <div class="controls">
+      ${touch ? `<b>LEFT THUMB</b><span>Walk where you push. Push lightly to sneak.</span><b>DRAG</b><span>Look around</span>` : `<b>W A S D</b><span>Walk and turn (arrows work too)</span><b>MOUSE DRAG</b><span>Look around</span><b>SHIFT / C</b><span>Run (loud) · Sneak (quiet)</span>`}
+      <b>COMPASS</b><span>Orange diamond = what to do next. Fire = camp.</span>
+      <b>LOOK</b><span>Glass from high ground. Elsewhere, read sign${touch ? "" : " (F)"}</span>
+      <b>RIFLE</b><span>Scope up. Hold breath, then fire${touch ? "" : " (R)"}</span>
+      <b>NERVE</b><span>The dark takes it. The fire gives it back.</span>
+     </div>
+     <button class="btn hot" id="cGo">${first ? "START" : "BACK"}</button>`,
+  );
+  c.querySelector("#cGo").onclick = () => { hud.closeOverlay(); if (first) startPlay(); else paused = false; };
+}
+function startPlay() {
+  hud.closeOverlay();
+  mode = "play";
+  paused = false;
+  document.getElementById("loading").classList.add("gone");
+  A.unlockAudio();
+  A.ensureWind();
+  A.ensureAmbience();
+  X.init();
+  hud.setLine(S.line || "", T.now);
+  if (!S.line) G.say(S, "The truck ticks as it cools. The trail starts behind it, up through the spruce.");
+}
+function pauseMenu() {
+  paused = true;
+  input.clear();
+  const c = hud.overlay(
+    `<h2>PAUSED</h2><p>Day ${S.day} · ${fmtClock(S.minutes)}</p>
+     <button class="btn hot" id="pRes">RESUME</button><br>
+     <button class="btn" id="pHow">HOW TO HUNT</button><br>
+     <button class="btn" id="pMute">${X.muted() ? "SOUND ON" : "SOUND OFF"}</button><br>
+     <button class="btn ghost" id="pNew">ABANDON HUNT</button>`,
+  );
+  c.querySelector("#pRes").onclick = () => { hud.closeOverlay(); paused = false; };
+  c.querySelector("#pHow").onclick = () => controlsCard(false);
+  c.querySelector("#pMute").onclick = () => { X.toggleMute(); hud.closeOverlay(); paused = false; };
+  c.querySelector("#pNew").onclick = () => { localStorage.removeItem(SAVE_KEY); hud.closeOverlay(); showTitle(); };
+}
+function notesSheet() {
+  paused = true;
+  input.clear();
+  const notes = [...S.notes].reverse().map((n) => `<div class="note"><small>DAY ${n.day} · ${n.clock}</small>${n.text}</div>`).join("");
+  hud.sheet(`<h3>FIELD NOTES</h3>${notes}<button class="btn" id="nClose">CLOSE</button>`);
+  document.getElementById("nClose").onclick = () => { hud.closeSheet(); paused = false; };
+}
+function job(title, text, secs, gameMins, done) {
+  paused = true;
+  input.clear();
+  const c = hud.overlay(`<h2>${title}</h2><p>${text}</p><div class="optic-bar" style="position:relative;left:auto;top:auto;margin:16px auto"><i id="jobFill"></i></div>`, { clear: true });
+  const t0 = performance.now();
+  X.work(secs);
+  const iv = setInterval(() => {
+    const k = (performance.now() - t0) / (secs * 1000);
+    const f = document.getElementById("jobFill");
+    if (f) f.style.width = `${Math.min(100, k * 100)}%`;
+    if (k >= 1) {
+      clearInterval(iv);
+      hud.closeOverlay();
+      paused = false;
+      if (gameMins) advance(gameMins);
+      done();
+    }
+  }, 50);
+}
+
+/* --------------------------------- actions --------------------------------- */
+function near(x, z, r) { return Math.hypot(P.x - x, P.z - z) < r; }
+function atCamp() { return near(CAMP_FIRE.x, CAMP_FIRE.z, 11); }
+function hereOverlook() { const p = placeAt(P.x, P.z, 6); return OVERLOOKS.includes(p) ? p : null; }
+function nearestStick() {
+  let best = null, bd = 2.2;
+  for (const s of S.sticks) { const d = Math.hypot(s.x - P.x, s.z - P.z); if (d < bd) { bd = d; best = s; } }
+  return best;
+}
+function ctxActions() {
+  const out = [];
+  if (!S || S.mode !== "play") return out;
+  const st = nearestStick();
+  if (st) out.push({ id: "stick", label: "TAKE WOOD", key: "E" });
+  if (atCamp()) {
+    if (G.canBuildFire(S) && S.minutes < 23 * 60) out.push({ id: "fire", label: "LAY FIRE", key: "E" });
+    if (S.carried >= 3 && S.wall < 4 && S.day >= 2) out.push({ id: "wall", label: `BUILD WALL ${S.wall}/4`, key: "B" });
+    if (S.carried >= 2 && !S.deadfall && S.day >= 4) out.push({ id: "deadfall", label: "RIG DEADFALL", key: "G" });
+    if (G.fireLit(S) && !S.watch && S.minutes >= 16 * 60 + 30 && S.minutes < 22 * 60) out.push({ id: "situp", label: "SIT UP", key: "Z" });
+    if (G.canSleep(S, true) && W.mode !== "assault") out.push({ id: "sleep", label: "SLEEP", key: "Z" });
+  }
+  for (const [id, sp] of Object.entries(CAM_SPOTS)) {
+    if (!near(sp.x, sp.z, 4.5)) continue;
+    const c = S.cams[id];
+    if (!c && S.camsLeft > 0) out.push({ id: "hang:" + id, label: "HANG CAMERA", key: "E" });
+    if (c && c.day < S.day && c.pulled !== S.day) out.push({ id: "pull:" + id, label: "PULL CARD", key: "E" });
+  }
+  if (S.elk.down && !S.elk.packed && near(S.elk.x, S.elk.z, 5)) out.push({ id: "pack", label: "PACK MEAT", key: "E" });
+  if (!S.rifle && S.rifleAt && near(S.rifleAt.x, S.rifleAt.z, 3.5)) out.push({ id: "rifle", label: "TAKE RIFLE", key: "E" });
+  if (near(PLACES.truck.x + 5, PLACES.truck.z + 4, 9)) out.push({ id: "out", label: "WALK OUT", key: "E" });
+  return out;
+}
+function doAction(id) {
+  if (paused || mode !== "play") return;
+  A.unlockAudio();
+  if (id === "stick") {
+    const st = nearestStick();
+    if (st && G.pickStick(S, st.id)) X.stick();
+  } else if (id === "fire") {
+    job("LAYING THE FIRE", "Tinder, kindling, four dry sticks teepeed in the stones.", 2.2, 15, () => { G.buildFire(S); X.lighter(); });
+  } else if (id === "wall") {
+    job("THE WALL", "Drag deadfall into the line. Pack snow on it.", 2.6, 35, () => G.addWall(S));
+  } else if (id === "deadfall") {
+    job("THE DEADFALL", "Half-cut the dead spruce, wedge it, run the cord back to your seat.", 3, 45, () => G.rigDeadfall(S));
+  } else if (id === "situp") {
+    G.sitUp(S);
+  } else if (id === "sleep") {
+    doSleep(true);
+  } else if (id.startsWith("hang:")) {
+    const spot = id.slice(5);
+    job("TRAIL CAMERA", "Strap it low on the trunk. Stills and short bursts after dark.", 2, 12, () => { G.hangCam(S, spot); X.beep(); });
+  } else if (id.startsWith("pull:")) {
+    showCard(id.slice(5));
+  } else if (id === "pack") {
+    job("THE WORK", "Quarters, backstraps, the heart. Your knife, your breath, the cold.", 4, 0, () => { G.packMeat(S); E.harlan.setMeat(true); });
+  } else if (id === "rifle") {
+    S.rifle = true; S.rifleAt = null;
+    G.say(S, "The Winchester lies across its tracks, stock gouged by something like teeth. It left it for you to find. That is worse.", true);
+    X.stick();
+  } else if (id === "out") {
+    if (!S.elk.packed && S.day < 7) {
+      paused = true;
+      input.clear();
+      const c = hud.overlay(`<h2>THE TRUCK</h2><p>Walk out now, ${S.elk.packed ? "with the meat" : "with nothing"}? The hunt ends.</p><button class="btn hot" id="oYes">DRIVE DOWN</button><button class="btn" id="oNo">STAY</button>`);
+      c.querySelector("#oYes").onclick = () => { hud.closeOverlay(); paused = false; G.walkOut(S); finish(); };
+      c.querySelector("#oNo").onclick = () => { hud.closeOverlay(); paused = false; };
+    } else { G.walkOut(S); finish(); }
+  }
+}
+function doSleep(atCampNow) {
+  paused = true;
+  input.clear();
+  hud.el.flash.style.background = "#000";
+  hud.flash(1, 2600);
+  setTimeout(() => { hud.el.flash.style.background = "#fff"; }, 2700);
+  const lit = S.fireDay === S.day;
+  G.sleep(S, atCampNow);
+  E.prints.clear();
+  E.walkerTracks.clear();
+  if (atCampNow) { for (let i = 0; i < 26; i++) { const a = (i / 26) * Math.PI * 2; const r = lit ? 17 : 6; E.walkerTracks.add(CAMP_FIRE.x + Math.cos(a) * r, CAMP_FIRE.z + Math.sin(a) * r, -a, 1); } }
+  W.mode = "away";
+  layElkTracks();
+  save();
+  hud.toast(`DAY ${S.day}`, S.day >= 7 ? "The last day." : ["", "", "He moves at last light.", "Something walked the stones.", "It is learning you.", "The wall. The fire. The Colt.", "It wants you to run."][S.day - 1] || "");
+  paused = false;
+  if (S.mode === "ending") finish();
+}
+function advance(mins) {
+  // fast time passing (jobs, packing): run the clock in chunks so beats still fire
+  let left = mins;
+  while (left > 0 && S.mode === "play") {
+    const k = Math.min(5, left);
+    stepClock(k);
+    left -= k;
+  }
+}
+
+/* LOOK: glass from an overlook, else read sign / listen */
+function doLook() {
+  if (paused || mode !== "play") return;
+  A.unlockAudio();
+  if (W.mode === "still") return;
+  const ov = hereOverlook();
+  if (ov || W.ridge) { enterOptic("binos"); return; }
+  // sign underfoot?
+  const place = placeAt(P.x, P.z, 10);
+  let nearKind = null;
+  if (W.trackNear) nearKind = "walker";
+  else if (S.elk.wounded && bloodNear()) nearKind = "blood";
+  else if (elkTrackNear()) nearKind = "elk";
+  let text = G.readSign(S, place, nearKind);
+  if (nearKind === "elk" && S.day === 1 && !S.flags.signRead) {
+    S.flags.signRead = 1;
+    text = "Elk. Prints wide as your palm, walking, not hurried. Cows, and one set bigger than the rest, sunk deep. They go down toward the park. You won't catch them on their tracks. Get high and let your eyes do the walking.";
+    if (signRing) signRing.visible = false;
+  }
+  G.say(S, text, nearKind === "walker");
+  advance(nearKind ? 4 : 10);
+  if (S.tut === 0 && place === "spur") S.tut = 1;
+}
+function elkTrackNear() {
+  for (let i = 0; i < elkPts.length; i += 2) if (Math.abs(elkPts[i] - P.x) < 3.5 && Math.hypot(elkPts[i] - P.x, elkPts[i + 1] - P.z) < 3.5) return true;
+  return false;
+}
+function bloodNear() { return true; }
+function doRifle() {
+  if (paused || mode !== "play") return;
+  if (!S.rifle) { G.say(S, "Your hands go for the Winchester and find nothing. The Colt, then. Seven rounds and a short reach."); enterOptic("scope", true); return; }
+  if (S.rounds <= 0) { G.say(S, "The magazine is empty. It is a heavy stick."); return; }
+  enterOptic("scope");
+}
+
+/* trail-camera card viewer: three real frames rendered from the camera's spot */
+function showCard(spot) {
+  paused = true;
+  input.clear();
+  const frames = G.pullCard(S, spot);
+  X.beep();
+  const imgs = frames.map((f, i) =>
+    E.renderCard(spot, (cc, sp) => {
+      // stage the frame
+      const placeAhead = (dist, lateral) => {
+        const dir = new THREE.Vector3();
+        cc.getWorldDirection(dir);
+        const right = new THREE.Vector3(-dir.z, 0, dir.x).normalize();
+        const x = cc.position.x + dir.x * dist + right.x * lateral, z = cc.position.z + dir.z * dist + right.z * lateral;
+        return { x, z, yaw: Math.atan2(dir.x, dir.z) };
+      };
+      const vis = [];
+      if (f.kind === "cows") {
+        E.cows.forEach((c, k) => { const p = placeAhead(8 + k * 3, -2.5 + k * 2.6); c.root.position.set(p.x, heightAt(p.x, p.z), p.z); c.root.rotation.y = p.yaw + 1.2; c.root.visible = true; c.animate("alert", 0, 1); vis.push(c.root); });
+      } else if (f.kind !== "empty") {
+        const spec = f.kind === "edge" ? [9, -4.3, 0.6] : f.kind === "mid" ? [7, -0.8, 0.3] : [4.6, 0, 0];
+        const p = placeAhead(spec[0], spec[1]);
+        E.walker.root.position.set(p.x, heightAt(p.x, p.z), p.z);
+        E.walker.root.rotation.y = p.yaw;
+        E.walker.root.visible = true;
+        E.walker.animate("stand", 0, 3.3, f.kind === "face" ? 1 : 0.2);
+        vis.push(E.walker.root);
+      }
+      return () => { vis.forEach((v) => (v.visible = false)); };
+    }),
+  );
+  let i = 0;
+  const show = () => {
+    const f = frames[i];
+    const cv = imgs[i];
+    const g = cv.getContext("2d");
+    g.fillStyle = "rgba(0,0,0,0.6)"; g.fillRect(0, 296, 480, 24);
+    g.fillStyle = "#ddd"; g.font = "14px monospace";
+    g.fillText(`CAM ${Object.keys(CAM_SPOTS).indexOf(spot) + 1}  D${S.day - 1}  0${1 + i}:${String(14 + i * 7).padStart(2, "0")}:0${i}  -9°C  IR`, 8, 313);
+    const c = hud.overlay(`<h2>TRAIL CAMERA · FRAME ${i + 1}/3</h2><div id="cardHost"></div><p>${f.text}</p><button class="btn hot" id="cNext">${i < 2 ? "NEXT FRAME" : "POCKET THE CARD"}</button>`);
+    cv.className = "card";
+    c.querySelector("#cardHost").appendChild(cv);
+    if (f.kind === "face") { X.sting(); hud.flash(0.25, 300); }
+    c.querySelector("#cNext").onclick = () => {
+      i++;
+      if (i < 3) show();
+      else { hud.closeOverlay(); paused = false; const w = S.cards[S.cards.length - 1].worst; G.say(S, w === "face" ? "You power the camera down and sit a minute longer, scanning the park. Nothing moves. Old men see things, you think." : w === "edge" ? "Glitch, you tell yourself. Cheap cameras do strange things in the cold." : "Cows, coyotes, branches. Ordinary answers.", w !== "none"); }
+    };
+  };
+  show();
+}
+
+/* --------------------------------- optics (glass + scope) --------------------------------- */
+const opticEl = document.getElementById("optic");
+function enterOptic(kind, colt = false) {
+  mode = "optic";
+  input.clear();
+  optic = { kind, colt, yaw: cam.yaw, pitch: kind === "binos" ? -0.06 : -0.02, hold: 0, holdLeft: 3.5, progress: 0, sway: 0, t: 0, marked: false };
+  // raise the glass to whatever living thing is nearest your line of sight
+  const eyeY = heightAt(P.x, P.z) + 1.65;
+  const cands = [];
+  if (bull.vis) cands.push([bull.x, bull.z, 1.3]);
+  for (const c of E.cows) if (c.root.visible) cands.push([c.root.position.x, c.root.position.z, 1.1]);
+  let best = null, bd = 0.55;
+  for (const [x, z, hgt] of cands) {
+    const dy = Math.abs(wrapPi(Math.atan2(-(x - P.x), -(z - P.z)) - cam.yaw));
+    if (dy < bd) { bd = dy; best = [x, z, hgt]; }
+  }
+  if (best) optic.pitch = Math.atan2(heightAt(best[0], best[1]) + best[2] - eyeY, Math.hypot(best[0] - P.x, best[1] - P.z));
+  opticEl.classList.remove("hidden", "binos", "scope");
+  opticEl.classList.add(kind);
+  document.body.classList.add("in-optic");
+  document.getElementById("btnHold").style.display = kind === "scope" ? "" : "none";
+  document.getElementById("btnFire").style.display = kind === "scope" ? "" : "none";
+  document.getElementById("opticFill").style.width = "0%";
+  X.glass();
+}
+function baseFov() {
+  const a = innerWidth / innerHeight;
+  return a < 0.75 ? 72 : a < 1.2 ? 64 : 56;
+}
+function exitOptic() {
+  mode = "play";
+  opticEl.classList.add("hidden");
+  document.body.classList.remove("in-optic");
+  cam.yaw = optic ? optic.yaw : cam.yaw;
+  optic = null;
+  E.camera.fov = baseFov();
+  E.camera.updateProjectionMatrix();
+}
+const ray = new THREE.Raycaster();
+function fireShot() {
+  if (!optic || optic.kind !== "scope") return;
+  const colt = optic.colt;
+  if (!colt && S.rounds <= 0) return;
+  if (colt && S.colt <= 0) return;
+  X.shot(colt);
+  hud.flash(0.35, 160);
+  cam.shake = 0.6;
+  ray.setFromCamera(new THREE.Vector2(0, 0), E.camera);
+  ray.far = colt ? 45 : 400;
+  // walker first (defend)
+  if (E.walker.root.visible && W.mode !== "away") {
+    const hit = ray.intersectObject(E.walker.root, true);
+    if (hit.length) { if (colt) S.colt--; else S.rounds--; walkerShot(colt); return; }
+  }
+  const legal = S.minutes >= G.DAWN - 10 && S.minutes <= G.LEGAL_END;
+  if (bull.vis && !colt) {
+    const hits = ray.intersectObjects(E.bull.hitMeshes, false);
+    if (hits.length) {
+      if (!legal) { /* shooting at a shape in the dark */ }
+      const part = hits.find((h) => h.object.userData.part === "vitals") ? "vitals" : "body";
+      const res = G.shotResult(S, part, bull.x, bull.z);
+      if (res === "down") { bull.mode = "down"; bull.deathRun = { t: 0, fromX: bull.x, fromZ: bull.z }; }
+      else { startBullRun(); if (res === "wounded") layBlood(); }
+      setTimeout(() => exitOptic(), 900);
+      return;
+    }
+  }
+  if (colt) S.colt--; else S.rounds--;
+  if (bull.vis) { G.spookBull(S, "shot"); startBullRun(); }
+  else G.say(S, "The crack rolls off three ridges and comes back to you smaller each time.");
+  S.pressure = clamp(S.pressure + 2, 0, 100);
+}
+function walkerShot(colt) {
+  X.roar();
+  S.flags.shotWalker = (S.flags.shotWalker || 0) + 1;
+  S.pressure = clamp(S.pressure - 10, 0, 100);
+  S.heart = clamp(S.heart + 6, 0, 100);
+  G.say(S, W.mode === "assault" ? (colt ? "The .45 booms in the knoll." : "The Winchester slams in the knoll.") + " Muzzle flash in white strobes: bark-skin splintering, dark sap-like blood. It wrenches away downslope, breaking spruce like twigs." : "You fire at the shape. It is not there when the flash clears. Something heavy goes away through the timber, not hurrying.", true);
+  if (W.mode === "assault") { S.flags.repelled = S.day; }
+  W.mode = "flee"; W.t = 0;
+  setTimeout(() => exitOptic(), 700);
+}
+
+/* --------------------------------- bull + cows --------------------------------- */
+function placeSpot(place, salt) {
+  const Pp = PLACES[place];
+  const a = hash2(S.day * 7 + salt, place.length * 13) * Math.PI * 2;
+  const r = place === "meadow" ? 18 : 9;
+  let x = Pp.x + Math.cos(a) * r, z = Pp.z + Math.sin(a) * r;
+  if (trailDist(x, z) < 4) { x += 6; z -= 4; }
+  return { x, z };
+}
+function startBullRun() {
+  const to = G.bullPlace(S) || "timber";
+  const dest = placeSpot(to, 3);
+  bull.run = { t: 0, fx: bull.x, fz: bull.z, tx: dest.x, tz: dest.z, dur: 4.5 };
+  X.crash(panOf(bull.x, bull.z));
+}
+function layBlood() {
+  const to = PLACES[S.elk.bloodTo] || PLACES.timber;
+  const dx = to.x - bull.x, dz = to.z - bull.z, L = Math.hypot(dx, dz);
+  for (let s = 2; s < L; s += 3.5) E.blood.add(bull.x + (dx / L) * s + Math.sin(s) * 0.8, bull.z + (dz / L) * s, 0, 0.6 + (s % 2) * 0.4);
+}
+function updateBull(dt) {
+  const showing = G.bullShowing(S);
+  const place = G.bullPlace(S);
+  const t = T.now / 1000;
+  if (S.elk.down && !S.elk.packed && !S.elk.spoiled) {
+    if (bull.deathRun && bull.deathRun.t < 2.2) {
+      bull.deathRun.t += dt;
+      bull.x += Math.sin(bull.yaw) * dt * 4 * (1 - bull.deathRun.t / 2.2);
+      bull.z += Math.cos(bull.yaw) * dt * 4 * (1 - bull.deathRun.t / 2.2);
+      S.elk.x = bull.x; S.elk.z = bull.z;
+      E.bull.animate(bull.deathRun.t < 1.6 ? "run" : "down", dt, t);
+    } else { bull.x = S.elk.x; bull.z = S.elk.z; E.bull.animate("down", dt, t); }
+    bull.vis = true;
+  } else if (bull.run) {
+    bull.run.t += dt;
+    const k = Math.min(1, bull.run.t / bull.run.dur);
+    bull.x = lerp(bull.run.fx, bull.run.tx, k);
+    bull.z = lerp(bull.run.fz, bull.run.tz, k);
+    bull.yaw = Math.atan2(bull.run.tx - bull.run.fx, bull.run.tz - bull.run.fz);
+    E.bull.animate("run", dt, t);
+    bull.vis = Math.hypot(bull.x - P.x, bull.z - P.z) < 80 && k < 0.7;
+    if (k >= 1) bull.run = null;
+  } else if (showing && place && !S.elk.packed && !S.elk.spoiled) {
+    if (bull.place !== place) {
+      const sp = placeSpot(place, 1);
+      bull.x = sp.x; bull.z = sp.z; bull.place = place; bull.yaw = hash2(S.day, 5) * 6.28;
+    }
+    const st = G.bullState(S);
+    bull.wander += dt;
+    if (st === "graze" && bull.alertT <= 0) {
+      bull.x += Math.sin(bull.yaw) * dt * 0.25;
+      bull.z += Math.cos(bull.yaw) * dt * 0.25;
+      if (Math.sin(bull.wander * 0.13) > 0.97) bull.yaw += dt * 0.6;
+    }
+    bull.alertT -= dt;
+    E.bull.animate(bull.alertT > 0 ? "alert" : st === "bed" ? "bed" : Math.sin(bull.wander * 0.3) > -0.2 ? "graze" : "stand", dt, t);
+    bull.vis = Math.hypot(bull.x - P.x, bull.z - P.z) < 320;
+    // detection: wind, noise, sight
+    if (mode === "play" || mode === "optic") detectBull();
+  } else bull.vis = false;
+  E.bull.root.visible = bull.vis;
+  if (bull.vis) {
+    E.bull.root.position.set(bull.x, heightAt(bull.x, bull.z), bull.z);
+    E.bull.root.rotation.y = bull.yaw + Math.PI; // model faces -z
+  }
+  // cows
+  const cp = G.cowsPlace(S);
+  cows.forEach((c, i) => {
+    const m = E.cows[i];
+    if (!cp || S.day > 6) { m.root.visible = false; c.place = null; return; }
+    if (c.place !== cp) { const sp = placeSpot(cp, 9 + i); c.x = sp.x + c.off[0]; c.z = sp.z + c.off[1]; c.place = cp; c.yaw = i * 2; }
+    if (c.run) {
+      c.run.t += dt;
+      const k = Math.min(1, c.run.t / 5);
+      c.x = lerp(c.run.fx, c.run.tx, k); c.z = lerp(c.run.fz, c.run.tz, k);
+      m.animate("run", dt, t);
+      if (k >= 1) c.run = null;
+    } else {
+      c.x += Math.sin(c.yaw) * dt * 0.18; c.z += Math.cos(c.yaw) * dt * 0.18;
+      c.yaw += Math.sin(t * 0.1 + i) * dt * 0.1;
+      m.animate(Math.sin(t * 0.2 + i * 2) > -0.3 ? "graze" : "stand", dt, t + i);
+      const d = Math.hypot(c.x - P.x, c.z - P.z);
+      if (d < (P.running ? 70 : P.sneaking ? 16 : 32) && mode === "play") {
+        const a = Math.atan2(c.x - P.x, c.z - P.z);
+        c.run = { t: 0, fx: c.x, fz: c.z, tx: c.x + Math.sin(a) * 60, tz: c.z + Math.cos(a) * 60 };
+        c.yaw = a;
+      }
+    }
+    m.root.visible = Math.hypot(c.x - P.x, c.z - P.z) < 320;
+    m.root.position.set(c.x, heightAt(c.x, c.z), c.z);
+    m.root.rotation.y = c.yaw + Math.PI;
+  });
+}
+function detectBull() {
+  const d = Math.hypot(bull.x - P.x, bull.z - P.z);
+  const bedded = G.bullState(S) === "bed";
+  // Day 2 at last light: he looks past you at the timber and bolts (scripted, once)
+  if (S.day === 2 && d < 75 && !S.beats.includes("d2-spook")) {
+    S.beats.push("d2-spook");
+    bull.alertT = 1.6;
+    bull.yaw = Math.atan2(PLACES.timber.x - bull.x, PLACES.timber.z - bull.z);
+    setTimeout(() => {
+      G.spookBull(S, "script");
+      S.heart = clamp(S.heart - 6, 0, 100);
+      S.pressure = clamp(S.pressure + 8, 0, 100);
+      startBullRun();
+      setTimeout(() => A.playFx("scream", { pan: panOf(PLACES.timber.x, PLACES.timber.z), near: true }), 1200);
+    }, 1600);
+    return;
+  }
+  if (S.day < 3 || window.__oldman.noSpook) return;
+  const loud = !P.moving ? 0 : P.running ? 95 : P.sneaking ? 12 : 36;
+  const k = bedded ? 0.6 : 1;
+  let why = null;
+  if (d < loud * k) why = "noise";
+  else if (d < 75 && !hereOverlook() && G.upwind(S, P.x, P.z, bull.x, bull.z)) why = "wind";
+  else if (d < 8) why = "sight";
+  else if (d < 30 && S.elk.marked !== S.day && P.moving && !P.sneaking) why = "sight";
+  if (why) { G.spookBull(S, why); startBullRun(); }
+}
+
+/* --------------------------------- the walker --------------------------------- */
+function panOf(x, z) {
+  const dx = x - P.x, dz = z - P.z;
+  const rx = Math.cos(cam.yaw), rz = -Math.sin(cam.yaw);
+  const d = Math.hypot(dx, dz) || 1;
+  return clamp((dx * rx + dz * rz) / d, -1, 1);
+}
+function walkerAbroad() {
+  const m = S.minutes;
+  return G.isDark(m) || (S.day >= 2 && m >= 17 * 60 + 15);
+}
+function placeWalker(dist, ahead, side) {
+  const fx = -Math.sin(P.yaw), fz = -Math.cos(P.yaw);
+  const rx = Math.cos(P.yaw), rz = -Math.sin(P.yaw);
+  let x = P.x + fx * dist * ahead + rx * dist * side, z = P.z + fz * dist * ahead + rz * dist * side;
+  x = clamp(x, BOUNDS.x0 + 10, BOUNDS.x1 - 10); z = clamp(z, BOUNDS.z0 + 10, BOUNDS.z1 - 10);
+  return { x, z };
+}
+function updateWalker(dt) {
+  const t = T.now / 1000;
+  const m = S.minutes;
+  const dark = G.isDark(m);
+  const fireOn = G.fireLit(S);
+  const atFire = G.atFireNow(S, P.x, P.z);
+  W.t += dt;
+  // the finale: walking out with the meat (or on the last day), it follows you down
+  if (!S.flags.finale && S.mode === "play" && W.mode !== "assault" && (S.elk.packed || (S.day >= 7 && !S.flags.stayFinale)) && Math.hypot(P.x - PLACES.truck.x, P.z - PLACES.truck.z) < 120) startChase();
+  if (W.mode === "chase") { updateChase(dt); return; }
+  const pressureK = clamp((S.pressure + S.day * 8) / 100, 0, 1);
+  const pace = lerp(46, 17, pressureK);
+  let visible = false, eyes = 0, anim = "stand";
+  // day 3 ridge silhouette beat: it stands on the skyline in front of you
+  if (S.beats.includes("d3-ridge") && !S.flags.ridgeDone && m < 18 * 60 + 30) {
+    if (!W.ridge) {
+      const p = placeWalker(150, 0.95, 0.25);
+      W.ridge = { x: p.x, z: p.z, t: 0 };
+    }
+    W.ridge.t += dt;
+    W.x = W.ridge.x; W.z = W.ridge.z;
+    visible = true; anim = "stand";
+    const lookAt = Math.abs(wrapPi(Math.atan2(-(W.x - P.x), -(W.z - P.z)) - (optic ? optic.yaw : cam.yaw)));
+    if (W.ridge.t > 25 || (optic && optic.kind === "binos" && lookAt < 0.06 && W.ridge.t > 3)) {
+      S.flags.ridgeDone = 1;
+      if (optic) { G.say(S, "You put the glass on it and wish the glass were empty. It is the height of a man stood on a man's shoulders. The arms hang wrong. It looks into the lens until you take it down.", true); S.heart = clamp(S.heart - 8, 0, 100); X.sting(); S.stats.seen++; }
+      W.ridge = null;
+    }
+  } else if (W.mode === "chase") {
+    updateChase(dt);
+    return;
+  } else if (W.mode === "assault") {
+    updateAssault(dt);
+    return;
+  } else if (W.mode === "still") {
+    updateHoldStill(dt);
+    return;
+  } else if (W.mode === "charge") {
+    W.charge.t += dt;
+    const k = Math.min(1, W.charge.t / 0.9);
+    W.x = lerp(W.charge.fx, P.x + Math.sin(P.yaw) * 1.2, k);
+    W.z = lerp(W.charge.fz, P.z + Math.cos(P.yaw) * 1.2, k);
+    W.yaw = Math.atan2(P.x - W.x, P.z - W.z);
+    visible = true; eyes = 1; anim = k < 1 ? "run" : "reach";
+    if (W.charge.t > 1.0 && !W.charge.hit) {
+      W.charge.hit = true;
+      hud.flash(0.9, 900);
+      cam.shake = 1.4;
+      X.roar();
+      S.heart = clamp(S.heart - 22, 0, 100);
+      S.pressure = clamp(S.pressure + 8, 0, 100);
+      if (S.day >= 3 && S.rifle && !S.walker.took) {
+        S.rifle = false;
+        S.walker.took = true;
+        const rp = PLACES[["burn", "timber", "creek"][S.day % 3]];
+        S.rifleAt = { x: rp.x + 6, z: rp.z + 4 };
+        E.harlan.setRifle(false);
+        G.say(S, "It slams into you chest-high. One massive arm sweeps the rifle from your hands like a toy. Then it is gone into the spruce, the Winchester in one impossible hand. You have the Colt.", true);
+        hud.toast("IT TOOK YOUR RIFLE", "You have the Colt. Seven rounds.");
+      } else {
+        G.say(S, "You moved. It is on you before you can turn: a smell of damp earth and rot, a weight like a falling tree. Then the timber is silent again.", true);
+      }
+    }
+    if (W.charge.t > 2.2) { W.mode = "flee"; W.t = 0; }
+  } else if (W.mode === "flee") {
+    const a = Math.atan2(W.x - P.x, W.z - P.z);
+    W.x += Math.sin(a) * dt * 9; W.z += Math.cos(a) * dt * 9;
+    W.yaw = a;
+    visible = W.t < 2.5; anim = "run"; eyes = 0;
+    if (W.t > 3) { W.mode = "away"; W.hideT = 60; }
+  } else if (walkerAbroad() && S.mode === "play") {
+    if (W.mode === "away" && W.hideT <= 0) {
+      W.mode = "pace";
+      W.side = hash2(S.day, Math.floor(m)) > 0.5 ? 1 : -1;
+      const p = placeWalker(pace, 0.2, W.side);
+      W.x = p.x; W.z = p.z;
+    }
+    W.hideT -= dt;
+    if (W.mode === "pace") {
+      if (fireOn && atFire) {
+        // circle the camp beyond the firelight
+        const r = lerp(30, 19, pressureK) - S.wall * 0.8;
+        const a = t * 0.05 * (W.side) + S.day;
+        const tx = CAMP_FIRE.x + Math.cos(a) * r, tz = CAMP_FIRE.z + Math.sin(a) * r;
+        W.x = damp(W.x, tx, 0.6, dt); W.z = damp(W.z, tz, 0.6, dt);
+      } else {
+        // parallel: keep station ahead and off to one side, drifting in and out of the
+        // edge of sight, so you catch it at the corner of your eye and never dead ahead
+        const sweep = 0.5 + 0.5 * Math.sin(t * 0.09 + W.side * 2);
+        const ang = W.side * (0.3 + 0.6 * sweep);
+        const p = placeWalker(pace, Math.cos(ang), Math.sin(ang));
+        const k = P.moving ? 1.6 : 0.4;
+        W.x = damp(W.x, p.x, k, dt); W.z = damp(W.z, p.z, k, dt);
+      }
+      if (window.__oldman.freezeW) { W.x = window.__oldman.freezeW[0]; W.z = window.__oldman.freezeW[1]; }
+      const c = collide(W.x, W.z, 0.6);
+      W.x = c.x; W.z = c.z;
+      W.yaw = Math.atan2(P.x - W.x, P.z - W.z);
+      // tracks: parallel to yours, thirty yards off. Not crossing. Following.
+      if (Math.hypot(W.x - W.lastTrack.x, W.z - W.lastTrack.z) > 1.7) {
+        const yaw = Math.atan2(-(W.x - W.lastTrack.x), -(W.z - W.lastTrack.z));
+        W.lastTrack = { x: W.x, z: W.z };
+        E.walkerTracks.add(W.x, W.z, yaw, 1.15);
+      }
+      const d = Math.hypot(W.x - P.x, W.z - P.z);
+      const lookA = Math.abs(wrapPi(Math.atan2(-(W.x - P.x), -(W.z - P.z)) - cam.yaw));
+      visible = d < 60;
+      anim = P.moving ? "walk" : "stand";
+      eyes = dark ? (Math.sin(t * 0.7 + W.side) > -0.25 ? 1 : 0.1) : 0;
+      // looking straight at it in the light: it steps behind a trunk
+      const lit = (dark && d < 34) || (!dark && d < 50);
+      if (lookA < 0.12 && lit && d < 48) W.lookT = (W.lookT || 0) + dt;
+      else W.lookT = Math.max(0, (W.lookT || 0) - dt * 0.5);
+      if (W.lookT > 0.45) {
+        W.lookT = 0;
+        if (W.seenNight !== S.day) { W.seenNight = S.day; S.stats.seen++; X.sting(); S.heart = clamp(S.heart - 4, 0, 100); }
+        const tr = trunksNear(W.x, W.z, 10).sort((a, b) => Math.hypot(b.x - P.x, b.z - P.z) - Math.hypot(a.x - P.x, a.z - P.z))[0];
+        W.mode = "away";
+        W.hideT = 8 + Math.random() * 10;
+        visible = false;
+        if (tr) X.snapAt(panOf(tr.x, tr.z));
+      }
+      // hold-still: away from the fire in the dark, it comes in close behind you
+      const fireD = Math.hypot(P.x - CAMP_FIRE.x, P.z - CAMP_FIRE.z);
+      if (dark && !atFire && (fireD > 28 || !fireOn) && G.absMin(S) > W.nextApproachAbs && S.day >= 1) {
+        const gap = lerp(110, 40, pressureK);
+        if (W.nextApproachAbs === 0) W.nextApproachAbs = G.absMin(S) + gap * 0.5;
+        else startHoldStill();
+      }
+      // assault on the knoll: nights 5-7 when pressure is high, and always night 7
+      if (atFire && fireOn && m >= 21 * 60 && ((S.day >= 7) || (S.day >= 5 && S.pressure >= 70)) && S.flags.assaultDay !== S.day) startAssault();
+    }
+  } else {
+    W.mode = "away";
+  }
+  W.walkerNear = visible && Math.hypot(W.x - P.x, W.z - P.z) < 35 && dark;
+  // walker tracks near the player = readable sign
+  W.trackNear = walkerAbroad() && W.mode === "pace" && Math.hypot(W.x - P.x, W.z - P.z) < 40;
+  E.walker.root.visible = visible;
+  if (visible) {
+    E.walker.root.position.set(W.x, heightAt(W.x, W.z), W.z);
+    E.walker.root.rotation.y = W.yaw + Math.PI;
+    E.walker.animate(anim, dt, t, eyes);
+  }
+}
+function startChase() {
+  S.flags.finale = 1;
+  W.mode = "chase";
+  W.chase = { t: 0, hits: 0, step: 0 };
+  const p = placeWalker(34, -1, 0.1);
+  W.x = p.x; W.z = p.z;
+  A.playFx("scream", { pan: 0, near: true });
+  cam.shake = 0.6;
+  S.heart = clamp(S.heart - 8, 0, 100);
+  G.say(S, S.elk.packed ? "Behind you, the timber breaks. Not stalking now. Coming. It wants what is on your back, or it wants you. The truck is close. RUN." : "Behind you, the timber breaks. It has stopped pretending. The truck is close. RUN.", true);
+  hud.toast("RUN", "Get to the truck.");
+}
+function updateChase(dt) {
+  const t = T.now / 1000;
+  const C = W.chase;
+  C.t += dt;
+  const d = Math.hypot(W.x - P.x, W.z - P.z);
+  // it closes when you stop, keeps pace when you run; the meat slows you
+  const sp = P.running ? 3.2 : P.moving ? (S.elk.packed ? 2.6 : 4.0) : 5.2; // a loaded man cannot run; it closes slowly
+  const a = Math.atan2(P.x - W.x, P.z - W.z);
+  if (d > 2) { W.x += Math.sin(a) * sp * dt; W.z += Math.cos(a) * sp * dt; }
+  const c = collide(W.x, W.z, 0.6);
+  W.x = c.x; W.z = c.z;
+  W.yaw = a;
+  E.walker.root.visible = true;
+  E.walker.root.position.set(W.x, heightAt(W.x, W.z), W.z);
+  E.walker.root.rotation.y = W.yaw + Math.PI;
+  E.walker.animate("run", dt, t, G.isDark(S.minutes) ? 1 : 0.6);
+  C.step -= dt;
+  if (C.step <= 0) { C.step = 0.42; X.heavyStep(panOf(W.x, W.z)); }
+  W.walkerNear = true;
+  hud.fear(clamp(1 - d / 30, 0.2, 0.9));
+  hud.setWarn(d < 10 ? "IT'S RIGHT BEHIND YOU" : "RUN — THE TRUCK", true);
+  if (d < 2.2) {
+    C.hits++;
+    hud.flash(0.85, 700);
+    cam.shake = 1.3;
+    X.roar();
+    S.heart = clamp(S.heart - 20, 4, 100); // it will not break you this close to the truck
+    G.say(S, C.hits > 1 ? "It hits you again and the world goes white. You are still on your feet. You do not know how." : "A blow across the shoulders like a swung log. You go to your knees in the snow, and get up, because the truck is right there.", true);
+    const fx = -Math.sin(P.yaw), fz = -Math.cos(P.yaw);
+    W.x = P.x - fx * 16; W.z = P.z - fz * 16;
+  }
+  // the truck: the door, the engine, the road down
+  if (Math.hypot(P.x - (PLACES.truck.x + 5), P.z - (PLACES.truck.z + 4)) < 8) {
+    W.mode = "away";
+    E.walker.root.visible = false;
+    hud.setWarn("");
+    X.truckDoor();
+    S.flags.chaseHits = C.hits;
+    G.walkOut(S);
+    finish();
+  }
+}
+function startHoldStill() {
+  W.mode = "still";
+  W.stillT = 0;
+  W.stillMoved = false;
+  const p = placeWalker(9, -0.95, 0.15);
+  W.x = p.x; W.z = p.z;
+  S.walker.approaches++;
+  input.clear();
+  X.breathing(true, 0);
+  hud.setWarn("IT IS CLOSE. DO NOT MOVE.", true);
+  hud.toast("DON'T MOVE", "It is right behind you.");
+}
+function updateHoldStill(dt) {
+  const t = T.now / 1000;
+  W.stillT += dt;
+  const dur = 8;
+  // it circles from behind to one side, close, then away
+  const k = W.stillT / dur;
+  const a = P.yaw + Math.PI + (k - 0.5) * 2.2;
+  const r = 6 - Math.sin(k * Math.PI) * 2.5;
+  W.x = P.x + Math.sin(a) * r * -1; W.z = P.z + Math.cos(a) * r * -1;
+  W.yaw = Math.atan2(P.x - W.x, P.z - W.z);
+  E.walker.root.visible = true;
+  E.walker.root.position.set(W.x, heightAt(W.x, W.z), W.z);
+  E.walker.root.rotation.y = W.yaw + Math.PI;
+  E.walker.animate("walk", dt * 0.35, t, 0.8);
+  if (Math.floor(W.stillT * 1.1) !== Math.floor((W.stillT - dt) * 1.1)) X.heavyStep(panOf(W.x, W.z));
+  const ax = input.axes();
+  const moved = Math.abs(ax.fwd) > 0.2 || Math.abs(ax.strafe) > 0.3 || Math.abs(ax.turn) > 0.5 || Math.abs(input.lookDX) > 40;
+  input.lookDX = 0; input.lookDY = 0;
+  hud.fear(0.55 + Math.sin(t * 7) * 0.1);
+  if (moved && W.stillT > 0.6) {
+    X.breathing(false);
+    W.mode = "charge";
+    W.charge = { t: 0, fx: W.x, fz: W.z, hit: false };
+    hud.setWarn("");
+    W.nextApproachAbs = G.absMin(S) + 70;
+    return;
+  }
+  if (W.stillT >= dur) {
+    X.breathing(false);
+    S.stats.stills++;
+    S.heart = clamp(S.heart - 5, 0, 100);
+    G.say(S, S.stats.stills > 1 ? "The second time you do not run. It loses interest in a man who will not bolt." : "You keep the rifle down and the breath in your teeth. It passes. It may come again.", true);
+    W.mode = "flee"; W.t = 0;
+    hud.setWarn("");
+    W.nextApproachAbs = G.absMin(S) + lerp(110, 45, clamp((S.pressure + S.day * 8) / 100, 0, 1));
+  }
+}
+function startAssault() {
+  S.flags.assaultDay = S.day;
+  W.mode = "assault";
+  W.assault = { t: 0, phase: "circle", pinned: 0 };
+  const a = Math.atan2(P.x - CAMP_FIRE.x, P.z - CAMP_FIRE.z) + Math.PI;
+  W.x = CAMP_FIRE.x; W.z = CAMP_FIRE.z + 26;
+  A.playFx("chorus", { pan: 0, near: true });
+  G.say(S, S.day >= 7 ? "They are all around you now. Then one of them comes for the fire." : "Branches break above camp, deliberate. Snow dumps from the high boughs. It is coming in.", true);
+  hud.toast(S.day >= 7 ? "THE LAST NIGHT" : "IT IS COMING", "RIFLE. Shoot it in the firelight.");
+}
+function updateAssault(dt) {
+  const t = T.now / 1000;
+  const A_ = W.assault;
+  A_.t += dt;
+  const fx = CAMP_FIRE.x, fz = CAMP_FIRE.z + 1;
+  // approach from the open front, across the wall line
+  const startZ = PLACES.camp.z + 30, wallZ = PLACES.camp.z + 6.5;
+  const slow = 1 + S.wall * 0.35;
+  let z = startZ - (A_.t / (9 * slow)) * (startZ - fz - 2);
+  if (S.deadfall && !S.deadfallSprung && z <= wallZ + 2.5) {
+    S.deadfallSprung = true;
+    A_.pinned = 6;
+    E.deadfall.rotation.z = -1.45;
+    X.roar(); X.crash(0);
+    cam.shake = 1.2;
+    G.say(S, "You yank the cord. Thirty feet of trunk comes down across its shoulders with a sound like a shotgun. It roars for the first time. Shoot. Now.", true);
+  }
+  if (A_.pinned > 0) { A_.pinned -= dt; z = wallZ + 2.5; A_.t -= dt; }
+  W.x = fx + Math.sin(t * 0.5) * 1.5; W.z = z;
+  W.yaw = Math.atan2(P.x - W.x, P.z - W.z);
+  E.walker.root.visible = true;
+  E.walker.root.position.set(W.x, heightAt(W.x, W.z), W.z);
+  E.walker.root.rotation.y = W.yaw + Math.PI;
+  E.walker.animate(A_.pinned > 0 ? "crouch" : "walk", dt, t, 1);
+  W.walkerNear = true;
+  hud.setWarn(A_.pinned > 0 ? "IT'S PINNED — SHOOT" : "IT'S COMING THROUGH — RIFLE", true);
+  if (Math.hypot(W.x - P.x, W.z - P.z) < 2.2) {
+    hud.flash(1, 1200);
+    X.roar();
+    S.heart = clamp(S.heart - 38, 0, 100);
+    G.say(S, "It comes over the wall and through the fire like the fire is a rumor. You come to in the snow with the firelight on your face and the knoll empty.", true);
+    W.mode = "flee"; W.t = 0;
+    hud.setWarn("");
+  }
+}
+
+/* --------------------------------- clock --------------------------------- */
+function stepClock(mins) {
+  const ctx = { atCamp: atCamp(), atFire: G.atFireNow(S, P.x, P.z), walkerNear: !!W.walkerNear, running: P.running };
+  const ev = G.tick(S, mins, ctx);
+  for (const e of ev) {
+    if (e.type === "beat") {
+      const b = e.beat;
+      if (b.fx) {
+        const ang = hash2(S.day, b.from) * 2 - 1;
+        A.playFx(b.fx, { pan: b.near ? ang * 0.6 : ang, near: !!b.near });
+      }
+      if (b.id.startsWith("n") && b.heart) { cam.shake = Math.max(cam.shake, 0.3); }
+      if (b.id === "n4-flash") hud.flash(0.08, 400);
+      if (b.id === "d2-tracks") { for (let i = 0; i < 30; i++) { const a = (i / 30) * Math.PI * 2; E.walkerTracks.add(CAMP_FIRE.x + Math.cos(a) * 15, CAMP_FIRE.z + Math.sin(a) * 15, -a, 1.1); } }
+    } else if (e.type === "nightfall") {
+      A.nightFall();
+      hud.toast(S.day === 1 ? "FIRST DARK" : `NIGHT ${S.day}`, G.atFireNow(S, P.x, P.z) ? "Stay in the light." : "You are a long way from the fire.");
+    } else if (e.type === "dusk") {
+      A.hushBirds(true);
+    } else if (e.type === "sleep") {
+      doSleep(true);
+    } else if (e.type === "collapse") {
+      doSleep(atCamp());
+    } else if (e.type === "end") {
+      finish();
+    }
+  }
+}
+
+/* --------------------------------- ending --------------------------------- */
+function finish() {
+  mode = "ending";
+  localStorage.removeItem(SAVE_KEY);
+  const e = G.ENDINGS[S.ending] || G.ENDINGS.empty;
+  const carried = [S.elk.packed ? "Bull elk, packed out" : null, S.cards.length ? `${S.cards.length} camera card${S.cards.length > 1 ? "s" : ""}` : null, S.rifle ? "The Winchester" + (S.walker.took ? ", gouged by teeth" : "") : "No rifle", `${S.rounds} rounds left`].filter(Boolean);
+  setTimeout(() => {
+    const c = hud.overlay(
+      `<div class="title-bg" style="background-image:url(./assets/${S.elk.packed ? "truck" : S.ending === "broken" || S.ending === "kept" ? "walker" : "truck"}.jpg)"></div>
+       <div style="position:relative"><h2>DAY ${Math.min(7, S.day)} · HARLAN WADE</h2><h1>${e.title}</h1><p>${e.text}</p>
+       <p class="small">${carried.join(" · ")}<br>Nights on the mountain: ${S.stats.nights} · Times you saw it: ${S.stats.seen} · Held still: ${S.stats.stills}</p>
+       <button class="btn hot" id="eAgain">HUNT AGAIN</button></div>`,
+    );
+    c.querySelector("#eAgain").onclick = () => { freshGame(); intro(); };
+  }, 1200);
+}
+
+/* --------------------------------- UI wiring --------------------------------- */
+document.getElementById("btnLook").onclick = (e) => { e.stopPropagation(); doLook(); };
+document.getElementById("btnRifle").onclick = (e) => { e.stopPropagation(); doRifle(); };
+document.getElementById("btnNotes").onclick = (e) => { e.stopPropagation(); if (mode === "play") notesSheet(); };
+document.getElementById("btnPause").onclick = (e) => { e.stopPropagation(); if (mode === "play") pauseMenu(); };
+document.getElementById("btnOpticClose").onclick = (e) => { e.stopPropagation(); exitOptic(); };
+document.getElementById("btnFire").onclick = (e) => { e.stopPropagation(); fireShot(); };
+const holdBtn = document.getElementById("btnHold");
+holdBtn.onpointerdown = (e) => { e.stopPropagation(); if (optic) optic.hold = 1; };
+holdBtn.onpointerup = holdBtn.onpointerleave = () => { if (optic) optic.hold = 0; };
+addEventListener("keydown", (e) => {
+  const k = e.key.toLowerCase();
+  if (mode === "optic") {
+    if (k === "r" && optic?.kind === "scope" || k === "f" && optic?.kind === "binos") { exitOptic(); return; }
+    if (k === " " || k === "enter") { if (optic?.kind === "scope") fireShot(); }
+    if (k === "shift" && optic) optic.hold = 1;
+    if (k === "escape" || k === "x") exitOptic();
+    return;
+  }
+  if (mode !== "play") return;
+  if (k === "escape" || k === "p") { if (hud.sheetOpen) { hud.closeSheet(); paused = false; } else if (!hud.overlayOpen) pauseMenu(); return; }
+  if (paused) return;
+  if (k === "f") doLook();
+  else if (k === "r") doRifle();
+  else if (k === "j" || k === "n") notesSheet();
+  else if (k === "h" || k === "?") { paused = true; controlsCard(false); }
+  else {
+    const acts = ctxActions();
+    const a = acts.find((b) => (b.key || "").toLowerCase() === k);
+    if (a) doAction(a.id);
+  }
+});
+addEventListener("keyup", (e) => { if (e.key === "Shift" && optic) optic.hold = 0; });
+document.addEventListener("visibilitychange", () => { if (document.hidden && mode === "play" && !paused) pauseMenu(); });
+
+/* --------------------------------- frame --------------------------------- */
+const tmpV = new THREE.Vector3();
+let stepAcc = 0, heartKey = "", ambT = 0, crackleT = 0, saveT = 0, breathT = 0;
+function frame(now) {
+  requestAnimationFrame(frame);
+  const dt = Math.min(0.05, (now - lastT) / 1000) * (window.__warp || 1);
+  lastT = now;
+  T.now = now;
+  if (!S) { E.renderer.render(E.scene, E.camera); return; }
+  const t = now / 1000;
+  const live = mode === "play" && !paused && S.mode === "play";
+  // adaptive resolution
+  fps.acc += dt; fps.n++;
+  if (fps.acc > 2) {
+    const avg = (fps.acc / fps.n) * 1000;
+    fps.avg = avg;
+    if (avg > 40 && E.quality > 0.55) E.setQuality(Math.max(0.55, E.quality - 0.15));
+    else if (avg < 22 && E.quality < 1) E.setQuality(Math.min(1, E.quality + 0.1));
+    fps.acc = 0; fps.n = 0;
+  }
+
+  // ---- movement ----
+  let speed = 0;
+  if (live && W.mode !== "still") {
+    const ax = auto ? autoAxes(dt) : input.axes();
+    cam.yaw -= input.lookDX * 0.0055 + ax.turn * dt * 1.9;
+    cam.pitch = clamp(cam.pitch + input.lookDY * 0.003, -0.1, 0.55);
+    if (input.lookDX || input.lookDY) lookIdleT = 0; else lookIdleT += dt;
+    input.lookDX = 0; input.lookDY = 0;
+    const mag = Math.min(1, Math.hypot(ax.fwd, ax.strafe));
+    if (mag > 0.08) {
+      const dirYaw = cam.yaw + Math.atan2(-ax.strafe, ax.fwd);
+      // walking backwards with S/down: step back, keep facing
+      const back = ax.fwd < -0.3 && Math.abs(ax.strafe) < 0.3;
+      if (!back) P.yaw = dampAngle(P.yaw, dirYaw, 9, dt);
+      const sneaking = ax.sneak && !ax.run;
+      const running = ax.run && !S.elk.packed;
+      speed = (running ? 4.8 : sneaking ? 1.5 : 2.7) * (back ? 0.5 : 1) * (S.elk.packed ? 0.8 : 1);
+      if (input.my && !input.keys.size) speed *= clamp(mag * 1.15, 0.45, 1);
+      // slope
+      const fx = -Math.sin(dirYaw), fz = -Math.cos(dirYaw);
+      const slope = (heightAt(P.x + fx, P.z + fz) - heightAt(P.x, P.z));
+      speed *= clamp(1 - slope * 0.35, 0.55, 1.15);
+      let nx = P.x + fx * speed * dt, nz = P.z + fz * speed * dt;
+      if (back) { nx = P.x + Math.sin(P.yaw) * speed * dt; nz = P.z + Math.cos(P.yaw) * speed * dt; }
+      let c = collide(nx, nz, 0.42);
+      for (const pc of E.propColliders) {
+        const dx = c.x - pc.x, dz = c.z - pc.z, d = Math.hypot(dx, dz);
+        if (d < pc.r + 0.4 && d > 0) c = { x: pc.x + (dx / d) * (pc.r + 0.4), z: pc.z + (dz / d) * (pc.r + 0.4) };
+      }
+      const wasX = P.x, wasZ = P.z;
+      P.x = clamp(c.x, BOUNDS.x0 + 18, BOUNDS.x1 - 18);
+      P.z = clamp(c.z, BOUNDS.z0 + 30, BOUNDS.z1 - 30);
+      if (P.x !== c.x || P.z !== c.z) hud.setWarn("Too steep. Turn back.");
+      P.travelled += Math.hypot(P.x - wasX, P.z - wasZ);
+      P.running = running; P.sneaking = sneaking;
+      // camera drifts in behind Harlan while walking, unless the player is looking around
+      if (lookIdleT > 1.4 && !back) cam.yaw = dampAngle(cam.yaw, P.yaw, 1.1, dt);
+    } else { P.running = false; P.sneaking = false; }
+  } else if (mode === "optic" && optic) {
+    optic.yaw -= input.lookDX * 0.0016 + input.axes().turn * dt * 0.35;
+    optic.pitch = clamp(optic.pitch - input.lookDY * 0.0012 + input.axes().fwd * dt * 0.15, -0.5, 0.35);
+    input.lookDX = 0; input.lookDY = 0;
+  }
+  P.speed = damp(P.speed, speed, 10, dt);
+  P.moving = P.speed > 0.3;
+  if (P.moving) P.stillFor = 0; else P.stillFor += dt;
+
+  // ---- clock ----
+  if (live || (mode === "optic" && S.mode === "play")) {
+    gameClockAcc += dt * TIME_SCALE * (S.watch ? 6 : 1) * (mode === "optic" ? 0.5 : 1);
+    if (gameClockAcc >= 1) {
+      const k = Math.floor(gameClockAcc);
+      gameClockAcc -= k;
+      stepClock(k);
+    }
+  }
+  const place = placeAt(P.x, P.z);
+  if (S.tut === 0 && place === "spur") { S.tut = 1; G.say(S, "The spur. Blazes on the spruce, old axe marks gone grey. Fresh tracks cut across the snow just past the post."); }
+
+  // ---- world ----
+  const L = lightAt(S.minutes, moonOf(S.day), clamp(snowAt(S.day, S.minutes) - 0.4, 0, 1));
+  const snow = snowAt(S.day, S.minutes);
+  const lit = E.applyLight(L, S.minutes, { moon: moonOf(S.day), snow, storm: clamp(snow - 0.4, 0, 1) });
+  // good glass cuts the haze: optics see much farther than the naked eye
+  if (mode === "optic") E.scene.fog.density *= optic && optic.kind === "binos" ? 0.3 : 0.4;
+  // good glass gathers light: the last of dusk and the firelight read better through the scope
+  if (mode === "optic" && optic) E.hemi.intensity *= 1.7;
+  const dark = L.dark;
+  E.setFire(G.fireLit(S));
+  const fl = E.updateFire(dt, t);
+  E.setSticks(S.sticks, S.day === 1 || dark > 0.5);
+  updateBull(dt);
+  updateWalker(dt);
+
+  // Harlan
+  const H = E.harlan;
+  const hy = heightAt(P.x, P.z);
+  H.root.position.set(P.x, hy, P.z);
+  H.root.rotation.y = P.yaw;
+  H.setRifle(S.rifle);
+  H.setMeat(S.elk.packed);
+  const afraid = S.heart < 40 || W.walkerNear || W.mode === "still";
+  const an = H.animate(P.speed, dt, { sneak: P.sneaking, afraid, aiming: mode === "optic" });
+  // footsteps + prints
+  const ph = H.phase();
+  if (Math.floor(ph / Math.PI) !== Math.floor(P.lastStepPhase / Math.PI) && P.moving) {
+    const side = Math.floor(ph / Math.PI) % 2 ? 1 : -1;
+    A.footstep(P.running ? 1 : P.sneaking ? 0.2 : 0.6);
+    E.prints.add(P.x + Math.cos(P.yaw) * 0.14 * side, P.z - Math.sin(P.yaw) * 0.14 * side, P.yaw);
+  }
+  P.lastStepPhase = ph;
+  // breath in the cold
+  breathT -= dt;
+  if (breathT <= 0) {
+    breathT = afraid ? 0.9 : P.running ? 1.0 : 2.6;
+    const fx = -Math.sin(P.yaw), fz = -Math.cos(P.yaw);
+    E.puff(P.x + fx * 0.3, hy + 1.68, P.z + fz * 0.3, fx, fz);
+  }
+  E.updatePuffs(dt, 0.6 + dark * 0.5);
+  updateSignRing(t);
+  E.updateMist(dt, t, clamp(L.fogDensity - 0.35, 0, 1) * (0.5 + dark * 0.3) + (S.minutes < 9 * 60 ? 0.25 : 0), E.scene.fog.color);
+
+  // headlamp: on after sunset or in deep murk
+  const lampOn = dark > 0.35;
+  const fwdX = -Math.sin(P.yaw), fwdZ = -Math.cos(P.yaw);
+  const lampYaw = mode === "optic" && optic ? optic.yaw : lerp(P.yaw, cam.yaw, 0.0) ;
+  const lx = -Math.sin(lampYaw), lz = -Math.cos(lampYaw);
+  const flick = 0.94 + Math.sin(t * 37) * 0.03 * (S.heart < 30 ? 3 : 1);
+  E.lamp.intensity = lampOn ? 17 * flick * (S.heart < 25 ? 0.8 : 1) : 0;
+  E.lamp.angle = S.heart < 35 ? 0.34 : 0.42;
+  E.lamp.position.set(P.x + lx * 0.25, hy + 1.82, P.z + lz * 0.25);
+  E.lamp.target.position.set(P.x + lx * 12, heightAt(P.x + lx * 12, P.z + lz * 12) + 0.2, P.z + lz * 12);
+  E.lampFill.intensity = lampOn ? 1.6 : 0;
+  E.lampFill.position.set(P.x + lx * 0.6, hy + 2.2, P.z + lz * 0.6);
+
+  // ---- camera ----
+  const camT = E.camera;
+  if (mode === "optic" && optic) {
+    const eye = tmpV.set(P.x, hy + 1.7, P.z);
+    camT.position.copy(eye);
+    optic.t += dt;
+    let swayX = 0, swayY = 0;
+    if (optic.kind === "scope") {
+      const nerve = clamp(1 - S.heart / 100, 0, 1);
+      const amp = (0.004 + nerve * 0.016 + (W.walkerNear ? 0.01 : 0)) * (optic.hold && optic.holdLeft > 0 ? 0.15 : 1);
+      if (optic.hold) optic.holdLeft -= dt; else optic.holdLeft = Math.min(3.5, optic.holdLeft + dt * 0.6);
+      if (optic.holdLeft <= 0) optic.hold = 0;
+      swayX = Math.sin(optic.t * 1.3) * amp + Math.sin(optic.t * 3.1) * amp * 0.3;
+      swayY = Math.sin(optic.t * 1.7 + 1) * amp * 0.8 + Math.sin(optic.t * 0.9) * amp * 0.4;
+      document.getElementById("opticFill").style.width = `${(optic.holdLeft / 3.5) * 100}%`;
+    }
+    const yaw = optic.yaw + swayX, pitch = optic.pitch + swayY;
+    camT.lookAt(eye.x - Math.sin(yaw) * Math.cos(pitch) * 10, eye.y + Math.sin(pitch) * 10, eye.z - Math.cos(yaw) * Math.cos(pitch) * 10);
+    camT.fov = optic.kind === "scope" ? (optic.colt ? 40 : 12) : 14;
+    camT.updateProjectionMatrix();
+    H.root.visible = false;
+    updateOpticInfo(dt);
+  } else {
+    H.root.visible = true;
+    const yaw = cam.yaw;
+    // over-the-shoulder: Harlan sits lower-left, the trail ahead stays open
+    const dist = cam.dist + (P.running ? 0.5 : 0) + (S.elk.packed ? 0.3 : 0);
+    const fx = -Math.sin(yaw), fz = -Math.cos(yaw), rx = Math.cos(yaw), rz = -Math.sin(yaw);
+    const side = 0.85;
+    let cx = P.x - fx * dist + rx * side, cz = P.z - fz * dist + rz * side;
+    let cy = hy + cam.height + cam.pitch * 3.2;
+    cy = Math.max(cy, heightAt(cx, cz) + 0.9);
+    cam.x = damp(cam.x || cx, cx, 12, dt); cam.z = damp(cam.z || cz, cz, 12, dt); cam.y = damp(cam.y || cy, cy, 9, dt);
+    camT.position.set(cam.x, cam.y, cam.z);
+    cam.shake = Math.max(0, cam.shake - dt * 1.5);
+    const sh = cam.shake * 0.12;
+    camT.position.x += (Math.random() - 0.5) * sh; camT.position.y += (Math.random() - 0.5) * sh;
+    const ahead = 7;
+    const ly = heightAt(P.x + fx * ahead, P.z + fz * ahead);
+    camT.lookAt(P.x + fx * ahead + rx * side * 0.6, Math.max(ly, hy) + 1.15 - cam.pitch * 2 + (W.mode === "still" ? -0.2 : 0), P.z + fz * ahead + rz * side * 0.6);
+    const bf = baseFov();
+    if (camT.fov !== bf) { camT.fov = bf; camT.updateProjectionMatrix(); }
+  }
+  occlusion.uCam.value.copy(camT.position);
+  occlusion.uPlayer.value.set(P.x, hy + 1.1, P.z);
+  occlusion.uOn.value = mode === "optic" ? 0 : 1;
+  E.sky.follow(camT);
+  E.sky.starU.time.value = t;
+  E.snowU.t.value = t;
+  E.snowU.origin.value.copy(camT.position);
+  E.forest.update(camT.position.x, camT.position.z, 240);
+  // trail cameras + wall + deadfall visibility
+  for (const [id, m] of Object.entries(E.camMeshes)) {
+    const on = !!S.cams[id];
+    m.box.visible = m.strap.visible = m.led.visible = on;
+    m.led.material.color.setHex(Math.sin(t * 3) > 0.9 ? 0xff2200 : 0x330000);
+  }
+  E.wallSegs.forEach((w, i) => (w.g.visible = i < S.wall));
+  E.deadfall.visible = S.deadfall;
+  if (!S.deadfallSprung) E.deadfall.rotation.z = -0.5;
+
+  E.renderer.render(E.scene, camT);
+
+  // ---- audio ----
+  ambT -= dt;
+  if (ambT <= 0 && mode !== "title") {
+    ambT = 0.5;
+    const creekD = Math.min(...[[-122, -276], [-110, -320], [-140, -230]].map(([x, z]) => Math.hypot(P.x - x, P.z - z)));
+    const night = G.isDark(S.minutes);
+    A.setAmbience({ creek: clamp(1 - creekD / 70, 0, 1) * 0.08, tension: W.walkerNear ? 0.03 : 0, rustle: 0.02 + snow * 0.02, phase: night ? "night" : S.minutes > 16 * 60 ? "dusk" : "day" });
+    A.setWind(0.02 + snow * 0.05 + (hereOverlook() ? 0.02 : 0));
+    const dread = night ? (G.atFireNow(S, P.x, P.z) ? 0.35 : 0.8) : S.minutes > 16 * 60 + 30 ? 0.4 : 0.06;
+    A.setDread(W.mode === "still" || W.mode === "assault" ? 1 : dread, !!W.walkerNear || W.mode === "still");
+    const hk = `${Math.round(S.heart / 6)}|${night || W.walkerNear}`;
+    if (hk !== heartKey) { heartKey = hk; A.setHeartbeat(S.heart, true, night || !!W.walkerNear); }
+    X.fireLevel(G.fireLit(S) ? clamp(1 - Math.hypot(P.x - CAMP_FIRE.x, P.z - CAMP_FIRE.z) / 30, 0, 1) : 0);
+  }
+  saveT += dt;
+  if (saveT > 20 && live) { saveT = 0; save(); }
+
+  // ---- HUD ----
+  updateHud(dark);
+}
+
+function updateOpticInfo(dt) {
+  // binoculars: hold the bull (or cows / the ridge thing) in the ring to mark him
+  const lab = document.getElementById("opticLabel"), rng = document.getElementById("opticRange");
+  const camT = E.camera;
+  const fwd = new THREE.Vector3();
+  camT.getWorldDirection(fwd);
+  const inRing = (x, y, z, tol) => {
+    const v = new THREE.Vector3(x - camT.position.x, y - camT.position.y, z - camT.position.z);
+    const d = v.length();
+    return { ok: v.normalize().dot(fwd) > Math.cos(tol), d };
+  };
+  let txt = optic.kind === "binos" ? "GLASSING" : optic.colt ? "COLT 1911" : `${S.rounds} RDS`;
+  let rtxt = "";
+  if (optic.kind === "binos") {
+    let target = null;
+    if (bull.vis && G.bullShowing(S) && !S.elk.down) {
+      const r = inRing(bull.x, heightAt(bull.x, bull.z) + 1.4, bull.z, 0.05);
+      if (r.ok) target = { kind: "bull", d: r.d };
+    }
+    if (!target && S.day <= 2) {
+      for (const c of cows) {
+        if (!E.cows[cows.indexOf(c)].root.visible) continue;
+        const r = inRing(c.x, heightAt(c.x, c.z) + 1.3, c.z, 0.06);
+        if (r.ok) { target = { kind: "cows", d: r.d }; break; }
+      }
+    }
+    if (target) {
+      optic.progress = Math.min(1, optic.progress + dt / 1.2);
+      txt = target.kind === "bull" ? "BULL" : "COWS";
+      rtxt = `${Math.round(target.d)} m`;
+      if (optic.progress >= 1 && !optic.marked) {
+        optic.marked = true;
+        X.beep();
+        if (target.kind === "bull") { if (S.elk.marked !== S.day) G.markBull(S, hereOverlook()); }
+        else {
+          if (S.tut === 1) S.tut = 2;
+          G.say(S, S.day === 1 ? "Cows, three of them, feeding along the edge of the park. No bull with them. Not yet. He is close: you can smell the rut on the wind. A camera on the saddle trail will tell you what moves at night." : "Cows on the meadow, heads up, all looking at the timber.", true);
+        }
+      }
+    } else optic.progress = Math.max(0, optic.progress - dt);
+    document.getElementById("opticFill").style.width = `${optic.progress * 100}%`;
+    if (!target) {
+      optic.scan = (optic.scan || 0) + dt;
+      if (optic.scan > 7 && !optic.marked && !optic.saidNothing) {
+        optic.saidNothing = true;
+        const bp = G.bullPlace(S);
+        const ov = hereOverlook();
+        G.say(S, !G.bullShowing(S) ? "Elk sign all over the park, but the bull is not showing himself. He moves at last light." : bp && ov && VIEWS[ov].includes(bp) ? `Something moving at the ${PLACES[bp].short.toLowerCase()}. Pan to it and hold the glass steady.` : "Nothing moving below. Wrong overlook, or he is somewhere you cannot see from here.");
+      }
+    }
+  }
+  lab.textContent = txt;
+  rng.textContent = rtxt;
+}
+
+let hudT = 0;
+function updateHud(dark) {
+  hudT -= 1;
+  const now = T.now;
+  const phase = G.phaseOf(S.minutes);
+  hud.setTop(S.day, S.minutes, phase, G.isDark(S.minutes));
+  hud.setNerve(S.heart);
+  hud.setLine(S.line, now);
+  const ctx = { atCamp: atCamp(), px: P.x, pz: P.z };
+  const ob = G.objective(S, ctx);
+  const dist = ob && ob.target ? Math.hypot(ob.target.x - P.x, ob.target.z - P.z) : null;
+  if (ob) hud.setObjective(ob.text, dist, ob.urgent); else hud.setObjective("", null);
+  // warnings
+  if (W.mode !== "still" && W.mode !== "assault" && W.mode !== "chase") {
+    let warn = "";
+    let hot = false;
+    const bp = G.bullPlace(S);
+    if (bull.vis && bp && G.bullShowing(S) && !S.elk.down && S.elk.marked !== S.day && Math.hypot(bull.x - P.x, bull.z - P.z) < 95 && S.day >= 3) warn = "You haven't glassed him. Walking in will blow him out.";
+    else if (W.walkerNear) { warn = "IT IS IN THE TREES"; hot = true; }
+    else if (G.isDark(S.minutes) && !G.atFireNow(S, P.x, P.z)) warn = "Far from the fire";
+    else if (P.running && bull.vis) warn = "Too loud";
+    hud.setWarn(warn, hot);
+  }
+  const fear = clamp((1 - S.heart / 100) * 0.7 + (W.walkerNear ? 0.35 : 0), 0, 1) * (mode === "optic" ? 0.3 : 1);
+  if (W.mode !== "still" && W.mode !== "chase") hud.fear(fear * (0.85 + Math.sin(now / 300) * 0.15));
+  hud.status(`${S.rifle ? S.rounds + " RDS" : "COLT " + S.colt} · ${S.camsLeft} CAM · ${S.carried} WOOD${S.wall ? ` · WALL ${S.wall}/4` : ""}${S.elk.packed ? " · MEAT" : ""}`);
+  hud.setCtx(mode === "play" ? ctxActions() : [], doAction);
+  // compass
+  const markers = [
+    { x: CAMP_FIRE.x, z: CAMP_FIRE.z, label: "CAMP", color: G.fireLit(S) ? "#ffb060" : "rgba(236,230,218,0.7)" },
+    { x: PLACES.truck.x, z: PLACES.truck.z, label: "TRUCK", color: "rgba(169,193,220,0.8)" },
+  ];
+  if (ob && ob.target) markers.push({ x: ob.target.x, z: ob.target.z, label: ob.target.label, color: "#e07a2e", kind: "diamond" });
+  if (W.walkerNear) markers.push({ x: W.x, z: W.z, label: "", color: "rgba(255,60,40,0.85)" });
+  const wv = { N: [0, 1], S: [0, -1], E: [-1, 0], W: [1, 0] }[G.windOf(S)];
+  hud.compass(mode === "optic" && optic ? optic.yaw : cam.yaw, P.x, P.z, markers, wv);
+  // world labels + waypoint
+  const project = (x, y, z) => E.worldToScreen(x, y, z);
+  hud.labels(project, P.x, P.z, mode === "play");
+  if (ob && ob.target && mode === "play") {
+    const ty = heightAt(ob.target.x, ob.target.z) + 3.2;
+    hud.waypoint(project(ob.target.x, ty, ob.target.z), ob.target.label, dist);
+  } else hud.waypoint(null);
+  if (P.travelled > 12 || mode !== "play") document.getElementById("touchhint").classList.add("gone");
+  else document.getElementById("touchhint").classList.remove("gone");
+  // keyboard hint (desktop)
+  const kh = hud.el.keyhint;
+  const txt = mode === "optic" ? (optic.kind === "scope" ? "DRAG/WASD AIM · SHIFT HOLD BREATH · SPACE FIRE · R/X LOWER" : "DRAG/WASD PAN · HOLD THE RING ON HIM · F/X LOWER") : "WASD WALK · DRAG LOOK · SHIFT RUN · C SNEAK · F LOOK · R RIFLE · E ACT · J NOTES · H HELP";
+  if (kh.textContent !== txt) kh.textContent = txt;
+  // camera hint keeps Harlan in the lower third: done by lookAt offset
+}
+
+/* --------------------------------- autopilot (playtests walk the real trails) --------------------------------- */
+let auto = null;
+function nearestPlaceId(x, z) {
+  let best = "truck", bd = 1e9;
+  for (const id of PLACE_IDS) { const d = Math.hypot(PLACES[id].x - x, PLACES[id].z - z); if (d < bd) { bd = d; best = id; } }
+  return best;
+}
+function autopilotTo(x, z, opts = {}) {
+  const from = nearestPlaceId(P.x, P.z), to = nearestPlaceId(x, z);
+  const path = G.route(from, to);
+  const pts = [{ x: PLACES[from].x, z: PLACES[from].z }];
+  if (Math.hypot(P.x - PLACES[from].x, P.z - PLACES[from].z) < 25) pts.shift();
+  for (let i = 0; i < path.length - 1; i++) { const tp = trailBetween(path[i], path[i + 1]); if (tp) pts.push(...tp.slice(1)); }
+  pts.push({ x, z });
+  auto = { pts, i: 0, run: !!opts.run, sneak: !!opts.sneak, stuck: 0, last: { x: P.x, z: P.z }, t: 0 };
+  return pts.length;
+}
+function autoAxes(dt) {
+  const a = auto;
+  let tgt = a.pts[a.i];
+  while (tgt && Math.hypot(tgt.x - P.x, tgt.z - P.z) < (a.i === a.pts.length - 1 ? 1.6 : 3.5)) { a.i++; tgt = a.pts[a.i]; }
+  if (!tgt) { auto = null; return { fwd: 0, strafe: 0, turn: 0, run: false, sneak: false }; }
+  const want = Math.atan2(-(tgt.x - P.x), -(tgt.z - P.z));
+  cam.yaw = dampAngle(cam.yaw, want, 6, dt);
+  a.t += dt;
+  if (a.t > 1.5) { const moved = Math.hypot(P.x - a.last.x, P.z - a.last.z); a.stuck = moved < 0.5 ? a.stuck + 1 : 0; a.last = { x: P.x, z: P.z }; a.t = 0; }
+  const wiggle = a.stuck > 1 ? Math.sin(T.now / 400) : 0;
+  return { fwd: 1, strafe: wiggle, turn: 0, run: a.run, sneak: a.sneak };
+}
+
+/* --------------------------------- test hooks --------------------------------- */
+window.__oldman = {
+  get S() { return S; }, P, W, bull, E, G,
+  get mode() { return mode; },
+  teleport(x, z, yaw) { P.x = x; P.z = z; if (yaw != null) { P.yaw = yaw; cam.yaw = yaw; } cam.x = 0; cam.y = 0; cam.z = 0; },
+  tp(place, back = 0) { const p = PLACES[place]; this.teleport(p.x, p.z + back, P.yaw); },
+  face(x, z) { const y = Math.atan2(-(x - P.x), -(z - P.z)); P.yaw = y; cam.yaw = y; cam.x = 0; cam.y = 0; cam.z = 0; if (optic) { optic.yaw = y; optic.pitch = Math.atan2(heightAt(x, z) + 1.2 - heightAt(P.x, P.z) - 1.65, Math.hypot(x - P.x, z - P.z)); } },
+  setTime(day, minutes) { S.day = day; S.minutes = minutes; },
+  advance,
+  start() { if (!S) freshGame(); startPlay(); },
+  doAction, doLook, doRifle, fireShot, exitOptic, ctxActions, notesSheet, pauseMenu,
+  get optic() { return optic; },
+  keys: input,
+  fps,
+  autopilotTo,
+  goPlace(id, opts) { const p = PLACES[id]; return autopilotTo(p.x, p.z, opts); },
+  get auto() { return auto; },
+  get line() { return S.line; },
+  objective() { return G.objective(S, { atCamp: atCamp(), px: P.x, pz: P.z }); },
+  hudText() { return { obj: document.getElementById("hudObjective").textContent, warn: document.getElementById("hudWarn").textContent, line: document.getElementById("hudLine").textContent, status: document.getElementById("hudStatus").textContent, ctx: [...document.querySelectorAll("#ctxBtns button")].map((b) => b.textContent) }; },
+  overlayText() { const o = document.getElementById("overlay"); return o.classList.contains("hidden") ? "" : o.innerText; },
+  clickOverlay(sel) { const b = document.querySelector(sel || "#overlayCard button"); if (b) b.click(); return !!b; },
+  bullPos() { return { x: bull.x, z: bull.z, vis: bull.vis }; },
+  forceAssault() { S.flags.assaultDay = 0; startAssault(); },
+  forceStill() { startHoldStill(); },
+  set warpT(v) { window.__warp = v; },
+};
+
+/* --------------------------------- go --------------------------------- */
+document.getElementById("loadMsg").textContent = "Ready";
+setTimeout(() => document.getElementById("loading").classList.add("gone"), 300);
+freshGame();
+showTitle();
+requestAnimationFrame(frame);
