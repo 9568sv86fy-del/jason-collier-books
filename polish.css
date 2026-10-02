@@ -244,3 +244,26 @@ footer a{color:#b9ab9a;transition:color .2s}
   .lightbox .lb-next{grid-column:2;justify-self:end}
   .lb-close{top:.3rem;right:.4rem;min-width:52px;min-height:52px}
 }
+
+/* ---------- 14. Old Man game: Play page feature card + book page button ---------- */
+.play-feature{display:grid;grid-template-columns:minmax(150px,230px) 1fr;gap:clamp(1.2rem,3vw,2.4rem);align-items:center;margin:0 0 2.2rem;
+  padding:clamp(1rem,2.4vw,1.5rem);border:1px solid var(--line);border-radius:10px;color:inherit;text-decoration:none;
+  background:linear-gradient(135deg,rgba(255,138,42,.08),rgba(10,8,7,.4) 55%);box-shadow:0 30px 60px -36px #000;transition:border-color .3s,transform .3s var(--ease)}
+.play-feature:hover,.play-feature:focus-visible{border-color:rgba(255,138,42,.55);transform:translateY(-2px)}
+.play-feature img{width:100%;aspect-ratio:4/5;height:auto;object-fit:cover;object-position:center 72%;border-radius:6px;border:1px solid var(--line);display:block}
+.play-feature-body{display:flex;flex-direction:column;align-items:flex-start;gap:.7rem}
+.play-feature .kicker{margin:0}
+.play-feature-title{font-family:"Cinzel",serif;font-weight:900;text-transform:uppercase;font-size:clamp(1.5rem,3.4vw,2.4rem);line-height:1.02;color:#f4ece1;text-wrap:balance}
+.play-feature-title small{display:block;margin-top:.45rem;font-family:"Cormorant Garamond",serif;font-style:italic;font-weight:500;text-transform:none;font-size:.62em;color:var(--fire2);letter-spacing:0}
+.play-feature-text{color:var(--muted);max-width:34rem;line-height:1.6}
+.play-feature .btn{margin-top:.4rem;pointer-events:none}
+@media (max-width:560px){
+  .play-feature{grid-template-columns:1fr;gap:1rem}
+  .play-feature img{aspect-ratio:16/10;object-position:center 75%}
+  .play-feature .btn{width:100%}
+}
+.book .buy .btn-game{border-color:rgba(255,138,42,.6);color:var(--fire2)}
+@media (max-width:640px){
+  .book .buy .btn-game{grid-column:1 / -1}
+  .book .buy .btn-game ~ .btn-line:last-child:nth-child(odd){grid-column:1 / -1}
+}

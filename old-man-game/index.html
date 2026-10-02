@@ -1,0 +1,87 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<meta name="theme-color" content="#07090c">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<title>Old Man on the Mountain: a horror hunt | Jason Collier</title>
+<meta name="description" content="A third-person horror hunt in your browser, based on Jason Collier’s novel Old Man On The Mountain. Seven days on the mountain. Play on your phone or computer.">
+<link rel="canonical" href="https://jasoncollierbooks.github.io/jason-collier-books/old-man-game/">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Jason Collier Books">
+<meta property="og:title" content="Old Man on the Mountain: a horror hunt | Jason Collier">
+<meta property="og:description" content="A third-person horror hunt in your browser, based on Jason Collier’s novel Old Man On The Mountain. Seven days on the mountain. Play on your phone or computer.">
+<meta property="og:url" content="https://jasoncollierbooks.github.io/jason-collier-books/old-man-game/">
+<meta property="og:image" content="https://jasoncollierbooks.github.io/jason-collier-books/old-man-game/assets/title.jpg">
+<meta property="og:image:width" content="619">
+<meta property="og:image:height" content="1100">
+<meta property="og:image:alt" content="A campfire at dusk below a dark forested mountain">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Old Man on the Mountain: a horror hunt | Jason Collier">
+<meta name="twitter:description" content="A third-person horror hunt in your browser, based on Jason Collier’s novel Old Man On The Mountain. Seven days on the mountain. Play on your phone or computer.">
+<meta name="twitter:image" content="https://jasoncollierbooks.github.io/jason-collier-books/old-man-game/assets/title.jpg">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 16 16%27%3E%3Crect width=%2716%27 height=%2716%27 fill=%27%2307090c%27/%3E%3Cpath d=%27M2 13 L8 3 L14 13Z%27 fill=%27%23e07a2e%27/%3E%3C/svg%3E">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<link rel="stylesheet" href="./vendor/fonts/fonts.css">
+<link rel="stylesheet" href="./styles.css">
+<script type="importmap">{ "imports": { "three": "./vendor/three.min.js" } }</script>
+</head>
+<body>
+<div id="app">
+  <canvas id="view"></canvas>
+  <div id="grain"></div>
+  <div id="vignette"></div>
+  <div id="fear"></div>
+  <div id="flash"></div>
+  <div id="labels"></div>
+  <div id="waypoint" class="waypoint"><i></i><span></span></div>
+
+  <header id="hud" class="hud">
+    <div class="row top">
+      <div class="day" id="hudDay">DAY 1</div>
+      <canvas id="compass" aria-hidden="true"></canvas>
+      <div class="clock" id="hudClock">05:40 · DAWN</div>
+    </div>
+    <div class="objective" id="hudObjective"></div>
+    <div class="nerve"><span>NERVE</span><i><b id="hudNerve"></b></i></div>
+    <div class="warn" id="hudWarn"></div>
+    <p class="line" id="hudLine"></p>
+  </header>
+
+  <div id="stick" class="stick"><div id="knob" class="knob"></div></div>
+
+  <div id="actions" class="actions ui">
+    <div class="status" id="hudStatus"></div>
+    <div class="btns" id="ctxBtns"></div>
+    <div class="btns fixed">
+      <button id="btnLook" class="btn">LOOK</button>
+      <button id="btnRifle" class="btn">RIFLE</button>
+      <button id="btnNotes" class="btn ghost">NOTES</button>
+      <button id="btnPause" class="btn ghost">II</button>
+    </div>
+  </div>
+  <div id="keyhint" class="keyhint"></div>
+  <div id="touchhint" class="touchhint">PUSH TO WALK<br><small>push lightly to sneak · double-tap to run</small></div>
+  <div id="toast" class="toast"></div>
+
+  <!-- glassing / scope -->
+  <div id="optic" class="optic hidden">
+    <div class="mask"></div>
+    <div class="reticle"></div>
+    <div class="optic-info"><span id="opticLabel"></span><span id="opticRange"></span></div>
+    <div class="optic-bar"><i id="opticFill"></i></div>
+    <div class="optic-ui ui">
+      <button id="btnHold" class="btn">HOLD BREATH</button>
+      <button id="btnFire" class="btn hot">FIRE</button>
+      <button id="btnOpticClose" class="btn ghost">LOWER</button>
+    </div>
+  </div>
+
+  <div id="overlay" class="overlay hidden"><div class="overlay-card ui" id="overlayCard"></div></div>
+  <div id="sheet" class="sheet hidden ui"></div>
+  <div id="loading" class="loading"><p>Old Man on the Mountain</p><small id="loadMsg">Loading the mountain…</small></div>
+</div>
+<script type="module" src="./src/main.js"></script>
+</body>
+</html>
