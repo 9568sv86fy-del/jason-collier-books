@@ -452,10 +452,6 @@ body:not(.home) .nav{background:rgba(10,8,7,.72);backdrop-filter:blur(12px);-web
 @media (min-width:861px){
   .nav-group.is-open>.nav-menu{display:grid}
   .nav-group.is-open>.nav-label::after{transform:rotate(180deg)}
-  /* Play lists every game, so the menu is wider than the other groups.
-     Anchor it to the button's right edge so it stays on screen. */
-  #menu-play{left:auto;right:0;width:max-content}
-  #menu-play a{white-space:nowrap}
 }
 @media (min-width:861px) and (hover:hover) and (pointer:fine){
   .nav-group:hover>.nav-menu{display:grid}
