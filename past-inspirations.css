@@ -1,0 +1,58 @@
+/* Past Inspirations. Loaded only by past-inspirations.html.
+   Uses the site palette, type, and card language from styles.css. */
+
+.pi-stage{margin-top:1.5rem;scroll-margin-top:5.5rem}
+.pi-frame{position:relative;width:100%;aspect-ratio:16/9;background:#000;border-radius:6px;border:1px solid var(--line);box-shadow:0 40px 80px -30px #000;overflow:hidden}
+.pi-frame iframe{position:absolute;inset:0;width:100%;height:100%;border:0}
+.pi-now{margin-top:.75rem;font-size:.95rem;color:var(--muted)}
+.pi-now strong{color:#ffe2b0;font-family:"Cinzel",serif;font-weight:700;letter-spacing:.02em}
+.pi-now span{margin-left:.35rem;letter-spacing:.12em;font-size:.8rem}
+.pi-credit{margin-top:.35rem;font-size:.7rem;letter-spacing:.18em;text-transform:uppercase;color:#a89a88}
+.pi-credit a{color:var(--fire2);text-decoration:none}
+.pi-credit a:hover{text-decoration:underline}
+
+.pi-h{font-family:"Cinzel",serif;font-weight:900;text-transform:uppercase;font-size:clamp(1.5rem,3.2vw,2.2rem);line-height:1;margin:2.4rem 0 .9rem}
+.pi-filters{display:flex;flex-wrap:wrap;gap:.5rem;margin:0 0 1.1rem}
+.pi-filters button{font:700 .74rem/1 "Inter",system-ui,sans-serif;letter-spacing:.14em;text-transform:uppercase;color:var(--muted);background:none;border:1px solid rgba(244,236,225,.25);border-radius:999px;padding:.8rem 1.1rem;min-height:44px;cursor:pointer;transition:.25s var(--ease)}
+.pi-filters button:hover,.pi-filters button:focus-visible{color:var(--fire2);border-color:var(--fire2);outline:none}
+.pi-filters button.on{background:var(--fire);border-color:var(--fire);color:#140803}
+
+.pi-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:1rem}
+.pi-card{display:flex;flex-direction:column;width:100%;padding:0;text-align:left;font:inherit;color:inherit;background:rgba(255,255,255,.02);border:1px solid var(--line);border-radius:6px;overflow:hidden;cursor:pointer;appearance:none;-webkit-appearance:none;transition:transform .35s var(--ease),box-shadow .35s var(--ease),border-color .35s var(--ease)}
+.pi-card:hover,.pi-card:focus-visible{transform:translateY(-4px);border-color:rgba(255,193,94,.45);box-shadow:0 24px 60px -24px rgba(255,120,30,.55);outline:none}
+.pi-card.on{border-color:var(--fire);box-shadow:0 0 0 1px rgba(255,138,42,.4)}
+.pi-poster{display:block;position:relative;aspect-ratio:16/9;background:#120c06;overflow:hidden}
+.pi-poster img{width:100%;height:100%;object-fit:cover;object-position:center}
+.pi-poster.is-missing img{opacity:0}
+.pi-poster.is-missing::after{content:"Archive still";position:absolute;inset:0;display:grid;place-items:center;font-size:.66rem;letter-spacing:.16em;text-transform:uppercase;color:#8d7d6b}
+.pi-meta{display:flex;flex-direction:column;gap:.28rem;padding:.9rem 1rem 1.05rem;min-width:0}
+.pi-kicker{display:flex;justify-content:space-between;align-items:baseline;gap:.6rem}
+.pi-tag{font-size:.66rem;letter-spacing:.2em;text-transform:uppercase;font-weight:700;color:var(--fire2)}
+.pi-card[data-tag="Comedy"] .pi-tag{color:#ffc15e}
+.pi-card[data-tag="Pulp"] .pi-tag{color:#9ec0ff;font-family:"Orbitron",sans-serif;letter-spacing:.12em;font-size:.58rem}
+.pi-card[data-tag="Classic"] .pi-tag{color:#e7c9d4}
+.pi-lead{color:var(--muted);max-width:44rem;margin:-.2rem 0 1rem;font-size:1.02rem}
+.pi-group + .pi-group{margin-top:.4rem}
+.pi-year{flex:none;font-size:.75rem;letter-spacing:.12em;color:var(--muted);font-variant-numeric:tabular-nums}
+.pi-title{font-family:"Cinzel",serif;font-weight:700;font-size:1.05rem;line-height:1.2}
+.pi-note{font-family:"Cormorant Garamond",serif;font-style:italic;font-size:1.08rem;line-height:1.3;color:#e6d6c2;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
+
+.pi-search{margin-top:.2rem}
+.pi-search label{display:block;margin:0 0 .45rem;font-size:.78rem;letter-spacing:.16em;text-transform:uppercase;font-weight:700;color:var(--muted)}
+.pi-search-row{display:flex;flex-wrap:wrap;gap:.6rem;align-items:center}
+.pi-q{flex:1 1 16rem;min-width:0;min-height:46px;padding:.65rem .9rem;font:400 1rem/1.4 "Inter",system-ui,sans-serif;color:var(--ink);background:rgba(0,0,0,.35);border:1px solid rgba(244,236,225,.25);border-radius:3px}
+.pi-q:focus{outline:none;border-color:var(--fire2)}
+.pi-q::placeholder{color:#8d7d6b}
+.pi-status{color:var(--muted);margin:.85rem 0 0;min-height:1.5em}
+.pi-results-h{margin-top:1.4rem}
+
+@media (max-width:640px){
+  .pi-grid{grid-template-columns:1fr;gap:.75rem}
+  .pi-card{flex-direction:row;align-items:stretch}
+  .pi-card:hover,.pi-card:focus-visible{transform:none}
+  .pi-poster{flex:0 0 42%;aspect-ratio:auto;min-height:7.5rem}
+  .pi-poster img{position:absolute;inset:0}
+  .pi-meta{padding:.75rem .8rem .85rem}
+  .pi-q{flex:1 1 100%}
+  .pi-search-row .btn{flex:1 1 auto}
+}
