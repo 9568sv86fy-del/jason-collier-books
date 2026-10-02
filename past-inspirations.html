@@ -97,27 +97,34 @@
             <div class="tv-glass" aria-hidden="true"></div>
           </div>
         </div>
-        <div class="tv-side" aria-hidden="true">
+        <div class="tv-side">
           <div class="tv-knobs">
-            <span class="tv-dial">
-              <svg class="tv-dial-ring" viewBox="0 0 64 64" focusable="false">
-                <circle cx="32" cy="32" r="30" fill="none" stroke="#c9a36a" stroke-width="1.25" opacity=".85"/>
-                <g stroke="#f0ddb4" stroke-width="1.6" stroke-linecap="round">
-                  <line x1="32" y1="5" x2="32" y2="10"/><line x1="45.5" y1="8.6" x2="43" y2="12.9"/>
-                  <line x1="55.4" y1="18.5" x2="51.1" y2="21"/><line x1="59" y1="32" x2="54" y2="32"/>
-                  <line x1="55.4" y1="45.5" x2="51.1" y2="43"/><line x1="45.5" y1="55.4" x2="43" y2="51.1"/>
-                  <line x1="32" y1="59" x2="32" y2="54"/><line x1="18.5" y1="55.4" x2="21" y2="51.1"/>
-                  <line x1="8.6" y1="45.5" x2="12.9" y2="43"/><line x1="5" y1="32" x2="10" y2="32"/>
-                  <line x1="8.6" y1="18.5" x2="12.9" y2="21"/><line x1="18.5" y1="8.6" x2="21" y2="12.9"/>
-                </g>
-              </svg>
-              <span class="tv-knob tv-knob-channel"></span>
-            </span>
-            <span class="tv-knob tv-knob-volume"></span>
-            <span class="tv-lamp"></span>
+            <span class="tv-dial-spacer" aria-hidden="true"></span>
+            <span class="tv-knob tv-knob-volume" aria-hidden="true"></span>
+            <span class="tv-lamp" aria-hidden="true"></span>
           </div>
-          <span class="tv-speaker"></span>
+          <span class="tv-speaker" aria-hidden="true"></span>
         </div>
+        <div class="set-shade" aria-hidden="true"></div>
+        <button type="button" class="cab-power" id="tv-power" aria-pressed="true" aria-controls="movies-shelf" aria-label="Television is on">
+          <span class="cab-ring" aria-hidden="true">
+            <svg class="tv-dial-ring" viewBox="0 0 64 64" focusable="false">
+              <circle cx="32" cy="32" r="30" fill="none" stroke="#c9a36a" stroke-width="1.25" opacity=".85"/>
+              <g stroke="#f0ddb4" stroke-width="1.6" stroke-linecap="round">
+                <line x1="32" y1="5" x2="32" y2="10"/><line x1="45.5" y1="8.6" x2="43" y2="12.9"/>
+                <line x1="55.4" y1="18.5" x2="51.1" y2="21"/><line x1="59" y1="32" x2="54" y2="32"/>
+                <line x1="55.4" y1="45.5" x2="51.1" y2="43"/><line x1="45.5" y1="55.4" x2="43" y2="51.1"/>
+                <line x1="32" y1="59" x2="32" y2="54"/><line x1="18.5" y1="55.4" x2="21" y2="51.1"/>
+                <line x1="8.6" y1="45.5" x2="12.9" y2="43"/><line x1="5" y1="32" x2="10" y2="32"/>
+                <line x1="8.6" y1="18.5" x2="12.9" y2="21"/><line x1="18.5" y1="8.6" x2="21" y2="12.9"/>
+              </g>
+            </svg>
+            <span class="cab-mark cab-mark-off">OFF</span>
+            <span class="cab-mark cab-mark-on">ON</span>
+            <span class="cab-knob"></span>
+          </span>
+          <span class="cab-state">ON</span>
+        </button>
       </div>
       <figcaption>
         <p class="pi-now">Now playing <strong id="pi-now-title">The Flying Deuces</strong> <span id="pi-now-year">1939</span></p>
@@ -125,10 +132,6 @@
       </figcaption>
     </figure>
         </div>
-        <button type="button" class="set-power" id="tv-power" aria-pressed="true" aria-controls="movies-shelf">
-          <span class="set-power-knob" aria-hidden="true"></span>
-          <span class="set-power-name">ON</span>
-        </button>
       </div>
       <div class="pi-slot pi-slot-radio" id="radio">
         <div class="set-face" id="radio-face">
@@ -184,6 +187,15 @@
           </div>
           <p class="otr-readout"><span id="otr-khz">640</span> <em id="otr-station">Mystery &amp; Suspense</em></p>
         </div>
+        <div class="otr-panel">
+        <button type="button" class="cab-power" id="radio-power" aria-pressed="false" aria-controls="radio-shelf" aria-label="Turn on the radio">
+          <span class="cab-ring" aria-hidden="true">
+            <span class="cab-mark cab-mark-off">OFF</span>
+            <span class="cab-mark cab-mark-on">ON</span>
+            <span class="cab-knob"></span>
+          </span>
+          <span class="cab-state">OFF</span>
+        </button>
         <div class="otr-knobs">
           <div class="otr-knob-wrap">
             <button type="button" class="otr-knob" id="otr-tune" aria-label="Tuning. Activate for the next station."></button>
@@ -198,6 +210,8 @@
             <span>Volume</span>
           </div>
         </div>
+        </div>
+        <div class="set-shade" aria-hidden="true"></div>
         <div class="otr-transport">
           <button type="button" class="otr-skip" id="otr-prev">Prev</button>
           <div class="otr-seek-wrap">
@@ -211,10 +225,6 @@
       </div>
       </div>
         </div>
-        <button type="button" class="set-power" id="radio-power" aria-pressed="false" aria-controls="radio-shelf">
-          <span class="set-power-knob" aria-hidden="true"></span>
-          <span class="set-power-name">ON</span>
-        </button>
       </div>
     </div>
 

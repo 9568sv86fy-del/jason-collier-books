@@ -37,6 +37,14 @@
 
   shelf.querySelectorAll(".pi-poster img").forEach(poster);
 
+  (function primeStill() {
+    var src = frame.getAttribute("src") || "";
+    var id = src.split("/embed/")[1];
+    if (!id) return;
+    id = decodeURIComponent(id.split(/[?#]/)[0]);
+    if (frame.parentElement) frame.parentElement.style.backgroundImage = "url(\"https://archive.org/services/img/" + encodeURIComponent(id) + "\")";
+  })();
+
   function play(card) {
     var id = card.getAttribute("data-id");
     if (!id) return;
@@ -44,6 +52,7 @@
     var yearEl = card.querySelector(".pi-year");
     var year = yearEl ? yearEl.textContent.trim() : "";
     var next = "https://archive.org/embed/" + encodeURIComponent(id);
+    if (frame.parentElement) frame.parentElement.style.backgroundImage = "url(\"https://archive.org/services/img/" + encodeURIComponent(id) + "\")";
     if (frame.getAttribute("src") !== next) frame.setAttribute("src", next);
     frame.title = year ? title + " (" + year + ")" : title;
     nowTitle.textContent = title;
@@ -208,12 +217,19 @@
     return root.getAttribute("data-set") === "radio" ? "radio" : "tv";
   }
 
+  function paintState(button, on) {
+    var word = button.querySelector(".cab-state");
+    if (word) word.textContent = on ? "ON" : "OFF";
+  }
+
   function syncButtons() {
     var radioOn = mode() === "radio";
     tvPower.setAttribute("aria-pressed", radioOn ? "false" : "true");
     radioPower.setAttribute("aria-pressed", radioOn ? "true" : "false");
     tvPower.setAttribute("aria-label", radioOn ? "Turn on the television" : "Television is on");
     radioPower.setAttribute("aria-label", radioOn ? "Radio is on" : "Turn on the radio");
+    paintState(tvPower, !radioOn);
+    paintState(radioPower, radioOn);
   }
 
   function pauseRadio() {
@@ -229,6 +245,11 @@
 
   function restoreFilm() {
     if (!savedFilm || savedFilm.indexOf(BLANK) === 0) return;
+    var id = savedFilm.split("/embed/")[1];
+    if (id && embed.parentElement) {
+      id = decodeURIComponent(id.split(/[?#]/)[0]);
+      embed.parentElement.style.backgroundImage = "url(\"https://archive.org/services/img/" + encodeURIComponent(id) + "\")";
+    }
     if (embed.getAttribute("src") !== savedFilm) embed.setAttribute("src", savedFilm);
   }
 
