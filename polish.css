@@ -185,3 +185,31 @@ footer a{color:#b9ab9a;transition:color .2s}
 .paint-slot{margin:0 0 3.5rem;padding:2.2rem clamp(1.2rem,4vw,2.4rem);border:1.5px dashed rgba(255,193,94,.4);border-radius:12px;
   background:repeating-linear-gradient(45deg,rgba(255,138,42,.035) 0 14px,transparent 14px 28px);text-align:center}
 .paint-slot p:not(.kicker){color:var(--muted);max-width:34rem;margin:.6rem auto 0}
+
+/* ---------- 12. The Rusty Stack: portrait cover (2:3, 832x1248) ----------
+   Replaces the old 477x222 landscape art in its cover slots. Shown whole,
+   never cropped through the title. images/rusty-stack-game.jpg stays for
+   I Spy and the social-share image. */
+.bcard-brass .bcard-img{display:block;background:#120c06}
+.bcard-brass .bcard-img::before{content:none}
+.bcard-brass .bcard-img img{height:100%;object-fit:cover;object-position:center top;filter:none;box-shadow:none}
+.rusty-inner:has(img[src$="the-rusty-stack.jpg"]){grid-template-columns:minmax(0,.8fr) minmax(0,1.2fr)}
+.rusty-art:has(img[src$="the-rusty-stack.jpg"]){max-width:380px;width:100%;justify-self:center}
+.rusty-art img[src$="the-rusty-stack.jpg"]{display:block;height:auto;filter:none}
+.brass-ab .ab-book-head:has(.ab-cover[src$="the-rusty-stack.jpg"]){grid-template-columns:minmax(120px,190px) 1fr}
+.brass-ab .ab-cover[src$="the-rusty-stack.jpg"]{aspect-ratio:2/3;object-fit:cover;object-position:center top;filter:none;height:auto}
+/* "Coming soon" ribbon becomes a flat tag over the clouds, clear of the title and author name */
+.bcard-brass .bcard-img:has(img[src$="the-rusty-stack.jpg"]) .soon,
+.rusty-art:has(img[src$="the-rusty-stack.jpg"]) .soon{transform:none;top:auto;right:6%;bottom:16%;padding:.32rem .65rem;font-size:.56rem;letter-spacing:.18em;line-height:1.2;border-radius:2px}
+@media (max-width:460px){
+  .bcard-brass .bcard-img:has(img[src$="the-rusty-stack.jpg"]) img{object-fit:contain;object-position:center}
+  .bcard-brass .bcard-img:has(img[src$="the-rusty-stack.jpg"]) .soon{bottom:24%;right:8%;font-size:.44rem;padding:.24rem .45rem;letter-spacing:.12em}
+}
+@media (max-width:900px){
+  .rusty-inner:has(img[src$="the-rusty-stack.jpg"]){grid-template-columns:1fr}
+  .rusty-art:has(img[src$="the-rusty-stack.jpg"]){max-width:280px}
+}
+@media (max-width:640px){
+  .brass-ab .ab-book-head:has(.ab-cover[src$="the-rusty-stack.jpg"]){grid-template-columns:1fr}
+  .brass-ab .ab-cover[src$="the-rusty-stack.jpg"]{max-width:200px}
+}
