@@ -37,6 +37,14 @@
 
   shelf.querySelectorAll(".pi-poster img").forEach(poster);
 
+  (function primeStill() {
+    var src = frame.getAttribute("src") || "";
+    var id = src.split("/embed/")[1];
+    if (!id) return;
+    id = decodeURIComponent(id.split(/[?#]/)[0]);
+    if (frame.parentElement) frame.parentElement.style.backgroundImage = "url(\"https://archive.org/services/img/" + encodeURIComponent(id) + "\")";
+  })();
+
   function play(card) {
     var id = card.getAttribute("data-id");
     if (!id) return;
@@ -44,6 +52,7 @@
     var yearEl = card.querySelector(".pi-year");
     var year = yearEl ? yearEl.textContent.trim() : "";
     var next = "https://archive.org/embed/" + encodeURIComponent(id);
+    if (frame.parentElement) frame.parentElement.style.backgroundImage = "url(\"https://archive.org/services/img/" + encodeURIComponent(id) + "\")";
     if (frame.getAttribute("src") !== next) frame.setAttribute("src", next);
     frame.title = year ? title + " (" + year + ")" : title;
     nowTitle.textContent = title;
@@ -181,4 +190,110 @@
         results.removeAttribute("aria-busy");
       });
   });
+})();
+
+/* Power knobs: one set on at a time. The other stays visible, smaller and dark. */
+(function () {
+  var root = document.documentElement;
+  var embed = document.getElementById("pi-embed");
+  var tvPower = document.getElementById("tv-power");
+  var radioPower = document.getElementById("radio-power");
+  var screen = document.querySelector(".tv-screen");
+  var dial = document.getElementById("otr-dial");
+  if (!embed || !tvPower || !radioPower) return;
+
+  var BLANK = "about:blank";
+  var savedFilm = window.__piFilm || "";
+  if (!savedFilm) {
+    var current = embed.getAttribute("src") || "";
+    if (current && current.indexOf(BLANK) !== 0) savedFilm = current;
+  }
+
+  function reduceMotion() {
+    return window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  }
+
+  function mode() {
+    return root.getAttribute("data-set") === "radio" ? "radio" : "tv";
+  }
+
+  function paintState(button, on) {
+    var word = button.querySelector(".cab-state");
+    if (word) word.textContent = on ? "ON" : "OFF";
+  }
+
+  function syncButtons() {
+    var radioOn = mode() === "radio";
+    tvPower.setAttribute("aria-pressed", radioOn ? "false" : "true");
+    radioPower.setAttribute("aria-pressed", radioOn ? "true" : "false");
+    tvPower.setAttribute("aria-label", radioOn ? "Turn on the television" : "Television is on");
+    radioPower.setAttribute("aria-label", radioOn ? "Radio is on" : "Turn on the radio");
+    paintState(tvPower, !radioOn);
+    paintState(radioPower, radioOn);
+  }
+
+  function pauseRadio() {
+    var audio = document.getElementById("otr-audio");
+    if (audio && !audio.paused) audio.pause();
+  }
+
+  function stopFilm() {
+    var src = embed.getAttribute("src") || "";
+    if (src && src.indexOf(BLANK) !== 0) savedFilm = src;
+    if (src !== BLANK) embed.setAttribute("src", BLANK);
+  }
+
+  function restoreFilm() {
+    if (!savedFilm || savedFilm.indexOf(BLANK) === 0) return;
+    var id = savedFilm.split("/embed/")[1];
+    if (id && embed.parentElement) {
+      id = decodeURIComponent(id.split(/[?#]/)[0]);
+      embed.parentElement.style.backgroundImage = "url(\"https://archive.org/services/img/" + encodeURIComponent(id) + "\")";
+    }
+    if (embed.getAttribute("src") !== savedFilm) embed.setAttribute("src", savedFilm);
+  }
+
+  function flicker() {
+    if (!screen || reduceMotion()) return;
+    screen.classList.remove("is-flicker");
+    void screen.offsetWidth;
+    screen.classList.add("is-flicker");
+  }
+
+  function warmDial() {
+    if (!dial || reduceMotion()) return;
+    dial.classList.remove("is-warm");
+    void dial.offsetWidth;
+    dial.classList.add("is-warm");
+  }
+
+  function setMode(next, animate) {
+    if (mode() === next) {
+      syncButtons();
+      return;
+    }
+    root.setAttribute("data-set", next);
+    try { localStorage.setItem("pi-set", next === "radio" ? "radio" : "tv"); } catch (e) {}
+    var hash = next === "radio" ? "#radio" : "#movies";
+    if (location.hash !== hash) history.replaceState(null, "", hash);
+    if (next === "tv") {
+      pauseRadio();
+      restoreFilm();
+      if (animate) flicker();
+    } else {
+      stopFilm();
+      if (animate) warmDial();
+    }
+    syncButtons();
+  }
+
+  tvPower.addEventListener("click", function () { setMode("tv", true); });
+  radioPower.addEventListener("click", function () { setMode("radio", true); });
+  window.addEventListener("hashchange", function () {
+    if (location.hash === "#radio") setMode("radio", true);
+    else if (location.hash === "#movies") setMode("tv", true);
+  });
+
+  if (mode() === "radio") stopFilm();
+  syncButtons();
 })();

@@ -24,6 +24,17 @@
 <link rel="stylesheet" href="styles.css">
 <link rel="stylesheet" href="polish.css">
 <link rel="stylesheet" href="past-inspirations.css">
+<script>
+/* Pick the set before paint so a phone doesn't flash the long page. */
+(function () {
+  var mode = "tv";
+  if (location.hash === "#radio") mode = "radio";
+  else if (location.hash !== "#movies") {
+    try { if (localStorage.getItem("pi-set") === "radio") mode = "radio"; } catch (e) {}
+  }
+  document.documentElement.setAttribute("data-set", mode);
+})();
+</script>
 </head>
 <body>
 <div class="grain" aria-hidden="true"></div>
@@ -57,51 +68,168 @@
 </header>
 
 <main id="top">
-<section class="ab-page" id="movies">
+<section class="ab-page">
   <div class="ab-page-inner">
     <header class="page-head">
       <p class="kicker reveal">Watch</p>
       <h1 class="reveal">Past Inspirations</h1>
-      <p class="reveal">Public-domain pictures from the same trail as these books: comedy teams, pulp heroes and serials, and a lot of Westerns. A few horror and silent classics sit at the end. Press a card and the film plays above, streamed from the Internet Archive. Nothing is stored on this site.</p>
-      <nav class="ab-jump reveal" aria-label="On this page"><a href="#movies">Movies</a><a href="#radio">Radio</a></nav>
     </header>
 
+    <div class="pi-pair" id="pi-pair">
+      <div class="pi-slot pi-slot-tv" id="movies">
+        <div class="set-face">
     <figure class="pi-stage" id="player">
       <div class="tv-set">
         <div class="tv-screen">
           <div class="pi-frame">
             <iframe id="pi-embed" title="The Flying Deuces (1939)" src="https://archive.org/embed/TheFlyingDeuces" allow="autoplay; fullscreen; picture-in-picture" allowfullscreen></iframe>
+            <script>
+            (function () {
+              if (document.documentElement.getAttribute("data-set") !== "radio") return;
+              var frame = document.getElementById("pi-embed");
+              var src = frame && frame.getAttribute("src");
+              if (src && src.indexOf("about:blank") !== 0) {
+                window.__piFilm = src;
+                frame.setAttribute("src", "about:blank");
+              }
+            })();
+            </script>
             <div class="tv-glass" aria-hidden="true"></div>
           </div>
         </div>
-        <div class="tv-side" aria-hidden="true">
+        <div class="tv-side">
           <div class="tv-knobs">
-            <span class="tv-dial">
-              <svg class="tv-dial-ring" viewBox="0 0 64 64" focusable="false">
-                <circle cx="32" cy="32" r="30" fill="none" stroke="#c9a36a" stroke-width="1.25" opacity=".85"/>
-                <g stroke="#f0ddb4" stroke-width="1.6" stroke-linecap="round">
-                  <line x1="32" y1="5" x2="32" y2="10"/><line x1="45.5" y1="8.6" x2="43" y2="12.9"/>
-                  <line x1="55.4" y1="18.5" x2="51.1" y2="21"/><line x1="59" y1="32" x2="54" y2="32"/>
-                  <line x1="55.4" y1="45.5" x2="51.1" y2="43"/><line x1="45.5" y1="55.4" x2="43" y2="51.1"/>
-                  <line x1="32" y1="59" x2="32" y2="54"/><line x1="18.5" y1="55.4" x2="21" y2="51.1"/>
-                  <line x1="8.6" y1="45.5" x2="12.9" y2="43"/><line x1="5" y1="32" x2="10" y2="32"/>
-                  <line x1="8.6" y1="18.5" x2="12.9" y2="21"/><line x1="18.5" y1="8.6" x2="21" y2="12.9"/>
-                </g>
-              </svg>
-              <span class="tv-knob tv-knob-channel"></span>
-            </span>
-            <span class="tv-knob tv-knob-volume"></span>
-            <span class="tv-lamp"></span>
+            <span class="tv-dial-spacer" aria-hidden="true"></span>
+            <span class="tv-knob tv-knob-volume" aria-hidden="true"></span>
+            <span class="tv-lamp" aria-hidden="true"></span>
           </div>
-          <span class="tv-speaker"></span>
+          <span class="tv-speaker" aria-hidden="true"></span>
         </div>
+        <div class="set-shade" aria-hidden="true"></div>
+        <button type="button" class="cab-power" id="tv-power" aria-pressed="true" aria-controls="movies-shelf" aria-label="Television is on">
+          <span class="cab-ring" aria-hidden="true">
+            <svg class="tv-dial-ring" viewBox="0 0 64 64" focusable="false">
+              <circle cx="32" cy="32" r="30" fill="none" stroke="#c9a36a" stroke-width="1.25" opacity=".85"/>
+              <g stroke="#f0ddb4" stroke-width="1.6" stroke-linecap="round">
+                <line x1="32" y1="5" x2="32" y2="10"/><line x1="45.5" y1="8.6" x2="43" y2="12.9"/>
+                <line x1="55.4" y1="18.5" x2="51.1" y2="21"/><line x1="59" y1="32" x2="54" y2="32"/>
+                <line x1="55.4" y1="45.5" x2="51.1" y2="43"/><line x1="45.5" y1="55.4" x2="43" y2="51.1"/>
+                <line x1="32" y1="59" x2="32" y2="54"/><line x1="18.5" y1="55.4" x2="21" y2="51.1"/>
+                <line x1="8.6" y1="45.5" x2="12.9" y2="43"/><line x1="5" y1="32" x2="10" y2="32"/>
+                <line x1="8.6" y1="18.5" x2="12.9" y2="21"/><line x1="18.5" y1="8.6" x2="21" y2="12.9"/>
+              </g>
+            </svg>
+            <span class="cab-mark cab-mark-off">OFF</span>
+            <span class="cab-mark cab-mark-on">ON</span>
+            <span class="cab-knob"></span>
+          </span>
+          <span class="cab-state">ON</span>
+        </button>
       </div>
       <figcaption>
         <p class="pi-now">Now playing <strong id="pi-now-title">The Flying Deuces</strong> <span id="pi-now-year">1939</span></p>
         <p class="pi-credit">Films stream from the <a href="https://archive.org" target="_blank" rel="noopener">Internet Archive</a>. Public domain.</p>
       </figcaption>
     </figure>
+        </div>
+      </div>
+      <div class="pi-slot pi-slot-radio" id="radio">
+        <div class="set-face" id="radio-face">
+    <div class="otr-cabinet">
+      <div class="otr-set" id="otr-player">
+        <div class="otr-grille" aria-hidden="true">
+          <span class="otr-badge">The Radio Hour</span>
+        </div>
+        <div class="otr-dial" id="otr-dial" role="slider" tabindex="0" aria-valuemin="0" aria-valuemax="5" aria-valuenow="0" aria-valuetext="Mystery and Suspense" aria-label="Tuning dial">
+          <div class="otr-dial-face">
+            <svg class="otr-dial-svg" viewBox="0 0 320 176" aria-hidden="true">
+              <defs>
+                <radialGradient id="otrGlow" cx="50%" cy="92%" r="78%">
+                  <stop offset="0%" stop-color="#ffe7bc"/>
+                  <stop offset="42%" stop-color="#f0a04a"/>
+                  <stop offset="100%" stop-color="#6a3412"/>
+                </radialGradient>
+                <linearGradient id="otrSheen" x1="0" y1="0" x2="1" y2="1">
+                  <stop offset="0%" stop-color="#fff" stop-opacity=".55"/>
+                  <stop offset="42%" stop-color="#fff" stop-opacity="0"/>
+                </linearGradient>
+              </defs>
+              <path d="M22 158 A138 138 0 0 1 298 158 Z" fill="#2a1408"/>
+              <path d="M36 158 A124 124 0 0 1 284 158 Z" fill="url(#otrGlow)"/>
+              <path d="M36 158 A124 124 0 0 1 284 158" fill="none" stroke="#e8c98a" stroke-width="2.5"/>
+              <path d="M58 150 A100 100 0 0 1 168 36" fill="none" stroke="url(#otrSheen)" stroke-width="22" stroke-linecap="round" opacity=".85"/>
+              <g stroke="#f6e2b8" stroke-linecap="round">
+                <line x1="30.9" y1="130.6" x2="23.1" y2="128.9" stroke-width=".8"/><line x1="34.5" y1="117.2" x2="26.9" y2="114.7" stroke-width=".8"/>
+                <line x1="39.4" y1="104.3" x2="32.1" y2="101.1" stroke-width=".8"/><line x1="45.7" y1="92" x2="38.8" y2="88" stroke-width=".8"/>
+                <line x1="53.2" y1="80.4" x2="46.7" y2="75.7" stroke-width=".8"/><line x1="61.9" y1="69.7" x2="56" y2="64.3" stroke-width=".8"/>
+                <line x1="71.7" y1="59.9" x2="66.3" y2="54" stroke-width=".8"/><line x1="82.4" y1="51.2" x2="77.7" y2="44.7" stroke-width=".8"/>
+                <line x1="94" y1="43.7" x2="90" y2="36.8" stroke-width=".8"/><line x1="106.3" y1="37.4" x2="103.1" y2="30.1" stroke-width=".8"/>
+                <line x1="119.2" y1="32.5" x2="116.7" y2="24.9" stroke-width=".8"/><line x1="132.6" y1="28.9" x2="130.9" y2="21.1" stroke-width=".8"/>
+                <line x1="146.2" y1="26.7" x2="145.4" y2="18.8" stroke-width=".8"/><line x1="160" y1="26" x2="160" y2="18" stroke-width=".8"/>
+                <line x1="173.8" y1="26.7" x2="174.6" y2="18.8" stroke-width=".8"/><line x1="187.4" y1="28.9" x2="189.1" y2="21.1" stroke-width=".8"/>
+                <line x1="200.8" y1="32.5" x2="203.3" y2="24.9" stroke-width=".8"/><line x1="213.7" y1="37.4" x2="216.9" y2="30.1" stroke-width=".8"/>
+                <line x1="226" y1="43.7" x2="230" y2="36.8" stroke-width=".8"/><line x1="237.6" y1="51.2" x2="242.3" y2="44.7" stroke-width=".8"/>
+                <line x1="248.3" y1="59.9" x2="253.7" y2="54" stroke-width=".8"/><line x1="258.1" y1="69.7" x2="264" y2="64.3" stroke-width=".8"/>
+                <line x1="266.8" y1="80.4" x2="273.3" y2="75.7" stroke-width=".8"/><line x1="274.3" y1="92" x2="281.2" y2="88" stroke-width=".8"/>
+                <line x1="280.6" y1="104.3" x2="287.9" y2="101.1" stroke-width=".8"/><line x1="285.5" y1="117.2" x2="293.1" y2="114.7" stroke-width=".8"/>
+                <line x1="289.1" y1="130.6" x2="296.9" y2="128.9" stroke-width=".8"/>
+              </g>
+              <g fill="#4a240c" font-family="IM Fell English SC, Palatino, serif" font-size="12">
+                <text x="67.3" y="136" text-anchor="middle">640</text>
+                <text x="92.1" y="93" text-anchor="middle">760</text>
+                <text x="135.2" y="68" text-anchor="middle">880</text>
+                <text x="184.8" y="68" text-anchor="middle">1020</text>
+                <text x="227.9" y="93" text-anchor="middle">1160</text>
+                <text x="252.7" y="136" text-anchor="middle">1320</text>
+              </g>
+            </svg>
+            <div class="otr-needle" id="otr-needle"></div>
+          </div>
+          <p class="otr-readout"><span id="otr-khz">640</span> <em id="otr-station">Mystery &amp; Suspense</em></p>
+        </div>
+        <div class="otr-panel">
+        <button type="button" class="cab-power" id="radio-power" aria-pressed="false" aria-controls="radio-shelf" aria-label="Turn on the radio">
+          <span class="cab-ring" aria-hidden="true">
+            <span class="cab-mark cab-mark-off">OFF</span>
+            <span class="cab-mark cab-mark-on">ON</span>
+            <span class="cab-knob"></span>
+          </span>
+          <span class="cab-state">OFF</span>
+        </button>
+        <div class="otr-knobs">
+          <div class="otr-knob-wrap">
+            <button type="button" class="otr-knob" id="otr-tune" aria-label="Tuning. Activate for the next station."></button>
+            <span>Tune</span>
+          </div>
+          <div class="otr-play-wrap">
+            <span class="otr-lamp" id="otr-lamp" aria-hidden="true"></span>
+            <button type="button" class="otr-play" id="otr-play" aria-label="Play"><span class="otr-play-icon" aria-hidden="true"></span></button>
+          </div>
+          <div class="otr-knob-wrap">
+            <div class="otr-knob" id="otr-vol" role="slider" tabindex="0" aria-valuemin="0" aria-valuemax="100" aria-valuenow="100" aria-label="Volume"></div>
+            <span>Volume</span>
+          </div>
+        </div>
+        </div>
+        <div class="set-shade" aria-hidden="true"></div>
+        <div class="otr-transport">
+          <button type="button" class="otr-skip" id="otr-prev">Prev</button>
+          <div class="otr-seek-wrap">
+            <input class="otr-seek" id="otr-seek" type="range" min="0" max="1000" value="0" aria-label="Position in this episode">
+            <span class="otr-time" id="otr-time">0:00 / 0:00</span>
+          </div>
+          <button type="button" class="otr-skip" id="otr-next">Next</button>
+        </div>
+        <p class="otr-now" id="otr-now">Choose a station, then a show.</p>
+        <audio id="otr-audio" class="otr-audio-el" controls preload="none" playsinline webkit-playsinline tabindex="-1"></audio>
+      </div>
+      </div>
+        </div>
+      </div>
+    </div>
 
+    <div id="movies-shelf">
+    <p class="pi-shelf-lead">Public-domain pictures from the same trail as these books: comedy teams, pulp heroes and serials, and a lot of Westerns. A few horror and silent classics sit at the end. Press a card and the film plays above, streamed from the Internet Archive. Nothing is stored on this site.</p>
     <h2 class="pi-h">Browse</h2>
     <div class="pi-filters" role="toolbar" aria-label="Filter films">
       <button type="button" class="on" data-genre="all" aria-pressed="true">All</button>
@@ -192,97 +320,10 @@
     <h3 class="pi-h pi-results-h" id="pi-results-h" hidden>Results</h3>
     <div class="pi-grid" id="pi-results" aria-live="polite"></div>
     <noscript><p>The film above still plays. JavaScript turns on the shelf, the filters, and archive search.</p></noscript>
-  </div>
-</section>
+    </div>
 
-<section class="otr-page" id="radio">
-  <div class="ab-page-inner">
-    <header class="page-head">
-      <p class="kicker">Listen</p>
-      <h2 class="otr-h">The Radio Hour</h2>
-      <p>Classic shows from the 1930s to the 1950s. Tune a station, pick an episode, and leave it on. The player uses the phone’s own audio, so it keeps going with the screen locked.</p>
-    </header>
-
-    <div class="otr-layout">
-      <div class="otr-cabinet">
-      <div class="otr-set" id="otr-player">
-        <div class="otr-grille" aria-hidden="true">
-          <span class="otr-badge">The Radio Hour</span>
-        </div>
-        <div class="otr-dial" id="otr-dial" role="slider" tabindex="0" aria-valuemin="0" aria-valuemax="5" aria-valuenow="0" aria-valuetext="Mystery and Suspense" aria-label="Tuning dial">
-          <div class="otr-dial-face">
-            <svg class="otr-dial-svg" viewBox="0 0 320 176" aria-hidden="true">
-              <defs>
-                <radialGradient id="otrGlow" cx="50%" cy="92%" r="78%">
-                  <stop offset="0%" stop-color="#ffe7bc"/>
-                  <stop offset="42%" stop-color="#f0a04a"/>
-                  <stop offset="100%" stop-color="#6a3412"/>
-                </radialGradient>
-                <linearGradient id="otrSheen" x1="0" y1="0" x2="1" y2="1">
-                  <stop offset="0%" stop-color="#fff" stop-opacity=".55"/>
-                  <stop offset="42%" stop-color="#fff" stop-opacity="0"/>
-                </linearGradient>
-              </defs>
-              <path d="M22 158 A138 138 0 0 1 298 158 Z" fill="#2a1408"/>
-              <path d="M36 158 A124 124 0 0 1 284 158 Z" fill="url(#otrGlow)"/>
-              <path d="M36 158 A124 124 0 0 1 284 158" fill="none" stroke="#e8c98a" stroke-width="2.5"/>
-              <path d="M58 150 A100 100 0 0 1 168 36" fill="none" stroke="url(#otrSheen)" stroke-width="22" stroke-linecap="round" opacity=".85"/>
-              <g stroke="#f6e2b8" stroke-linecap="round">
-                <line x1="30.9" y1="130.6" x2="23.1" y2="128.9" stroke-width=".8"/><line x1="34.5" y1="117.2" x2="26.9" y2="114.7" stroke-width=".8"/>
-                <line x1="39.4" y1="104.3" x2="32.1" y2="101.1" stroke-width=".8"/><line x1="45.7" y1="92" x2="38.8" y2="88" stroke-width=".8"/>
-                <line x1="53.2" y1="80.4" x2="46.7" y2="75.7" stroke-width=".8"/><line x1="61.9" y1="69.7" x2="56" y2="64.3" stroke-width=".8"/>
-                <line x1="71.7" y1="59.9" x2="66.3" y2="54" stroke-width=".8"/><line x1="82.4" y1="51.2" x2="77.7" y2="44.7" stroke-width=".8"/>
-                <line x1="94" y1="43.7" x2="90" y2="36.8" stroke-width=".8"/><line x1="106.3" y1="37.4" x2="103.1" y2="30.1" stroke-width=".8"/>
-                <line x1="119.2" y1="32.5" x2="116.7" y2="24.9" stroke-width=".8"/><line x1="132.6" y1="28.9" x2="130.9" y2="21.1" stroke-width=".8"/>
-                <line x1="146.2" y1="26.7" x2="145.4" y2="18.8" stroke-width=".8"/><line x1="160" y1="26" x2="160" y2="18" stroke-width=".8"/>
-                <line x1="173.8" y1="26.7" x2="174.6" y2="18.8" stroke-width=".8"/><line x1="187.4" y1="28.9" x2="189.1" y2="21.1" stroke-width=".8"/>
-                <line x1="200.8" y1="32.5" x2="203.3" y2="24.9" stroke-width=".8"/><line x1="213.7" y1="37.4" x2="216.9" y2="30.1" stroke-width=".8"/>
-                <line x1="226" y1="43.7" x2="230" y2="36.8" stroke-width=".8"/><line x1="237.6" y1="51.2" x2="242.3" y2="44.7" stroke-width=".8"/>
-                <line x1="248.3" y1="59.9" x2="253.7" y2="54" stroke-width=".8"/><line x1="258.1" y1="69.7" x2="264" y2="64.3" stroke-width=".8"/>
-                <line x1="266.8" y1="80.4" x2="273.3" y2="75.7" stroke-width=".8"/><line x1="274.3" y1="92" x2="281.2" y2="88" stroke-width=".8"/>
-                <line x1="280.6" y1="104.3" x2="287.9" y2="101.1" stroke-width=".8"/><line x1="285.5" y1="117.2" x2="293.1" y2="114.7" stroke-width=".8"/>
-                <line x1="289.1" y1="130.6" x2="296.9" y2="128.9" stroke-width=".8"/>
-              </g>
-              <g fill="#4a240c" font-family="IM Fell English SC, Palatino, serif" font-size="12">
-                <text x="67.3" y="136" text-anchor="middle">640</text>
-                <text x="92.1" y="93" text-anchor="middle">760</text>
-                <text x="135.2" y="68" text-anchor="middle">880</text>
-                <text x="184.8" y="68" text-anchor="middle">1020</text>
-                <text x="227.9" y="93" text-anchor="middle">1160</text>
-                <text x="252.7" y="136" text-anchor="middle">1320</text>
-              </g>
-            </svg>
-            <div class="otr-needle" id="otr-needle"></div>
-          </div>
-          <p class="otr-readout"><span id="otr-khz">640</span> <em id="otr-station">Mystery &amp; Suspense</em></p>
-        </div>
-        <div class="otr-knobs">
-          <div class="otr-knob-wrap">
-            <button type="button" class="otr-knob" id="otr-tune" aria-label="Tuning. Activate for the next station."></button>
-            <span>Tune</span>
-          </div>
-          <div class="otr-play-wrap">
-            <span class="otr-lamp" id="otr-lamp" aria-hidden="true"></span>
-            <button type="button" class="otr-play" id="otr-play" aria-label="Play"><span class="otr-play-icon" aria-hidden="true"></span></button>
-          </div>
-          <div class="otr-knob-wrap">
-            <div class="otr-knob" id="otr-vol" role="slider" tabindex="0" aria-valuemin="0" aria-valuemax="100" aria-valuenow="100" aria-label="Volume"></div>
-            <span>Volume</span>
-          </div>
-        </div>
-        <div class="otr-transport">
-          <button type="button" class="otr-skip" id="otr-prev">Prev</button>
-          <div class="otr-seek-wrap">
-            <input class="otr-seek" id="otr-seek" type="range" min="0" max="1000" value="0" aria-label="Position in this episode">
-            <span class="otr-time" id="otr-time">0:00 / 0:00</span>
-          </div>
-          <button type="button" class="otr-skip" id="otr-next">Next</button>
-        </div>
-        <p class="otr-now" id="otr-now">Choose a station, then a show.</p>
-        <audio id="otr-audio" class="otr-audio-el" preload="none" playsinline webkit-playsinline></audio>
-      </div>
-      </div>
-
+    <div id="radio-shelf">
+    <p class="pi-shelf-lead">Classic shows from the 1930s to the 1950s. Tune a station, pick an episode, and leave it on. The player uses the phone’s own audio, so it keeps going with the screen locked.</p>
       <div class="otr-side">
         <div class="otr-stations" id="otr-stations" role="tablist" aria-label="Stations"></div>
         <h3 class="otr-sub" id="otr-shows-h">Shows</h3>
@@ -291,7 +332,6 @@
         <p class="otr-ep-status" id="otr-ep-status" role="status"></p>
         <div class="otr-episodes" id="otr-episodes" aria-live="polite"></div>
       </div>
-    </div>
 
     <h2 class="pi-h" id="otr-search-h">Search old-time radio</h2>
     <form class="pi-search" id="otr-search" role="search">
@@ -306,6 +346,7 @@
     <div class="otr-shows otr-results" id="otr-results" aria-live="polite"></div>
     <p class="pi-credit">Shows stream from the <a href="https://archive.org/details/oldtimeradio" target="_blank" rel="noopener">Internet Archive</a>.</p>
     <noscript><p>The radio needs JavaScript to load episode lists from the Internet Archive. The films above still play.</p></noscript>
+    </div>
   </div>
 </section>
 </main>
