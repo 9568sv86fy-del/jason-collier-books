@@ -192,7 +192,9 @@
 .otr-time{font-size:.68rem;letter-spacing:.08em;color:#e6d3b4;font-variant-numeric:tabular-nums;text-align:center}
 .otr-now{margin:.45rem 0 0;min-height:2.6em;text-align:center;font-size:.82rem;line-height:1.35;color:#e6d3b4}
 .otr-now strong{display:block;color:#ffe2b0;font-family:"Cinzel",serif;font-weight:700;font-size:.92rem}
-.otr-audio-el{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
+/* Chrome hides audio without controls (display:none !important). Override that so a locked phone can keep playing. */
+/* controls keeps Chrome from forcing display:none, which would stop playback when a phone locks. The bar itself is clipped to a pixel. */
+.otr-audio-el{display:block !important;position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0;opacity:0;pointer-events:none}
 .otr-stations{display:flex;flex-wrap:wrap;gap:.45rem;margin:0 0 .9rem}
 .otr-stations button{font:700 .68rem/1.2 "Inter",system-ui,sans-serif;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);background:none;border:1px solid rgba(244,236,225,.25);border-radius:999px;padding:.7rem .85rem;min-height:44px;cursor:pointer}
 .otr-stations button:hover,.otr-stations button:focus-visible{color:var(--fire2);border-color:var(--fire2);outline:none}
@@ -242,9 +244,10 @@ html[data-set="radio"] .pi-pair{grid-template-columns:minmax(220px,.72fr) minmax
 .pi-slot .tv-set{margin-bottom:0}
 .set-face{min-width:0;border-radius:1rem;transition:filter .35s var(--ease)}
 html:not([data-set="radio"]) .pi-slot-radio .set-face,
-html[data-set="radio"] .pi-slot-tv .set-face{filter:brightness(.38) saturate(.55);pointer-events:none}
+html[data-set="radio"] .pi-slot-tv .set-face{filter:brightness(.58) saturate(.72);pointer-events:none;box-shadow:0 0 0 1px rgba(232,201,138,.35)}
 html:not([data-set="radio"]) .otr-transport,
 html:not([data-set="radio"]) .otr-now,
+html:not([data-set="radio"]) .otr-knobs,
 html[data-set="radio"] .pi-slot-tv figcaption{display:none}
 html[data-set="radio"] .pi-frame::after{content:"";position:absolute;inset:0;background:#070605;z-index:3}
 html:not([data-set="radio"]) #radio-shelf{display:none}
@@ -279,13 +282,33 @@ html[data-set="radio"] .pi-slot-radio .set-power-name{color:#ffe7b8;text-shadow:
 }
 .otr-dial.is-warm .otr-dial-svg{animation:dial-warm .8s ease-out}
 @media (max-width:760px){
-  .pi-pair,html[data-set="radio"] .pi-pair{grid-template-columns:1fr;gap:.35rem}
+  .ab-page{padding-top:5.5rem}
+  .page-head h1{margin:.35rem 0 .45rem;font-size:2.15rem}
+  .pi-pair,html[data-set="radio"] .pi-pair{grid-template-columns:1fr;gap:.4rem}
   html:not([data-set="radio"]) .pi-slot-tv,html[data-set="radio"] .pi-slot-radio{order:1}
   html:not([data-set="radio"]) .pi-slot-radio,html[data-set="radio"] .pi-slot-tv{order:2}
-  /* Whole cabinet, shrunk, so the dark set still reads as a set and both fit near the top. */
-  html:not([data-set="radio"]) .pi-slot-radio .set-face,
-  html[data-set="radio"] .pi-slot-tv .set-face{zoom:.5}
-  .set-power{margin-top:.35rem}
+  .otr-set{padding:2.5rem .7rem .6rem;border-radius:5.5rem 5.5rem 14px 14px}
+  .otr-grille{height:4.4rem}
+  .otr-now{min-height:1.2em}
+  html[data-set="radio"] .pi-slot-radio .otr-set{padding-top:1.7rem}
+  html[data-set="radio"] .pi-slot-radio .otr-grille{height:3.5rem}
+  html[data-set="radio"] .pi-slot-radio .otr-dial{zoom:.8}
+  .set-power{margin-top:.3rem}
+  /* Off radio: knob above the little cabinet. Off television: screen and knob on one row. */
+  html:not([data-set="radio"]) .pi-slot-radio{display:flex;flex-direction:column}
+  html:not([data-set="radio"]) .pi-slot-radio .set-power{order:-1;margin:.1rem 0 .15rem}
+  html[data-set="radio"] .pi-slot-tv{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:.35rem .5rem}
+  html[data-set="radio"] .pi-slot-tv .set-power{margin:0}
+  /* Off radio: arch, cloth, and a short dial, so the power knob stays on the first screen. */
+  html:not([data-set="radio"]) .pi-slot-radio .otr-set{padding:1.05rem .6rem .4rem;border-radius:3rem 3rem 12px 12px}
+  html:not([data-set="radio"]) .pi-slot-radio .otr-grille{height:2rem;margin:0 .15rem .25rem}
+  html:not([data-set="radio"]) .pi-slot-radio .otr-readout{display:none}
+  html:not([data-set="radio"]) .pi-slot-radio .otr-dial{margin:0}
+  html:not([data-set="radio"]) .pi-slot-radio .otr-dial-face{height:3.15rem;aspect-ratio:auto;overflow:hidden}
+  /* Off television: a short dark screen, speaker row tucked away. */
+  html[data-set="radio"] .pi-slot-tv .tv-side{display:none}
+  html[data-set="radio"] .pi-slot-tv .tv-set{padding:.4rem;border-radius:.85rem}
+  html[data-set="radio"] .pi-slot-tv .pi-frame{aspect-ratio:auto;height:4.6rem}
 }
 @media (prefers-reduced-motion:reduce){
   .set-face{transition:none}
