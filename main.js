@@ -82,7 +82,9 @@
   const img = lb.querySelector('img'), cap = lb.querySelector('p');
   let list = [], idx = 0, last = null;
   const pool = () => [...document.querySelectorAll('.art-item:not(.hide) img, .gallery img, .scene-strip img, .photo-item img')];
-  const show = i => { idx = (i + list.length) % list.length; const el = list[idx]; img.src = el.src; img.alt = el.alt;
+  const full = el => el.dataset.full || el.src;
+  const show = i => { idx = (i + list.length) % list.length; const el = list[idx]; img.src = full(el); img.alt = el.alt;
+    [list[(idx + 1) % list.length], list[(idx - 1 + list.length) % list.length]].forEach(n => { if (n && n.dataset.full) new Image().src = n.dataset.full; });
     cap.textContent = el.closest('figure')?.querySelector('figcaption')?.textContent || el.alt || ''; };
   const open = el => { last = el; list = pool(); show(list.indexOf(el)); lb.hidden = false; document.body.style.overflow = 'hidden'; lb.querySelector('.lb-close').focus(); };
   const close = () => { lb.hidden = true; document.body.style.overflow = ''; last && last.focus(); };
@@ -92,6 +94,12 @@
   lb.querySelector('.lb-prev').onclick = e => { e.stopPropagation(); show(idx - 1); };
   lb.querySelector('.lb-next').onclick = e => { e.stopPropagation(); show(idx + 1); };
   lb.addEventListener('click', e => { if (e.target === lb) close(); });
+  // phones: swipe left/right for next/previous, swipe down to close
+  let tx = 0, ty = 0, multi = false;
+  lb.addEventListener('touchstart', e => { multi = e.touches.length > 1; tx = e.touches[0].clientX; ty = e.touches[0].clientY; }, {passive: true});
+  lb.addEventListener('touchend', e => { if (multi || lb.hidden) return; const t = e.changedTouches[0], dx = t.clientX - tx, dy = t.clientY - ty;
+    if (Math.abs(dx) > 50 && Math.abs(dx) > Math.abs(dy) * 1.3) show(idx + (dx < 0 ? 1 : -1));
+    else if (dy > 90 && Math.abs(dy) > Math.abs(dx) * 1.3) close(); }, {passive: true});
   addEventListener('keydown', e => { if (lb.hidden) return; if (e.key === 'Escape') close(); if (e.key === 'ArrowLeft') show(idx - 1); if (e.key === 'ArrowRight') show(idx + 1); });
 })();
 
