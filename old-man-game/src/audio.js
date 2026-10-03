@@ -48,7 +48,19 @@ function resumeAudio() {
 function setMuted(muted) {
   const audio = context();
   if (!audio || !master) return;
+  master.gain.cancelScheduledValues(audio.currentTime);
   master.gain.setTargetAtTime(muted ? 0 : 0.7, audio.currentTime, 0.04);
+}
+/** pull the whole mix down for a beat of quiet, then bring it back. No-op while muted. */
+function duck(amount, hold = 0.6) {
+  const audio = context();
+  if (!audio || !master || master.gain.value < 0.05) return;
+  const t = audio.currentTime;
+  const from = Math.max(0.05, Math.min(0.7, master.gain.value));
+  master.gain.cancelScheduledValues(t);
+  master.gain.setValueAtTime(from, t);
+  master.gain.linearRampToValueAtTime(from * (1 - Math.max(0, Math.min(1, amount))), t + 0.08);
+  master.gain.linearRampToValueAtTime(0.7, t + 0.08 + hold + 0.45);
 }
 function noise(seconds) {
   const audio = context();
@@ -812,6 +824,7 @@ export {
   rifleShot,
   setAmbience,
   setDread,
+  duck,
   setHeartbeat,
   setMuted,
   setWind,

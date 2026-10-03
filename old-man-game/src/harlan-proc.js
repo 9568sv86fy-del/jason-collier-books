@@ -2,10 +2,10 @@
 // Built from primitives so it lights, fogs and animates with the world.
 import * as THREE from "three";
 
-const M = (c) => new THREE.MeshLambertMaterial({ color: c, flatShading: true });
+const M = (c) => new THREE.MeshStandardMaterial({ color: c, roughness: 0.86, metalness: 0, flatShading: false });
 
 function limb(len, r0, r1, mat) {
-  const g = new THREE.CylinderGeometry(r1, r0, len, 7);
+  const g = new THREE.CylinderGeometry(r1, r0, len, 14, 1);
   g.translate(0, -len / 2, 0);
   return new THREE.Mesh(g, mat);
 }
@@ -28,8 +28,9 @@ export function buildProcHarlan() {
     hip.add(knee);
     const shin = limb(0.42, 0.07, 0.06, pants);
     knee.add(shin);
-    const b = new THREE.Mesh(new THREE.BoxGeometry(0.13, 0.1, 0.27), boot);
-    b.position.set(0, -0.44, 0.04);
+    const b = new THREE.Mesh(new THREE.SphereGeometry(0.09, 12, 8), boot);
+    b.scale.set(0.85, 0.7, 1.7);
+    b.position.set(0, -0.46, 0.05);
     knee.add(b);
     body.add(hip);
     return { hip, knee };
@@ -37,11 +38,11 @@ export function buildProcHarlan() {
   const L = mkLeg(-1), R = mkLeg(1);
 
   // coat: flared skirt + torso
-  const skirt = new THREE.Mesh(new THREE.CylinderGeometry(0.22, 0.3, 0.5, 9, 1, true), coat);
+  const skirt = new THREE.Mesh(new THREE.CylinderGeometry(0.22, 0.3, 0.5, 16, 1, true), coat);
   skirt.position.y = 0.88;
   skirt.material.side = THREE.DoubleSide;
   body.add(skirt);
-  const torso = new THREE.Mesh(new THREE.CylinderGeometry(0.25, 0.22, 0.52, 9), coat);
+  const torso = new THREE.Mesh(new THREE.CylinderGeometry(0.25, 0.22, 0.52, 16), coat);
   torso.position.y = 1.35;
   torso.scale.z = 0.78;
   body.add(torso);
@@ -58,7 +59,7 @@ export function buildProcHarlan() {
   const neck = new THREE.Group();
   neck.position.y = 1.63;
   body.add(neck);
-  const head = new THREE.Mesh(new THREE.SphereGeometry(0.115, 10, 8), skin);
+  const head = new THREE.Mesh(new THREE.SphereGeometry(0.115, 18, 14), skin);
   head.position.y = 0.11;
   neck.add(head);
   const brd = new THREE.Mesh(new THREE.ConeGeometry(0.1, 0.2, 8), beard);
@@ -164,32 +165,41 @@ export function buildProcHarlan() {
     /** speed m/s, dt seconds, opts {sneak, afraid, aiming, sitting, breath} */
     animate(speed, dt, o = {}) {
       const moving = speed > 0.15;
-      phase += dt * (moving ? 2.4 + speed * 1.55 : 0);
-      const sw = moving ? Math.min(1, speed / 2.6) : 0;
+      const runK = moving ? Math.max(0, Math.min(1, (speed - 2.4) / 2.2)) : 0;
+      // stride grows from a short walk to a longer run so the feet match ground speed
+      const stride = 0.62 + runK * 0.55;
+      const cps = moving ? Math.max(0.4, Math.min(2.4, speed / stride)) : 0;
+      phase += dt * cps * Math.PI * 2;
+      const sw = moving ? 0.35 + 0.65 * Math.min(1, speed / 2.2) : 0;
       const s = Math.sin(phase), c = Math.cos(phase);
+      const hipA = (0.42 + runK * 0.22) * sw;
       const crouch = o.sneak ? 0.12 : 0;
-      L.hip.rotation.x = s * 0.55 * sw - crouch * 2;
-      R.hip.rotation.x = -s * 0.55 * sw - crouch * 2;
-      L.knee.rotation.x = Math.max(0, -c) * 0.8 * sw + crouch * 3;
-      R.knee.rotation.x = Math.max(0, c) * 0.8 * sw + crouch * 3;
+      L.hip.rotation.x = s * hipA - crouch * 2;
+      R.hip.rotation.x = -s * hipA - crouch * 2;
+      // knee bends on the back half of the stride (the foot that's lifting)
+      L.knee.rotation.x = Math.max(0, -c) * (0.7 + runK * 0.35) * sw + crouch * 3;
+      R.knee.rotation.x = Math.max(0, c) * (0.7 + runK * 0.35) * sw + crouch * 3;
       const t = performance.now() / 1000;
       const breathe = Math.sin(t * (o.afraid ? 4.2 : 1.6)) * 0.012;
-      body.position.y = Math.abs(Math.sin(phase)) * 0.04 * sw - crouch * 0.9 + breathe;
-      body.rotation.x = -(0.05 * sw + crouch * 0.6);
+      body.position.y = Math.abs(Math.sin(phase * 2)) * (0.025 + runK * 0.02) * sw - crouch * 0.9 + breathe;
+      body.position.x = s * 0.025 * sw;
+      body.rotation.x = -(0.04 * sw + runK * 0.14 + crouch * 0.6);
+      body.rotation.z = s * 0.04 * sw;
       if (o.aiming) {
         RA.sh.rotation.set(-1.45, 0, 0.1);
         RA.el.rotation.set(-0.3, 0, 0);
         LA.sh.rotation.set(-1.4, 0, -0.35);
         LA.el.rotation.set(-0.1, 0, 0);
       } else {
-        LA.sh.rotation.set(-s * 0.45 * sw + (o.afraid ? -0.2 : 0), 0, -0.08);
-        RA.sh.rotation.set(s * 0.45 * sw, 0, 0.08);
-        LA.el.rotation.x = -0.25 - sw * 0.25;
-        RA.el.rotation.x = -0.25 - sw * 0.25;
+        // arms opposite the legs, elbows softer at a walk
+        LA.sh.rotation.set(-s * (0.4 + runK * 0.25) * sw + (o.afraid ? -0.15 : 0), 0, -0.08);
+        RA.sh.rotation.set(s * (0.4 + runK * 0.25) * sw, 0, 0.08);
+        LA.el.rotation.x = -0.22 - sw * (0.2 + runK * 0.15);
+        RA.el.rotation.x = -0.22 - sw * (0.2 + runK * 0.15);
       }
       neck.rotation.y = o.lookYaw ?? 0;
-      neck.rotation.x = o.lookPitch ?? 0;
-      return { step: moving && Math.sin(phase) * Math.sin(phase - dt * 4) < 0 };
+      neck.rotation.x = (o.lookPitch ?? 0) - runK * 0.08;
+      return { step: moving && Math.sin(phase) * Math.sin(phase - dt * cps * Math.PI * 2) < 0 };
     },
     phase: () => phase,
   };

@@ -33,7 +33,7 @@ export function createHud() {
     el.labels.appendChild(d);
     labelEls[id] = d;
   }
-  let lastLine = "", lineTimer = 0, ctxKey = "";
+  let lastLine = "", lineTimer = 0, ctxKey = "", thoughtTimer = 0;
 
   const hud = {
     el,
@@ -67,6 +67,19 @@ export function createHud() {
       if (lineTimer && now > lineTimer) {
         el.line.classList.remove("show");
         lineTimer = 0;
+      }
+    },
+    thought(text, now) {
+      const node = $("thought");
+      if (!node) return;
+      node.textContent = text || "";
+      node.classList.add("show");
+      thoughtTimer = now + 4200;
+    },
+    tickThought(now) {
+      if (thoughtTimer && now > thoughtTimer) {
+        $("thought")?.classList.remove("show");
+        thoughtTimer = 0;
       }
     },
     status(text) { if (el.status.textContent !== text) el.status.textContent = text; },

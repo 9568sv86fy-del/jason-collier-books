@@ -7,6 +7,7 @@ export function createInput(root, stickEl, knobEl) {
     run: false, sneak: false,
     keys: new Set(),
     enabled: true,
+    lookOnly: false,
     lastInput: performance.now(),
     usedStick: false,
     usedKeys: false,
@@ -26,7 +27,7 @@ export function createInput(root, stickEl, knobEl) {
     const rect = root.getBoundingClientRect();
     const x = e.clientX - rect.left, y = e.clientY - rect.top;
     // left-lower 45% of the screen (touch) starts the stick wherever the thumb lands
-    const stickZone = e.pointerType !== "mouse" && x < rect.width * 0.48 && y > rect.height * 0.45;
+    const stickZone = !st.lookOnly && e.pointerType !== "mouse" && x < rect.width * 0.48 && y > rect.height * 0.45;
     if (stickZone && stickId === null) {
       stickId = e.pointerId;
       stickCX = e.clientX;

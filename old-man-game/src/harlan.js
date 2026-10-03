@@ -14,7 +14,57 @@ const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 const smooth = (a, b, x) => { const t = clamp((x - a) / (b - a), 0, 1); return t * t * (3 - 2 * t); };
 
 // native ground speed of each loop (m/s), measured from foot travel in the clips (tools/harlan.html)
-const NATIVE = { Walk_Loop: 1.1, Jog_Fwd_Loop: 2.8, Crouch_Fwd_Loop: 0.86, Sprint_Loop: 3.6 };
+const NATIVE = { Walk_Loop: 1.15, Jog_Fwd_Loop: 2.55, Crouch_Fwd_Loop: 0.82, Sprint_Loop: 4.35 };
+
+/** weld co-located verts, relax the bind pose, and share one smooth normal so the low-poly body reads as a person */
+function soften(mesh, iters = 2, amount = 0.28) {
+  const geo = mesh.geometry;
+  const p = geo.attributes.position;
+  const n = p.count;
+  if (!n || n > 20000) return;
+  const key = (i) => `${Math.round(p.getX(i) * 400)},${Math.round(p.getY(i) * 400)},${Math.round(p.getZ(i) * 400)}`;
+  const groups = new Map();
+  for (let i = 0; i < n; i++) {
+    const k = key(i);
+    let g = groups.get(k);
+    if (!g) groups.set(k, (g = []));
+    g.push(i);
+  }
+  const uniq = [...groups.values()];
+  const idOf = new Map();
+  uniq.forEach((g, i) => g.forEach((vi) => idOf.set(vi, i)));
+  const nbr = uniq.map(() => new Set());
+  const tri = (i) => idOf.get(i);
+  for (let i = 0; i + 2 < n; i += 3) {
+    const a = tri(i), b = tri(i + 1), c = tri(i + 2);
+    if (a == null || b == null || c == null) continue;
+    nbr[a].add(b); nbr[a].add(c); nbr[b].add(a); nbr[b].add(c); nbr[c].add(a); nbr[c].add(b);
+  }
+  const pos = uniq.map((g) => new THREE.Vector3(p.getX(g[0]), p.getY(g[0]), p.getZ(g[0])));
+  for (let it = 0; it < iters; it++) {
+    const next = pos.map((v, i) => {
+      if (!nbr[i].size) return v.clone();
+      const a = new THREE.Vector3();
+      for (const j of nbr[i]) a.add(pos[j]);
+      a.multiplyScalar(1 / nbr[i].size);
+      return v.clone().lerp(a, amount);
+    });
+    for (let i = 0; i < pos.length; i++) pos[i].copy(next[i]);
+  }
+  for (let i = 0; i < uniq.length; i++) for (const vi of uniq[i]) p.setXYZ(vi, pos[i].x, pos[i].y, pos[i].z);
+  geo.computeVertexNormals();
+  const nr = geo.attributes.normal;
+  const acc = new THREE.Vector3();
+  for (const g of uniq) {
+    acc.set(0, 0, 0);
+    for (const vi of g) acc.add(new THREE.Vector3(nr.getX(vi), nr.getY(vi), nr.getZ(vi)));
+    if (acc.lengthSq() < 1e-8) continue;
+    acc.normalize();
+    for (const vi of g) nr.setXYZ(vi, acc.x, acc.y, acc.z);
+  }
+  p.needsUpdate = true;
+  nr.needsUpdate = true;
+}
 
 export function buildHarlan() {
   const proc = buildProcHarlan();
@@ -41,8 +91,9 @@ export function buildHarlan() {
     model.updateMatrixWorld(true);
     const B = (n) => st.bones[n];
     for (const m of meshes) {
+      if (/Peasant|Regular_Male/.test(m.material?.name || "") || /Peasant|Regular/.test(m.name || "")) soften(m, 2, 0.22);
       const mat = m.material;
-      mat.roughness = 0.9; mat.metalness = 0;
+      mat.roughness = 0.9; mat.metalness = 0; mat.flatShading = false;
       // weather the peasant clothes toward the book's palette: dull wool, frozen leather
       if (/Peasant/.test(mat.name)) mat.color.setRGB(0.44, 0.36, 0.27);
       m.castShadow = true; m.frustumCulled = false;
@@ -295,43 +346,56 @@ export function buildHarlan() {
       else if (o.sneak) { if (moving) { tgt.Crouch_Fwd_Loop = 1; loco = "Crouch_Fwd_Loop"; } else tgt.Crouch_Idle_Loop = 1; }
       else if (!moving) tgt.Idle_Loop = 1;
       else {
-        // an old man in deep snow reaches a long, labouring stride before he breaks into a jog
-        const k = smooth(1.7, 3.6, speed);
-        tgt.Walk_Loop = 1 - k; tgt.Jog_Fwd_Loop = k;
-        loco = k > 0.5 ? "Jog_Fwd_Loop" : "Walk_Loop";
+        // walk → jog → a leaning run. Weights crossfade; playback rate keeps the feet with the ground.
+        const jog = smooth(1.55, 3.05, speed);
+        const sprint = smooth(3.35, 4.7, speed);
+        tgt.Walk_Loop = (1 - jog) * (1 - sprint);
+        tgt.Jog_Fwd_Loop = jog * (1 - sprint);
+        tgt.Sprint_Loop = sprint;
+        loco = sprint > 0.55 ? "Sprint_Loop" : jog > 0.5 ? "Jog_Fwd_Loop" : "Walk_Loop";
       }
-      const rate = 1 - Math.exp(-8 * dt);
+      const rate = 1 - Math.exp(-3.4 * dt);
       let sum = 0;
       for (const n in st.acts) { st.w[n] += ((tgt[n] || 0) - st.w[n]) * rate; if (st.w[n] < 0.002) st.w[n] = 0; sum += st.w[n]; }
       for (const n in st.acts) st.acts[n].setEffectiveWeight(sum > 0 ? st.w[n] / sum : 0);
       // speed-matched playback, walk and jog phase-locked so the blend never scissors
-      const walk = st.acts.Walk_Loop, jog = st.acts.Jog_Fwd_Loop, cr = st.acts.Crouch_Fwd_Loop;
+      const walk = st.acts.Walk_Loop, jog = st.acts.Jog_Fwd_Loop, sprint = st.acts.Sprint_Loop, cr = st.acts.Crouch_Fwd_Loop;
       const ts = (n) => clamp(speed / NATIVE[n], 0.55, 1.75);
-      if (walk && jog && moving && !o.sneak) {
-        // one shared cycle rate: blended stride length = mix of each clip's metres-per-cycle, so feet plant
-        const dW = walk.getClip().duration, dJ = jog.getClip().duration;
-        const k = clamp(st.w.Jog_Fwd_Loop / Math.max(1e-3, st.w.Walk_Loop + st.w.Jog_Fwd_Loop), 0, 1);
-        const stride = lerp(NATIVE.Walk_Loop * dW, NATIVE.Jog_Fwd_Loop * dJ, k);
-        const cps = clamp(speed / stride, 0.35, 1.6);
-        walk.timeScale = cps * dW; jog.timeScale = cps * dJ;
+      const locoNames = ["Walk_Loop", "Jog_Fwd_Loop", "Sprint_Loop"].filter((n) => st.acts[n] && st.w[n] > 0.02);
+      if (locoNames.length && moving && !o.sneak && !o.pose && !o.sitting) {
+        let stride = 0, wsum = 0;
+        for (const n of locoNames) {
+          const w = st.w[n];
+          stride += w * NATIVE[n] * st.acts[n].getClip().duration;
+          wsum += w;
+        }
+        stride = Math.max(0.45, stride / wsum);
+        const cps = clamp(speed / stride, 0.32, 1.7);
+        for (const n of locoNames) st.acts[n].timeScale = cps * st.acts[n].getClip().duration;
+        let lead = locoNames[0];
+        for (const n of locoNames) if (st.w[n] > st.w[lead]) lead = n;
+        const lt = (st.acts[lead].time % st.acts[lead].getClip().duration) / st.acts[lead].getClip().duration;
+        for (const n of locoNames) if (n !== lead) st.acts[n].time = lt * st.acts[n].getClip().duration;
       } else {
         if (walk) walk.timeScale = moving ? ts("Walk_Loop") : 1;
         if (jog) jog.timeScale = moving ? ts("Jog_Fwd_Loop") : 1;
+        if (sprint) sprint.timeScale = moving ? ts("Sprint_Loop") : 1;
       }
       if (cr) cr.timeScale = moving ? ts("Crouch_Fwd_Loop") : 1;
-      if (walk && jog && st.w.Walk_Loop > 0 && st.w.Jog_Fwd_Loop > 0) {
-        const lead = st.w.Walk_Loop >= st.w.Jog_Fwd_Loop ? walk : jog, foll = lead === walk ? jog : walk;
-        foll.time = (lead.time / lead.getClip().duration) * foll.getClip().duration;
-      }
       if (o.afraid) st.mixer.timeScale = 1.05; else st.mixer.timeScale = 1;
       st.mixer.update(dt);
       if (loco) st.phase += dt * st.acts[loco].timeScale / st.acts[loco].getClip().duration * Math.PI * 2;
       // an old man's posture: a little stoop, head forward; fear draws the shoulders up
       const b = st.bones;
       const stoop = o.sneak ? 0 : 0.08;
-      addRot(b.spine_03, stoop * 0.6);
-      addRot(b.neck_01, stoop * 0.3 - (o.lookPitch || 0) * 0.4, (o.lookYaw || 0) * 0.4);
-      addRot(b.Head, -stoop * 0.7 - (o.lookPitch || 0) * 0.6, (o.lookYaw || 0) * 0.6);
+      const runK = o.sneak || o.pose || o.sitting ? 0 : smooth(2.3, 4.6, speed);
+      const sway = Math.sin(st.phase) * (moving ? 0.045 + runK * 0.02 : 0.01);
+      addRot(b.pelvis, 0, 0, sway);
+      addRot(b.spine_01, runK * 0.16, 0, -sway * 0.4);
+      addRot(b.spine_02, runK * 0.1);
+      addRot(b.spine_03, stoop * 0.6 + runK * 0.06);
+      addRot(b.neck_01, stoop * 0.3 - runK * 0.08 - (o.lookPitch || 0) * 0.4, (o.lookYaw || 0) * 0.4);
+      addRot(b.Head, -stoop * 0.55 - (o.lookPitch || 0) * 0.6, (o.lookYaw || 0) * 0.6);
       // ground contact: kneel/sit clips carry their own hip height, so snap the lowest foot/knee to the snow
       const low = (n, pad) => { if (!b[n]) return 1e9; b[n].getWorldPosition(TV); root.worldToLocal(TV); return TV.y - pad; };
       let tgtY = 0;

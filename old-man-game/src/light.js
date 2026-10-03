@@ -1,13 +1,13 @@
 const hex = (h) => [parseInt(h.slice(1, 3), 16), parseInt(h.slice(3, 5), 16), parseInt(h.slice(5, 7), 16)];
 const NIGHT = {
-  skyTop: hex("#03060c"),
-  skyHorizon: hex("#1a2538"),
-  amb: [0.4, 0.46, 0.66],
-  fog: hex("#131b2a"),
-  fogDensity: 0.7,
-  dark: 0.9,
-  ridgeFar: hex("#121a26"),
-  ridgeNear: hex("#0a0f16"),
+  skyTop: hex("#010308"),
+  skyHorizon: hex("#0c1422"),
+  amb: [0.16, 0.18, 0.28],
+  fog: hex("#070b12"),
+  fogDensity: 0.86,
+  dark: 0.97,
+  ridgeFar: hex("#080c14"),
+  ridgeNear: hex("#05070c"),
   glow: 0,
   glowColor: hex("#000000")
 };

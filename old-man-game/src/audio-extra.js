@@ -142,18 +142,26 @@ export function heavyStep(pan = 0) {
   burst(a, t + 0.02, 0.07, 1600, 1.2, 0.12, out);
 }
 /** close, wet breathing just behind your shoulder */
-export function breathing(on, pan = 0) {
+export function breathing(on, pan = 0, heavy = false) {
   const a = ok(); if (!a) return;
   if (!on) { if (breathTimer) clearInterval(breathTimer); breathTimer = null; return; }
   if (breathTimer) return;
   const out = bus(pan, 1.0);
+  const peak = heavy ? 0.28 : 0.16;
   const one = () => {
     const t = a.currentTime;
-    burst(a, t, 0.9, 380, 1.4, 0.16, out);
-    burst(a, t + 1.2, 1.1, 260, 1.2, 0.12, out);
+    burst(a, t, heavy ? 0.55 : 0.9, heavy ? 280 : 380, 1.4, peak, out);
+    burst(a, t + (heavy ? 0.7 : 1.2), heavy ? 0.7 : 1.1, 240, 1.2, peak * 0.75, out);
   };
   one();
-  breathTimer = setInterval(one, 2600);
+  breathTimer = setInterval(one, heavy ? 1500 : 2600);
+}
+/** something far off in the timber, quiet enough to doubt */
+export function distant(pan = 0.4) {
+  const a = ok(); if (!a) return;
+  const t = a.currentTime + 0.35, out = bus(pan, 0.25);
+  tone(a, t, 92, 64, 1.6, 0.045, out);
+  tone(a, t + 1.7, 70, 48, 1.3, 0.03, out);
 }
 /** continuous crackle bed, level 0..1 by distance to the fire */
 export function fireLevel(level) {
