@@ -12,7 +12,7 @@ import { lightAt, moonOf, snowAt } from "./light.js";
 import { fireGame } from "./firegame.js";
 import { cinchGame } from "./tactile.js";
 import { BOUNDS, OVERLOOKS, PLACES, PLACE_IDS, VIEWS, heightAt, placeAt, trailBetween, trailDist } from "./terrain.js";
-import { collide, occlusion, trunksNear, crownDepth } from "./forest.js";
+import { collide, occlusion, trunksNear, crownDepth, crownClearY } from "./forest.js";
 import { clamp, damp, dampAngle, fmtClock, hash2, lerp, smooth, wrapPi } from "./util.js";
 import { LINES, armThought, preloadThoughts, speakThought, stopThought, thoughtBusy, voiceReady } from "./thoughts.js";
 
@@ -150,10 +150,10 @@ function think(id) {
   if (now - thinkAt < gap) return false;
   const gain = id === "close" ? 0.46 : high ? 0.8 : 1.22;
   const spoken = speakThought(id, !X.muted(), { gain });
-  if (!spoken) return false;
+  if (!spoken) return null;
   thinkAt = now;
   hud.thought(spoken.text, T.now || now, spoken.ms);
-  return true;
+  return spoken;
 }
 
 /* elk tracks: a followable line of prints from the spur toward wherever he feeds today */
@@ -989,9 +989,10 @@ function updateWalker(dt) {
         const k = P.moving ? 1.6 : 0.4;
         W.x = damp(W.x, p.x, k, dt); W.z = damp(W.z, p.z, k, dt);
       }
-      if (window.__oldman.freezeW) { W.x = window.__oldman.freezeW[0]; W.z = window.__oldman.freezeW[1]; }
       const c = collide(W.x, W.z, 0.6);
       W.x = c.x; W.z = c.z;
+      // a frozen walker (tests, and a held position) stays put instead of being shoved by a trunk
+      if (window.__oldman.freezeW) { W.x = window.__oldman.freezeW[0]; W.z = window.__oldman.freezeW[1]; }
       W.yaw = Math.atan2(P.x - W.x, P.z - W.z);
       // tracks: parallel to yours, thirty yards off. Not crossing. Following.
       if (Math.hypot(W.x - W.lastTrack.x, W.z - W.lastTrack.z) > 1.7) {
@@ -1296,6 +1297,54 @@ function boomReach(px, pz, hy, yaw, dist, side, wantY) {
   }
   return lo;
 }
+function camOnBoom(yaw, dist, side, kb, hy, wantY) {
+  const fx = -Math.sin(yaw), fz = -Math.cos(yaw), rx = Math.cos(yaw), rz = -Math.sin(yaw);
+  const x = P.x + (-fx * dist + rx * side) * kb;
+  const z = P.z + (-fz * dist + rz * side) * kb;
+  let y = lerp(hy + 1.75, wantY, Math.max(kb, 0.45));
+  y = Math.max(y, heightAt(x, z) + 1.05);
+  const buried = crownDepth(x, y, z, 0.28);
+  return { x, y, z, buried, depth: buried };
+}
+/** A point on the ring around Harlan, at about shoulder height. */
+function ringSpot(yaw, back, side, hy, wantY) {
+  const fx = -Math.sin(yaw), fz = -Math.cos(yaw), rx = Math.cos(yaw), rz = -Math.sin(yaw);
+  const x = P.x + (-fx * back + rx * side);
+  const z = P.z + (-fz * back + rz * side);
+  const y = Math.max(lerp(hy + 1.7, wantY, 0.72), heightAt(x, z) + 1.1);
+  const buried = crownDepth(x, y, z, 0.28);
+  return { x, y, z, buried, depth: buried };
+}
+/** Shoulder the camera prefers. In the open it stays on the boom; in a crown it eases to a clear ring. */
+function desiredShoulder(hy, yaw, dist, side, wantY) {
+  const nominal = boomReach(P.x, P.z, hy, yaw, dist, side, wantY);
+  const spot = camOnBoom(yaw, dist, side, nominal, hy, wantY);
+  if (spot.buried <= 0.05 && nominal > 0.72) { cam.avoid = null; return { reach: nominal, yaw, side, spot, ring: false }; }
+  const prev = cam.avoid;
+  let best = null;
+  const yaws = [0, 0.7, -0.7, 1.4, -1.4, 2.2, -2.2];
+  const backs = [dist, dist + 2.4, dist + 4.8, dist + 7.2, dist + 9.6];
+  const sides = [side, side + 2.4, side - 2.4, side + 4.8, side - 4.8];
+  for (const ny of yaws) {
+    for (const back of backs) {
+      for (const s of sides) {
+        const syaw = yaw + ny;
+        const p = ringSpot(syaw, back, s, hy, wantY);
+        let cost = p.buried * 8 + Math.abs(ny) * 0.18 + Math.abs(back - dist) * 0.06 + Math.abs(s - side) * 0.05;
+        if (prev) cost += Math.abs(wrapPi(syaw - prev.yaw)) * 0.45 + Math.abs(back - prev.back) * 0.08 + Math.abs(s - prev.side) * 0.08;
+        if (!best || cost < best.cost) best = { cost, yaw: syaw, back, side: s, spot: p };
+      }
+    }
+  }
+  if (!best || best.spot.buried > 0.05) {
+    const lifted = { ...spot, y: crownClearY(spot.x, spot.y, spot.z, 0.28) };
+    lifted.depth = crownDepth(lifted.x, lifted.y, lifted.z, 0.28);
+    return { reach: Math.min(nominal, 0.45), yaw, side, spot: lifted, ring: false };
+  }
+  cam.avoid = { yaw: best.yaw, back: best.back, side: best.side };
+  const reach = clamp(best.back / dist, 0.34, 1);
+  return { reach, yaw: best.yaw, side: best.side, spot: best.spot, ring: true };
+}
 function updateViewLatch(dt, live) {
   if (!live) return;
   const d = Math.hypot(W.x - P.x, W.z - P.z);
@@ -1333,8 +1382,10 @@ let stepAcc = 0, heartKey = "", ambT = 0, crackleT = 0, saveT = 0, breathT = 0;
 // Each rendered frame advances by the real elapsed time (capped at 0.5 s, e.g. after a tab switch),
 // split into sub-steps of at most 50 ms so movement, AI and collisions stay stable; only the last
 // sub-step renders.
+let simHold = false;
 function frame(now) {
   requestAnimationFrame(frame);
+  if (simHold) { lastT = now; return; }
   const real = Math.min(0.5, Math.max(0, (now - lastT) / 1000));
   lastT = now;
   const warp = window.__warp || 1;
@@ -1549,27 +1600,22 @@ function tick(now, dt, last) {
     const fx = -Math.sin(yaw), fz = -Math.cos(yaw), rx = Math.cos(yaw), rz = -Math.sin(yaw);
     const side = 0.85;
     const wantY = hy + cam.height + cam.pitch * 3.2;
-    const reach = boomReach(P.x, P.z, hy, yaw, dist, side, wantY);
-    if (cam.boom == null) cam.boom = reach;
-    const pulling = reach < cam.boom - 0.002;
-    cam.boom = damp(cam.boom, reach, pulling ? 4.6 : 2.3, dt);
-    const kb = cam.boom;
-    let cx = P.x + (-fx * dist + rx * side) * kb, cz = P.z + (-fz * dist + rz * side) * kb;
-    let cy = lerp(hy + 1.75, wantY, Math.max(kb, 0.55));
-    cy = Math.max(cy, heightAt(cx, cz) + 0.95);
-    if (!cam.ready) { cam.x = cx; cam.y = cy; cam.z = cz; cam.ready = true; }
+    const want = desiredShoulder(hy, yaw, dist, side, wantY);
+    if (!want.ring) cam.avoid = null;
+    if (cam.boom == null) cam.boom = want.reach;
+    const pulling = want.ring || want.reach < cam.boom - 0.002;
+    cam.boom = damp(cam.boom, want.reach, pulling ? 4.4 : 2.3, dt);
+    const goal = (want.ring || want.spot.buried > 0.05) ? want.spot : camOnBoom(yaw, dist, side, cam.boom, hy, wantY);
+    if (!cam.ready) { cam.x = goal.x; cam.y = goal.y; cam.z = goal.z; cam.ready = true; }
     else {
-      cam.x = damp(cam.x, cx, 8, dt);
-      cam.y = damp(cam.y, cy, 8, dt);
-      cam.z = damp(cam.z, cz, 8, dt);
+      // ease into the clear spot; a hard snap is what made the shoulder feel finicky
+      const rate = want.ring ? 3.5 : 8;
+      cam.x = damp(cam.x, goal.x, rate, dt);
+      cam.y = damp(cam.y, goal.y, rate, dt);
+      cam.z = damp(cam.z, goal.z, rate, dt);
     }
-    // still in a bough after the ease: keep sliding in, don't pop
-    if (crownDepth(cam.x, cam.y, cam.z, 0.28) > 0.06 || cam.y < heightAt(cam.x, cam.z) + 0.7) {
-      cam.boom = Math.max(0.2, cam.boom - dt * 0.85);
-      cam.x = damp(cam.x, P.x, 5, dt);
-      cam.z = damp(cam.z, P.z, 5, dt);
-      cam.y = damp(cam.y, Math.max(cam.y, heightAt(cam.x, cam.z) + 1.15), 5, dt);
-    }
+    const floor = heightAt(cam.x, cam.z) + 1.05;
+    if (cam.y < floor) cam.y = damp(cam.y, floor, 6, dt);
     const ahead = 7;
     const ly = heightAt(P.x + fx * ahead, P.z + fz * ahead);
     const ox = P.x + fx * ahead + rx * side * 0.6;
@@ -1863,6 +1909,15 @@ window.__oldman = {
   },
   relaxThought() { thinkAt = 0; armThought(); },
   sayThought(id) { return think(id); },
+  holdSim(on) { simHold = !!on; lastT = performance.now(); },
+  pump(seconds = 0.05, present = false) {
+    const total = Math.max(0.001, seconds);
+    const n = Math.min(120, Math.max(1, Math.ceil(total / 0.05)));
+    const dt = total / n;
+    const now = performance.now();
+    for (let i = 0; i < n; i++) tick(now, dt, present && i === n - 1);
+  },
+  draw() { E.render(E.camera); },
   thoughtText() {
     const n = document.getElementById("thought");
     return { text: n ? n.textContent : "", show: !!(n && n.classList.contains("show")) };

@@ -41,7 +41,7 @@ export function createInput(root, stickEl, knobEl) {
     } else {
       lookIds.set(e.pointerId, { x: e.clientX, y: e.clientY });
     }
-    root.setPointerCapture?.(e.pointerId);
+    try { root.setPointerCapture?.(e.pointerId); } catch { /* synthetic or already-ended pointers */ }
     st.lastInput = performance.now();
   });
   root.addEventListener("pointermove", (e) => {
