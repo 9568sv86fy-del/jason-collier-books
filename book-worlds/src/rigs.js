@@ -498,33 +498,7 @@ export function createFog(opts = {}) {
   };
 }
 
-export function createNonimaginaire() {
-  const fog = createFog({ tall: true, scale: 2.45 });
-  const root = fog.root;
-  const halo = makeDust(90, 0xeeeeee, 1.55);
-  halo.position.y = 1.8;
-  root.add(halo);
-  let phase = 0;
-  return {
-    root,
-    update(dt, a) {
-      phase += dt * (a.moving ? 3.4 : 1.3);
-      fog.update(dt, {
-        speed: a.moving ? 2.2 : 0.2,
-        tele: a.state === "chargeWind" || a.state === "roarWind",
-        strike: a.state === "slam" || a.state === "charge",
-        hit: a.hit || 0,
-      });
-      const lean = a.state === "chargeWind" ? -0.2 : a.state === "slam" ? 0.24 : a.state === "roar" ? -0.08 : 0;
-      root.rotation.x = damp(root.rotation.x, lean, 7, dt);
-      if (a.state !== "dead") root.position.y += Math.sin(phase) * (a.moving ? 0.07 : 0.035);
-      spinDust(halo, phase * 1.35);
-      fog.smearMat.emissive.setHex(a.hit > 0.2 ? 0xd8d8d8 : 0x4e4e4e);
-    },
-  };
-}
-
-function makeDust(n, color, spread) {
+export function makeDust(n, color, spread) {
   const geo = new THREE.BufferGeometry();
   const pos = new Float32Array(n * 3);
   for (let i = 0; i < n; i++) {
@@ -541,7 +515,7 @@ function makeDust(n, color, spread) {
   return pts;
 }
 
-function spinDust(pts, phase) {
+export function spinDust(pts, phase) {
   const base = pts.userData.base;
   const arr = pts.geometry.attributes.position.array;
   for (let i = 0; i < base.length; i += 3) {

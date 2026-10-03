@@ -109,7 +109,7 @@ const CARDS = {
     script: "Please stand by",
     kicker: "Book Worlds  ·  Station 1",
     title: "The California Trail",
-    body: "Nonimaginaires — brain fogs born where imagination dies — are leaking through the broadcast and eating this story. Five pages are going gray. The scenes are scrambled. The Keeper has to gather those pages, put the river and the bandits back the way the story remembers, and restore the imagination on this channel. This channel is the wagon road. Jang and Tom, two Philadelphia debtors posing as guides, are pretending they meant to be here. The weapon in the Keeper's hand is a brass skeleton key worn like a saber — the Trail Key.",
+    body: "Nonimaginaires — brain fogs born where imagination dies — are leaking through the broadcast and eating this story. Five pages are going gray. The scenes are scrambled. The Keeper has to gather those pages, put the river and the bandits back the way the story remembers, and restore the imagination on this channel. The bear from the hunt has fused with the fog and waits at the ford. This channel is the wagon road. Jang and Tom, two Philadelphia debtors posing as guides, are pretending they meant to be here. The weapon in the Keeper's hand is a brass skeleton key worn like a saber — the Trail Key.",
     btn: "Step through",
     hint: true,
   },
@@ -117,7 +117,7 @@ const CARDS = {
     script: "End of the trail",
     kicker: "World I",
     title: "The river remembers",
-    body: "The great fog comes apart, and the sepia crawls back into the ford. Jang counts the oxen twice and gets a different number both times. Tom scratches the back of his neck and admits, quietly, that the picture has its color again. The screen home stays shut until every torn page is back in the book.",
+    body: "The Blank Bear comes apart, fog first and then the shape of a hunt the book still remembers. The sepia crawls back into the ford. Jang counts the oxen twice and gets a different number both times. Tom scratches the back of his neck and admits, quietly, that the picture has its color again. The screen home stays shut until every torn page is back in the book.",
     btn: "Back to the trail",
     hint: false,
   },
@@ -560,6 +560,8 @@ function paintHud(snap) {
   if (gMini) gMini.textContent = `Lv ${p.level || 1}`;
   paintParty(snap);
   renderMenu(snap);
+  const bossName = document.getElementById("boss-name");
+  if (bossName && snap.boss.name) bossName.textContent = snap.boss.name;
   const showBoss = snap.boss.active && (snap.boss.alive || snap.boss.hp <= 0);
   el.bossbar.hidden = !showBoss || mode !== "play";
   if (showBoss) el.bossFill.style.width = `${clamp(snap.boss.hp / snap.boss.hpMax, 0, 1) * 100}%`;

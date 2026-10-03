@@ -1,7 +1,10 @@
 import * as THREE from "three";
 import { clamp, damp, dampAngle, hypot2 } from "./util.js";
 import { halfWidth, heightAt } from "./world.js";
-import { createHuman, createFog, createNonimaginaire, handbillMesh } from "./rigs.js";
+import { createHuman, createFog, handbillMesh } from "./rigs.js";
+import { bossFor } from "../bosses/index.js";
+
+const worldBoss = bossFor("california-trail");
 
 const LINES = {
   jang: {
@@ -9,23 +12,23 @@ const LINES = {
     fight: "No face, no invoice. Bill it as weather.",
     bill: "Handbill to the face. Surprisingly binding.",
     chest: "A chest. Honest men would walk away. We are saving them the trip.",
-    boss: "That fog has no face and too many opinions.",
+    boss: worldBoss.lines.jang,
     low: "Keeper, if you fall I will write a very moving handbill.",
-    win: "I guaranteed the crossing. I was only mostly lying.",
+    win: worldBoss.lines.win,
     gate: "The picture is rolling. That is the way back to the set.",
     circus: "A floating circus. I invented it just now, which is the same as planning.",
     ford: "The river forgot how a crossing works. Wagons in. We will call it a circus.",
     rope: "Those bandits want the trail. The rope wants a weight. Introduce them.",
     ropeHint: "The key is not the punchline, Keeper. The rope is.",
     rout: "The clumsiest pendulum in the West. Do not examine why it worked.",
-    lasso: "Lasso the smear. It is not a horse, but it can be convinced.",
+    lasso: worldBoss.lines.lasso,
     save: "The set remembers. That is more than the map ever did.",
     level: "The trail just got longer in the legs. Try to look like you meant that.",
   },
   tom: {
     greet: "Neck's itching. That usually means the map was a suggestion.",
     fight: "I can shove it. Shoving is the whole of my education.",
-    boss: "I don't like a cloud that eats the pages, Jang.",
+    boss: worldBoss.lines.tom,
     hurt: "Still here. Still broad. Neck saw it coming.",
     win: "River's a river again. I'll take that.",
     gate: "I can see the knobs from here. I don't trust knobs.",
@@ -109,11 +112,12 @@ export function createSim(scene, world, audio) {
     },
   ];
 
-  const bossRig = createNonimaginaire();
+  const bossRig = worldBoss.create();
   scene.add(bossRig.root);
   const boss = {
-    id: "boss", kind: "boss", alive: true, active: false,
-    x: 0, z: 114, yaw: Math.PI, hp: 280, hpMax: 280, radius: 2.05,
+    id: "boss", kind: "boss", name: worldBoss.name, alive: true, active: false,
+    x: worldBoss.home.x, z: worldBoss.home.z, yaw: worldBoss.home.yaw,
+    hp: worldBoss.hp, hpMax: worldBoss.hp, radius: worldBoss.radius,
     state: "idle", t: 0, pattern: 0, didHit: false, hit: 0, stunFor: 0,
   };
   bossRig.root.visible = true;
@@ -1031,9 +1035,9 @@ export function createSim(scene, world, audio) {
     let objective = `Brain fogs are eating the pages. Gather them. ${got}/5`;
     if (!flags.rout && player.z > 70 && player.z < 92 && boss.alive) objective = "Lure the bandits under the swinging rope.";
     if (!circus && player.z > 90) objective = "Push both wagons into the river. Stage the floating circus.";
-    if (circus && boss.alive && !boss.active) objective = "The wagons are afloat. A Nonimaginaire is waiting in the ford.";
-    if (boss.active && boss.alive) objective = "The Nonimaginaire is erasing the pages. Break it.";
-    if (!boss.alive && got < 5) objective = `The fog is thinning. The book still wants ${5 - got} page${got === 4 ? "" : "s"}.`;
+    if (circus && boss.alive && !boss.active) objective = worldBoss.objective.waiting;
+    if (boss.active && boss.alive) objective = worldBoss.objective.fighting;
+    if (!boss.alive && got < 5) objective = worldBoss.objective.thinning(5 - got);
     if (!boss.alive && got >= 5) objective = "The story is restored. Step back through the screen.";
     const here = arenas.find((a) => a.active && !a.cleared);
     if (here && objective.startsWith("Brain fogs")) objective = "Gray is eating this stretch. Clear the fog.";
@@ -1489,8 +1493,8 @@ export function createSim(scene, world, audio) {
     if (boss.alive) sources.push(boss);
     for (const e of sources) {
       const d = hypot2(e.x - player.x, e.z - player.z);
-      const inner = e.kind === "boss" ? 12 : e.kind === "blanker" ? 5.5 : 3.4;
-      const outer = inner + (e.kind === "boss" ? 10 : 5);
+      const inner = e.kind === "boss" ? worldBoss.drain.inner : e.kind === "blanker" ? 5.5 : 3.4;
+      const outer = e.kind === "boss" ? worldBoss.drain.outer : inner + 5;
       const t = d <= inner ? 1 : clamp(1 - (d - inner) / (outer - inner), 0, 1);
       drain = Math.max(drain, t);
     }
@@ -1522,7 +1526,7 @@ export function createSim(scene, world, audio) {
         tele: e.state === "tele",
       })),
       boss: {
-        alive: boss.alive, active: boss.active, hp: boss.hp, hpMax: boss.hpMax,
+        name: boss.name, alive: boss.alive, active: boss.active, hp: boss.hp, hpMax: boss.hpMax,
         x: boss.x, y: heightAt(boss.x, boss.z) + 2.4, z: boss.z,
       },
       lock: lockTarget && lockTarget.alive ? { id: lockTarget.id, x: lockTarget.x, y: heightAt(lockTarget.x, lockTarget.z) + (lockTarget.kind === "boss" ? 2.2 : 1.5), z: lockTarget.z } : null,
@@ -1569,8 +1573,8 @@ export function createSim(scene, world, audio) {
         player.x = 0;
         player.z = 102;
         boss.hp = boss.hpMax;
-        boss.x = 0;
-        boss.z = 114;
+        boss.x = worldBoss.home.x;
+        boss.z = worldBoss.home.z;
         boss.state = "recover";
         boss.t = 0;
       } else {
@@ -1640,9 +1644,9 @@ export function createSim(scene, world, audio) {
       wipeEnemies();
       boss.alive = true;
       boss.active = false;
-      boss.x = 0;
-      boss.z = 114;
-      boss.yaw = Math.PI;
+      boss.x = worldBoss.home.x;
+      boss.z = worldBoss.home.z;
+      boss.yaw = worldBoss.home.yaw;
       boss.hp = boss.hpMax;
       boss.state = "idle";
       boss.t = 0;
@@ -1652,7 +1656,7 @@ export function createSim(scene, world, audio) {
       boss.stunFor = 0;
       bossRig.root.visible = true;
       bossRig.root.rotation.set(0, Math.PI, 0);
-      bossRig.root.position.set(0, heightAt(0, 114), 114);
+      bossRig.root.position.set(worldBoss.home.x, heightAt(worldBoss.home.x, worldBoss.home.z), worldBoss.home.z);
       for (const chest of world.chests) {
         chest.open = false;
         chest.lid.rotation.x = 0;
@@ -1709,6 +1713,7 @@ export function createSim(scene, world, audio) {
     player,
     enemies,
     boss,
+    bossName: worldBoss.name,
     hits: () => playerHits,
   };
 }
