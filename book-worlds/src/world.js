@@ -90,7 +90,7 @@ export function buildWorld(scene, low) {
   chests.forEach((c) => block(c.x, c.z, 0.55));
 
   sign(scene, -3.4, 6.2, "CALIFORNIA TRAIL", "Experienced navigators");
-  sign(scene, 0.2, 26, "RIVER FORD", "Mind the hum");
+  sign(scene, 0.2, 26, "RIVER FORD", "Mind the fog");
 
   scatterRocks(scene, low);
   scatterYucca(scene, low);
@@ -267,7 +267,7 @@ function buildPages(scene) {
     ["dentistry", 4.3, 36],
     ["bear", -4.5, 58],
     ["pendulum", 3.6, 81],
-    ["circus", -6.2, 100.4],
+    ["circus", -8.4, 99.2],
   ];
   return spots.map(([id, x, z]) => {
     const mat = new THREE.MeshStandardMaterial({

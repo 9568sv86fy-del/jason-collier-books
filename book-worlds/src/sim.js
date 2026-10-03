@@ -150,7 +150,7 @@ export function createSim(scene, world, audio) {
     for (let i = 0; i < 3; i++) {
       const mesh = new THREE.Mesh(
         new THREE.CircleGeometry(1.35 + i * 0.35, 20),
-        new THREE.MeshBasicMaterial({ color: 0x9a9a9a, transparent: true, opacity: 0, depthWrite: false, side: THREE.DoubleSide }),
+        new THREE.MeshBasicMaterial({ color: 0xe4e4e4, transparent: true, opacity: 0, depthWrite: false, side: THREE.DoubleSide }),
       );
       const ang = i * 2.2 + 0.4;
       const rad = 1.3 + i * 0.85;
