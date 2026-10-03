@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="theme-color" content="#0a0807">
+<meta name="theme-color" content="#16130f">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Jason Collier Books</title>
 <meta name="description" content="Jason Collier writes stories across science fiction, outdoor suspense, and comic Western adventure.">
@@ -31,161 +31,258 @@
   if (Object.prototype.hasOwnProperty.call(map, h)) location.replace(map[h]);
 })();
 </script>
+<script>
+(function () {
+  try {
+    if (matchMedia("(prefers-reduced-motion: reduce)").matches) {
+      document.documentElement.classList.add("reduce-motion");
+    }
+  } catch (e) {}
+})();
+</script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;700;900&family=Rye&family=Orbitron:wght@500;700;900&family=Cormorant+Garamond:ital,wght@0,500;1,500&family=Inter:wght@400;500;600;700&family=IM+Fell+English+SC&family=Special+Elite&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="styles.css">
-<link rel="stylesheet" href="polish.css">
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,500;0,600;1,500;1,600&family=Josefin+Sans:wght@400;600&family=Pinyon+Script&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/broadcast-theme/broadcast.css">
 </head>
-<body class="home">
-<div class="grain" aria-hidden="true"></div>
+<body class="broadcast home">
+<a class="skip" href="#top">Skip to content</a>
+<div class="parlor" aria-hidden="true"></div>
+<div class="vignette" aria-hidden="true"></div>
 
-<header class="nav" id="nav">
-  <a class="brand" href="index.html" aria-current="page" aria-label="Jason Collier, home">J<span>·</span>C</a>
-  <button class="nav-toggle" type="button" aria-expanded="false" aria-controls="site-nav" aria-label="Menu"><span></span><span></span><span></span></button>
-  <nav id="site-nav" aria-label="Main">
-    <a class="nav-link on" aria-current="page" href="index.html">Home</a>
-    <div class="nav-group">
-      <button type="button" class="nav-label" aria-expanded="false" aria-haspopup="true" aria-controls="menu-books">Books</button>
-      <div class="nav-menu" id="menu-books" role="group" aria-label="Books">
-        <a href="jang-and-tom.html">Jang &amp; Tom</a>
-        <a href="first-pulse.html">First Pulse</a>
-        <a href="old-man-on-the-mountain.html">Old Man</a>
-        <a href="rusty-stack.html">Rusty Stack</a>
-      </div>
+<div class="set-wrap">
+  <div class="antenna" aria-hidden="true"><span class="rod rod-l"></span><span class="mast"></span><span class="rod rod-r"></span></div>
+  <div class="cabinet">
+    <div class="plaque" aria-hidden="true">
+      <span class="plaque-rule"></span>
+      <span class="plaque-mark">J·C</span>
+      <span class="plaque-rule"></span>
     </div>
-    <a class="nav-link" href="audiobooks.html">Listen</a>
-    <a class="nav-link" href="past-inspirations.html">Past Inspirations</a>
-    <div class="nav-group">
-      <button type="button" class="nav-label" aria-expanded="false" aria-haspopup="true" aria-controls="menu-extra">Extra</button>
-      <div class="nav-menu" id="menu-extra" role="group" aria-label="Extra">
-        <a href="art.html">Art</a>
-        <a href="thorne-lab.html">Thorne’s Lab</a>
-        <a href="play.html">Play</a>
-      </div>
-    </div>
-    <a class="nav-link" href="about.html">About</a>
-  </nav>
-</header>
 
-<main id="top">
-<!-- ============ HERO ============ -->
-<section class="hero">
-  <canvas class="fx" data-fx="embers" aria-hidden="true"></canvas>
-  <div class="hero-slides" aria-hidden="true">
-    <div class="slide" style="background-image:url('images/hero/hero-1.jpg')"></div>
-    <div class="slide" style="background-image:url('images/hero/hero-2.jpg')"></div>
-    <div class="slide" style="background-image:url('images/hero/hero-3.jpg')"></div>
-    <div class="slide" style="background-image:url('images/hero/hero-4.jpg')"></div>
-  </div>
-  <div class="hero-bg" aria-hidden="true"></div>
-  <div class="hero-inner">
-    <div class="hero-text">
-      <p class="kicker reveal">Author <i>/</i> Science Fiction <i>/</i> Outdoor Suspense <i>/</i> Comic Western</p>
-      <h1 class="hero-name reveal"><span>Jason</span><span>Collier</span></h1>
-      <p class="hero-line reveal">Signals older than stars. Something waiting on the mountain. Two con men leading a wagon train to California.</p>
-      <div class="hero-feature reveal">
-        <span class="badge">New release</span>
-        <div>
-          <strong>Jang and Tom: Wagon Masters</strong>
-          <em>Two thousand miles of pure frontier chaos.</em>
-          <span class="cta-row">
-            <a href="https://kite-bolt-fleet-honey.grok.me/" target="_blank" rel="noopener" data-jc-link="hub">Play the game</a>
-            <a href="https://www.amazon.com/dp/B0HC596M1Y" target="_blank" rel="noopener" data-jc-link="amazonJang">Buy the book</a>
-          </span>
+    <div class="cabinet-main">
+      <div class="bezel">
+        <div class="glass">
+          <header class="nav" id="nav">
+            <a class="brand" href="index.html" aria-current="page" aria-label="Jason Collier, home">J<span>·</span>C</a>
+            <button class="nav-toggle" type="button" aria-expanded="false" aria-controls="site-nav" aria-label="Menu"><span></span><span></span><span></span></button>
+            <nav id="site-nav" aria-label="Main">
+              <a class="nav-link on" aria-current="page" href="index.html">Home</a>
+              <div class="nav-group">
+                <button type="button" class="nav-label" aria-expanded="false" aria-haspopup="true" aria-controls="menu-books">Books</button>
+                <div class="nav-menu" id="menu-books" role="group" aria-label="Books">
+                  <a href="jang-and-tom.html">Jang &amp; Tom</a>
+                  <a href="first-pulse.html">First Pulse</a>
+                  <a href="old-man-on-the-mountain.html">Old Man</a>
+                  <a href="rusty-stack.html">Rusty Stack</a>
+                </div>
+              </div>
+              <a class="nav-link" href="audiobooks.html">Listen</a>
+              <a class="nav-link" href="past-inspirations.html">Past Inspirations</a>
+              <div class="nav-group">
+                <button type="button" class="nav-label" aria-expanded="false" aria-haspopup="true" aria-controls="menu-extra">Extra</button>
+                <div class="nav-menu" id="menu-extra" role="group" aria-label="Extra">
+                  <a href="art.html">Art</a>
+                  <a href="thorne-lab.html">Thorne’s Lab</a>
+                  <a href="play.html">Play</a>
+                </div>
+              </div>
+              <a class="nav-link" href="about.html">About</a>
+            </nav>
+          </header>
+
+          <main id="top">
+            <section class="hero">
+              <div class="testcard">
+                <svg class="pattern" viewBox="0 0 640 340" preserveAspectRatio="xMidYMid slice" aria-hidden="true" focusable="false">
+                  <rect width="640" height="340" fill="#120f0c"/>
+                  <g fill="none" stroke="#e6d7bc" stroke-width="1.15">
+                    <circle cx="320" cy="156" r="26"/>
+                    <circle cx="320" cy="156" r="54"/>
+                    <circle cx="320" cy="156" r="86"/>
+                    <circle cx="320" cy="156" r="122"/>
+                    <circle cx="320" cy="156" r="162"/>
+                    <circle cx="320" cy="156" r="206"/>
+                  </g>
+                  <path d="M320 4 V308 M8 156 H632" stroke="#f3eadc" stroke-width="1" opacity=".8"/>
+                  <circle cx="320" cy="156" r="3.2" fill="#f7f0e4"/>
+                  <g fill="none" stroke="#e6d7bc" stroke-width="1.4">
+                    <path d="M14 14 h22 M14 14 v22 M626 14 h-22 M626 14 v22 M14 300 h22 M14 300 v-22 M626 300 h-22 M626 300 v-22"/>
+                  </g>
+                </svg>
+                <div class="testcard-copy">
+                  <p class="script standby-script">Please stand by</p>
+                  <p class="kicker">Author <i>/</i> Science Fiction <i>/</i> Outdoor Suspense <i>/</i> Comic Western</p>
+                  <h1 class="hero-name"><span>Jason</span><span>Collier</span></h1>
+                </div>
+                <div class="graybar" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
+              </div>
+
+              <div class="scene">
+                <div class="hero-slides" aria-hidden="true">
+                  <div class="slide s1"></div>
+                  <div class="slide s2"></div>
+                  <div class="slide s3"></div>
+                  <div class="slide s4"></div>
+                </div>
+                <div class="hero-scrim" aria-hidden="true"></div>
+                <div class="scene-inner">
+                  <p class="hero-line teletype"><span class="tele-full">Signals older than stars. Something waiting on the mountain. Two con men leading a wagon train to California.</span><span class="tele-live" aria-hidden="true"></span></p>
+                  <div class="hero-stack" aria-hidden="true">
+                    <img class="stack c3" src="images/old-man-on-the-mountain.jpg" alt="">
+                    <img class="stack c2" src="images/the-first-pulse.jpg" alt="">
+                    <img class="stack c1" src="images/jang-and-tom-wagon-masters.jpg" alt="">
+                  </div>
+                </div>
+              </div>
+
+              <div class="titlecard bulletin">
+                <p class="script">News Flash</p>
+                <p class="spec">Special bulletin</p>
+                <p class="interrupt">We interrupt this program…</p>
+                <div class="hero-feature">
+                  <span class="badge">New release</span>
+                  <div>
+                    <strong>Jang and Tom: Wagon Masters</strong>
+                    <em class="teletype"><span class="tele-full">Two thousand miles of pure frontier chaos.</span><span class="tele-live" aria-hidden="true"></span></em>
+                    <span class="cta-row">
+                      <a href="https://kite-bolt-fleet-honey.grok.me/" target="_blank" rel="noopener" data-jc-link="hub">Play the game</a>
+                      <a href="https://www.amazon.com/dp/B0HC596M1Y" target="_blank" rel="noopener" data-jc-link="amazonJang">Buy the book</a>
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              <div class="cta-row hero-actions">
+                <a class="btn btn-fire" href="https://www.amazon.com/dp/B0HFCF11YP" target="_blank" rel="noopener">Buy on Amazon</a>
+                <a class="btn btn-line" href="i-spy.html">Play</a>
+                <a class="btn btn-line" href="audiobooks.html">Listen</a>
+                <a class="btn btn-line" href="coloring.html">Color</a>
+              </div>
+
+              <div class="hero-previews">
+                <a class="hero-preview" href="i-spy.html">
+                  <img src="images/scenes/transcon-s46.jpg" alt="I Spy scene from the books" width="640" height="360">
+                  <span><strong>Play</strong><em class="teletype"><span class="tele-full">Pick a picture from the books and find ten hidden things.</span><span class="tele-live" aria-hidden="true"></span></em></span>
+                </a>
+                <a class="hero-preview hero-preview-color" href="coloring.html">
+                  <img src="coloring/thumbs/runaway-horse.png" alt="Coloring page of a runaway horse" width="640" height="360">
+                  <span><strong>Color</strong><em class="teletype"><span class="tele-full">Color pictures from the books right on the screen, or print them out.</span><span class="tele-live" aria-hidden="true"></span></em></span>
+                </a>
+              </div>
+
+              <div class="marquee" aria-hidden="true"><div class="track">
+                <span>Jang and Tom: Wagon Masters</span><b>✦</b><span>The First Pulse</span><b>✦</b><span>Old Man On The Mountain</span><b>✦</b>
+                <span class="marquee-copy">Jang and Tom: Wagon Masters</span><b class="marquee-copy">✦</b><span class="marquee-copy">The First Pulse</span><b class="marquee-copy">✦</b><span class="marquee-copy">Old Man On The Mountain</span><b class="marquee-copy">✦</b>
+              </div></div>
+            </section>
+
+            <section class="home-books" id="books">
+              <header class="titlecard books-card">
+                <p class="script">Presenting</p>
+                <h2 class="home-h">The Books</h2>
+                <p class="kicker">Explore</p>
+              </header>
+              <div class="home-inner">
+                <div class="bcards">
+                  <a class="bcard bcard-western" href="jang-and-tom.html">
+                    <span class="bcard-img"><img src="images/jang-and-tom-wagon-masters.jpg" alt="Cover of Jang and Tom: Wagon Masters by Jason Collier" loading="lazy"></span>
+                    <span class="bcard-text"><span class="bcard-genre">Comic Western</span><strong class="bcard-title">Jang &amp; Tom <small>Wagon Masters</small></strong><em class="teletype"><span class="tele-full">Two thousand miles of pure frontier chaos.</span><span class="tele-live" aria-hidden="true"></span></em><span class="bcard-go">Explore the book →</span></span>
+                  </a>
+                  <a class="bcard bcard-scifi" href="first-pulse.html">
+                    <span class="bcard-img"><img src="images/the-first-pulse.jpg" alt="Cover of The First Pulse by Jason Collier" loading="lazy"></span>
+                    <span class="bcard-text"><span class="bcard-genre">Science Fiction</span><strong class="bcard-title">The First Pulse</strong><em class="teletype"><span class="tele-full">Something older than stars is listening.</span><span class="tele-live" aria-hidden="true"></span></em><span class="bcard-go">Explore the book →</span></span>
+                  </a>
+                  <a class="bcard bcard-woods" href="old-man-on-the-mountain.html">
+                    <span class="bcard-img"><img src="images/old-man-on-the-mountain.jpg" alt="Cover of Old Man On The Mountain by Jason Collier" loading="lazy"></span>
+                    <span class="bcard-text"><span class="bcard-genre">Outdoor Suspense</span><strong class="bcard-title">Old Man <small>On The Mountain</small></strong><em class="teletype"><span class="tele-full">A great story for the woods.</span><span class="tele-live" aria-hidden="true"></span></em><span class="bcard-go">Explore the book →</span></span>
+                  </a>
+                  <a class="bcard bcard-brass" href="rusty-stack.html">
+                    <span class="bcard-img"><img src="images/the-rusty-stack.jpg" alt="Cover of The Rusty Stack Adventures by Jason Collier" width="832" height="1248" loading="lazy"><span class="soon">Coming soon</span></span>
+                    <span class="bcard-text"><span class="bcard-genre">Coming soon</span><strong class="bcard-title">The Rusty Stack <small>Adventures</small></strong><em class="teletype"><span class="tele-full">The ugliest freight hauler in the sky.</span><span class="tele-live" aria-hidden="true"></span></em><span class="bcard-go">Take a look →</span></span>
+                  </a>
+                </div>
+              </div>
+            </section>
+
+            <section class="home-more" id="more">
+              <div class="home-inner more-grid">
+                <a class="mcard" href="audiobooks.html">
+                  <span class="mcard-img"><img src="media/firstpulse_part4of7_poster.jpg" alt="" loading="lazy"></span>
+                  <span class="mcard-text"><span class="kicker">Listen</span><strong>Audiobooks</strong><em class="teletype"><span class="tele-full">The First Pulse and Jang &amp; Tom, as animated audiobooks brought to life with Grok.</span><span class="tele-live" aria-hidden="true"></span></em></span>
+                </a>
+                <a class="mcard" href="art.html">
+                  <span class="mcard-img"><img src="media/art-slideshow-poster.jpg" alt="" loading="lazy"></span>
+                  <span class="mcard-text"><span class="kicker">Jason’s own work</span><strong>Paintings &amp; Photography</strong><em class="teletype"><span class="tele-full">Away from the keyboard, Jason paints, draws, and takes pictures.</span><span class="tele-live" aria-hidden="true"></span></em></span>
+                </a>
+                <a class="mcard" href="thorne-lab.html">
+                  <span class="mcard-img"><img src="images/lab/born-twice-banner.jpg" alt="" loading="lazy"></span>
+                  <span class="mcard-text"><span class="kicker">Research log, ongoing</span><strong>Thorne’s Lab</strong><em class="teletype"><span class="tele-full">Dr. Elias Thorne’s research journal, bench toys, and the Born Twice game.</span><span class="tele-live" aria-hidden="true"></span></em></span>
+                </a>
+                <a class="mcard" href="i-spy.html">
+                  <span class="mcard-img"><img src="images/scenes/transcon-s46.jpg" alt="" loading="lazy"></span>
+                  <span class="mcard-text"><span class="kicker">Picture game</span><strong>I Spy</strong><em class="teletype"><span class="tele-full">Pick a picture from the books and find ten hidden things.</span><span class="tele-live" aria-hidden="true"></span></em></span>
+                </a>
+                <a class="mcard" href="coloring.html">
+                  <span class="mcard-img mcard-color"><img src="coloring/thumbs/runaway-horse.png" alt="" loading="lazy"></span>
+                  <span class="mcard-text"><span class="kicker">Printable pages</span><strong>Coloring Pages</strong><em class="teletype"><span class="tele-full">Color pictures from the books right on the screen, or print them out.</span><span class="tele-live" aria-hidden="true"></span></em></span>
+                </a>
+                <a class="mcard" href="about.html">
+                  <span class="mcard-img"><img src="images/author-as-jang.jpg" alt="" loading="lazy"></span>
+                  <span class="mcard-text"><span class="kicker">About &amp; Contact</span><strong>Jason Collier</strong><em class="teletype"><span class="tele-full">Reader mail, events, and media inquiries.</span><span class="tele-live" aria-hidden="true"></span></em></span>
+                </a>
+              </div>
+            </section>
+
+            <section class="endcard" aria-label="Closing card">
+              <div class="end-covers" aria-hidden="true">
+                <img src="images/jang-and-tom-wagon-masters.jpg" alt="">
+                <img src="images/the-first-pulse.jpg" alt="">
+                <img src="images/old-man-on-the-mountain.jpg" alt="">
+                <img src="images/the-rusty-stack.jpg" alt="">
+              </div>
+              <nav class="end-nav" aria-label="Footer">
+                <a href="index.html" aria-current="page">Home</a>
+                <a href="#books">Books</a>
+                <a href="audiobooks.html">Listen</a>
+                <a href="past-inspirations.html">Past Inspirations</a>
+                <a href="#more">Extra</a>
+                <a href="about.html">About</a>
+              </nav>
+              <p class="end-name"><span>Jason</span> <span>Collier</span></p>
+              <hr class="end-rule">
+              <a class="end-url" href="https://jasoncollierbooks.github.io/jason-collier-books/">jasoncollierbooks.github.io/jason-collier-books</a>
+            </section>
+          </main>
+
+          <footer>
+            <span>© <span id="y">2026</span> Jason Collier</span>
+            <span class="visit-count" hidden></span>
+            <span class="foot-links"><a href="https://x.com/jascol235175" target="_blank" rel="noopener">X @jascol235175</a><a href="https://www.amazon.com/stores/author/B0GDW74Y5S" target="_blank" rel="noopener">Amazon Author Page</a><a href="mailto:outdoorsolution@bellsouth.net">Email</a></span>
+          </footer>
+
+          <div class="tube" aria-hidden="true">
+            <div class="scan"></div>
+            <div class="flicker"></div>
+            <div class="grain"></div>
+            <div class="sheen"></div>
+          </div>
         </div>
       </div>
-      <div class="cta-row hero-actions reveal">
-        <a class="btn btn-fire" href="https://www.amazon.com/dp/B0HFCF11YP" target="_blank" rel="noopener">Buy on Amazon</a>
-        <a class="btn btn-line" href="i-spy.html">Play</a>
-        <a class="btn btn-line" href="audiobooks.html">Listen</a>
-        <a class="btn btn-line" href="coloring.html">Color</a>
+
+      <div class="side">
+        <span class="lamp" aria-hidden="true"></span>
+        <span class="knob-deco" aria-hidden="true"></span>
+        <button type="button" class="static-btn" id="static-btn" aria-pressed="false" aria-label="Play faint radio static">
+          <span class="knob" aria-hidden="true"></span>
+          <span class="static-label">Static</span>
+        </button>
+        <span class="speaker" aria-hidden="true"></span>
       </div>
     </div>
-    <div class="hero-stack reveal" aria-hidden="true">
-      <img class="stack s3" src="images/old-man-on-the-mountain.jpg" alt="">
-      <img class="stack s2" src="images/the-first-pulse.jpg" alt="">
-      <img class="stack s1 tilt" src="images/jang-and-tom-wagon-masters.jpg" alt="">
-    </div>
-    <div class="hero-previews">
-      <a class="hero-preview" href="i-spy.html">
-        <img src="images/scenes/transcon-s46.jpg" alt="I Spy scene from the books" width="640" height="360">
-        <span><strong>Play</strong><em>Pick a picture from the books and find ten hidden things.</em></span>
-      </a>
-      <a class="hero-preview hero-preview-color" href="coloring.html">
-        <img src="coloring/thumbs/runaway-horse.png" alt="Coloring page of a runaway horse" width="640" height="360">
-        <span><strong>Color</strong><em>Color pictures from the books right on the screen, or print them out.</em></span>
-      </a>
-    </div>
   </div>
-  <div class="marquee" aria-hidden="true"><div class="track">
-    <span>Jang and Tom: Wagon Masters</span><b>✦</b><span>The First Pulse</span><b>✦</b><span>Old Man On The Mountain</span><b>✦</b>
-    <span>Jang and Tom: Wagon Masters</span><b>✦</b><span>The First Pulse</span><b>✦</b><span>Old Man On The Mountain</span><b>✦</b>
-  </div></div>
-</section>
+</div>
 
-<section class="home-books" id="books">
-  <div class="home-inner">
-    <p class="kicker reveal">Explore</p>
-    <h2 class="home-h reveal">The Books</h2>
-    <div class="bcards">
-      <a class="bcard bcard-western reveal" href="jang-and-tom.html">
-        <span class="bcard-img"><img src="images/jang-and-tom-wagon-masters.jpg" alt="Cover of Jang and Tom: Wagon Masters by Jason Collier" loading="lazy"></span>
-        <span class="bcard-text"><span class="bcard-genre">Comic Western</span><strong class="bcard-title">Jang &amp; Tom <small>Wagon Masters</small></strong><em>Two thousand miles of pure frontier chaos.</em><span class="bcard-go">Explore the book →</span></span>
-      </a>
-      <a class="bcard bcard-scifi reveal" href="first-pulse.html">
-        <span class="bcard-img"><img src="images/the-first-pulse.jpg" alt="Cover of The First Pulse by Jason Collier" loading="lazy"></span>
-        <span class="bcard-text"><span class="bcard-genre">Science Fiction</span><strong class="bcard-title">The First Pulse</strong><em>Something older than stars is listening.</em><span class="bcard-go">Explore the book →</span></span>
-      </a>
-      <a class="bcard bcard-woods reveal" href="old-man-on-the-mountain.html">
-        <span class="bcard-img"><img src="images/old-man-on-the-mountain.jpg" alt="Cover of Old Man On The Mountain by Jason Collier" loading="lazy"></span>
-        <span class="bcard-text"><span class="bcard-genre">Outdoor Suspense</span><strong class="bcard-title">Old Man <small>On The Mountain</small></strong><em>A great story for the woods.</em><span class="bcard-go">Explore the book →</span></span>
-      </a>
-      <a class="bcard bcard-brass reveal" href="rusty-stack.html">
-        <span class="bcard-img"><img src="images/the-rusty-stack.jpg" alt="Cover of The Rusty Stack Adventures by Jason Collier" width="832" height="1248" loading="lazy"><span class="soon">Coming soon</span></span>
-        <span class="bcard-text"><span class="bcard-genre">Coming soon</span><strong class="bcard-title">The Rusty Stack <small>Adventures</small></strong><em>The ugliest freight hauler in the sky.</em><span class="bcard-go">Take a look →</span></span>
-      </a>
-    </div>
-  </div>
-</section>
-
-<section class="home-more">
-  <div class="home-inner more-grid">
-    <a class="mcard reveal" href="audiobooks.html">
-      <span class="mcard-img"><img src="media/firstpulse_part4of7_poster.jpg" alt="" loading="lazy"></span>
-      <span class="mcard-text"><span class="kicker">Listen</span><strong>Audiobooks</strong><em>The First Pulse and Jang &amp; Tom, as animated audiobooks brought to life with Grok.</em></span>
-    </a>
-    <a class="mcard reveal" href="art.html">
-      <span class="mcard-img"><img src="media/art-slideshow-poster.jpg" alt="" loading="lazy"></span>
-      <span class="mcard-text"><span class="kicker">Jason’s own work</span><strong>Paintings &amp; Photography</strong><em>Away from the keyboard, Jason paints, draws, and takes pictures.</em></span>
-    </a>
-    <a class="mcard reveal" href="thorne-lab.html">
-      <span class="mcard-img"><img src="images/lab/born-twice-banner.jpg" alt="" loading="lazy"></span>
-      <span class="mcard-text"><span class="kicker">Research log, ongoing</span><strong>Thorne’s Lab</strong><em>Dr. Elias Thorne’s research journal, bench toys, and the Born Twice game.</em></span>
-    </a>
-    <a class="mcard reveal" href="i-spy.html">
-      <span class="mcard-img"><img src="images/scenes/transcon-s46.jpg" alt="" loading="lazy"></span>
-      <span class="mcard-text"><span class="kicker">Picture game</span><strong>I Spy</strong><em>Pick a picture from the books and find ten hidden things.</em></span>
-    </a>
-    <a class="mcard reveal" href="coloring.html">
-      <span class="mcard-img"><img src="coloring/thumbs/runaway-horse.png" alt="" loading="lazy" style="background:#fff;object-fit:contain"></span>
-      <span class="mcard-text"><span class="kicker">Printable pages</span><strong>Coloring Pages</strong><em>Color pictures from the books right on the screen, or print them out.</em></span>
-    </a>
-    <a class="mcard reveal" href="about.html">
-      <span class="mcard-img"><img src="images/author-as-jang.jpg" alt="" loading="lazy"></span>
-      <span class="mcard-text"><span class="kicker">About &amp; Contact</span><strong>Jason Collier</strong><em>Reader mail, events, and media inquiries.</em></span>
-    </a>
-  </div>
-</section>
-</main>
-
-<footer>
-  <span>© <span id="y">2026</span> Jason Collier</span>
-  <span class="visit-count" hidden></span>
-  <span class="foot-links"><a href="https://x.com/jascol235175" target="_blank" rel="noopener">X @jascol235175</a><a href="https://www.amazon.com/stores/author/B0GDW74Y5S" target="_blank" rel="noopener">Amazon Author Page</a><a href="mailto:outdoorsolution@bellsouth.net">Email</a></span>
-</footer>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js" defer></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/ScrollTrigger.min.js" defer></script>
+<script src="assets/broadcast-theme/broadcast.js" defer></script>
 <script src="main.js" defer></script>
 <script src="links.js" defer></script>
 </body>

@@ -105,6 +105,7 @@
 
 // GSAP scroll-driven parallax (progressive enhancement)
 addEventListener('load', () => {
+  if (document.body.classList.contains('broadcast')) return;
   if (!window.gsap || !window.ScrollTrigger || matchMedia('(prefers-reduced-motion: reduce)').matches) return;
   gsap.registerPlugin(ScrollTrigger);
   if (document.querySelector('.hero')) {
@@ -309,7 +310,7 @@ document.querySelectorAll('.excerpt').forEach((ex, i) => {
 /* Grouped nav: hover on a fine pointer, click or tap, and keyboard */
 (() => {
   const nav = document.getElementById('nav');
-  if (!nav) return;
+  if (!nav || document.body.classList.contains('broadcast')) return;
   const btn = nav.querySelector('.nav-toggle');
   const groups = [...nav.querySelectorAll('.nav-group')];
   const desktop = () => matchMedia('(min-width: 861px)').matches;

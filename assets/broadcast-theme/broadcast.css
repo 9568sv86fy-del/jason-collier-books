@@ -1,4 +1,5 @@
-/* Broadcast preview. Sepia Art Deco television. Live pages do not load this file. */
+/* Sepia Art Deco television. The homepage loads this file.
+   Inner pages use site.css for a lighter version of the same look. */
 :root {
   --ink: #f4ecdf;
   --muted: #d9cbb6;
@@ -21,6 +22,7 @@ body {
   color: var(--ink);
   font: 500 17px/1.5 var(--serif);
   -webkit-font-smoothing: antialiased;
+  overflow-x: clip;
 }
 img { max-width: 100%; display: block; }
 a { color: inherit; }
