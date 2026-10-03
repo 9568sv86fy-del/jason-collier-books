@@ -133,8 +133,7 @@ body.broadcast-lite .genre {
 }
 body.broadcast-lite :is(.page-head, .own-head, .about-text, .contact, .ispy-head, .lab-intro) > .kicker,
 body.broadcast-lite .ispy-head > .lab-kicker,
-body.broadcast-lite .lab-intro > .lab-kicker,
-body.broadcast-lite .book-body > .genre {
+body.broadcast-lite .lab-intro > .lab-kicker {
   font-family: var(--script);
   font-weight: 400;
   letter-spacing: 0;
@@ -142,6 +141,10 @@ body.broadcast-lite .book-body > .genre {
   font-size: clamp(1.65rem, 3.4vw, 2.25rem);
   line-height: 1.15;
   color: #f7f0e4;
+}
+body.broadcast-lite .genre {
+  font-size: .74rem;
+  line-height: 1.45;
 }
 body.broadcast-lite :is(.page-head h1, .about h2, .contact h2, .own-head h2, .book .title, .rusty-text h2, .ispy-h1, .lab-title, .play-feature-title, .ab-h) {
   font-family: var(--ui);
@@ -200,7 +203,7 @@ body.broadcast-lite .book-body::before {
   height: 11rem;
   transform: translateX(-50%);
   pointer-events: none;
-  background: repeating-conic-gradient(rgba(243, 230, 206, .16) 0deg 1.1deg, rgba(243, 230, 206, 0) 1.1deg 8deg);
+  background: repeating-conic-gradient(rgba(243, 230, 206, .12) 0deg 1.1deg, rgba(243, 230, 206, 0) 1.1deg 8deg);
   -webkit-mask-image: linear-gradient(#000 20%, transparent 92%);
   mask-image: linear-gradient(#000 20%, transparent 92%);
 }
@@ -210,7 +213,7 @@ body.broadcast-lite .own-head::after {
   position: absolute;
   inset: 0;
   pointer-events: none;
-  background: radial-gradient(ellipse at 50% 30%, rgba(16, 14, 12, .35), rgba(16, 14, 12, .82) 74%);
+  background: radial-gradient(ellipse at 50% 32%, rgba(16, 14, 12, .66), rgba(16, 14, 12, .92) 72%);
 }
 body.broadcast-lite .book-body { position: relative; overflow: hidden; }
 body.broadcast-lite .page-head > *,
@@ -221,8 +224,13 @@ body.broadcast-lite .page-head > p:not(.kicker) {
   max-width: 44rem;
   margin-left: auto;
   margin-right: auto;
-  background: rgba(16, 14, 12, .55);
+  background: rgba(16, 14, 12, .86);
   padding: .75rem .9rem;
+}
+body.broadcast-lite .book .lede {
+  font-size: clamp(1.25rem, 2vw, 1.6rem);
+  line-height: 1.35;
+  color: #f3eadf;
 }
 body.broadcast-lite :is(.page-head h1, .own-head h2, .about h2, .contact h2, .ispy-h1, .lab-title)::after {
   content: "";
@@ -270,30 +278,32 @@ body.broadcast-lite .pulse-ring::before,
 body.broadcast-lite .pulse-ring::after { border-color: rgba(228, 208, 164, .45); }
 
 /* Buttons. The duplicated class beats the polish layer. Players are not .btn. */
-body.broadcast-lite :is(a, button).btn.btn:not(.milestone *) {
+body.broadcast-lite :is(a, button, span).btn.btn:not(.milestone *) {
   font-family: var(--ui);
   font-weight: 400;
   letter-spacing: .14em;
   border-radius: 2px;
   box-shadow: none;
 }
-body.broadcast-lite :is(a, button).btn-fire.btn-fire:not(.milestone *) {
+body.broadcast-lite :is(a, button, span).btn-fire.btn-fire:not(.milestone *),
+body.broadcast-lite :is(a, button).btn-brass.btn-brass {
   background: #f3e6c8;
   color: #24180f;
   border-color: #f3e6c8;
 }
-body.broadcast-lite :is(a, button).btn-line.btn-line:not(.milestone *) {
+body.broadcast-lite :is(a, button, span).btn-line.btn-line:not(.milestone *) {
   background: transparent;
   color: #f4ecdf;
   border-color: rgba(228, 208, 164, .55);
 }
-body.broadcast-lite :is(a, button).btn-line.btn-line:not(.milestone *):hover,
-body.broadcast-lite :is(a, button).btn-fire.btn-fire:not(.milestone *):hover {
+body.broadcast-lite :is(a, button, span).btn-line.btn-line:not(.milestone *):hover,
+body.broadcast-lite :is(a, button, span).btn-fire.btn-fire:not(.milestone *):hover,
+body.broadcast-lite :is(a, button).btn-brass.btn-brass:hover {
   border-color: #fff6e4;
   color: #24180f;
   background: #fff6e4;
 }
-body.broadcast-lite :is(a, button).btn-line.btn-line:not(.milestone *):hover { color: #fbf6ee; background: transparent; }
+body.broadcast-lite :is(a, button, span).btn-line.btn-line:not(.milestone *):hover { color: #fbf6ee; background: transparent; }
 body.broadcast-lite .book-body > p.cta-row a {
   font-family: var(--serif);
   font-style: italic;
