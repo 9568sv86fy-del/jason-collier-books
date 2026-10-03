@@ -105,6 +105,12 @@ export function buildWorld(scene, low) {
   goat.root.position.set(2.8, heightAt(2.8, -2.4), -2.4);
   scene.add(goat.root);
 
+  const pages = buildPages(scene);
+  const floats = buildFloats(scene, wood, canvas, dark);
+  const rope = buildRope(scene, wood);
+  block(-3.3, rope.z0, 0.5);
+  block(3.3, rope.z0, 0.5);
+
   const gate = buildGate();
   gate.root.position.set(0, heightAt(0, 126), 126);
   scene.add(gate.root);
@@ -130,6 +136,9 @@ export function buildWorld(scene, low) {
   return {
     obstacles,
     chests,
+    pages,
+    floats,
+    rope,
     gate,
     fire,
     sun,
@@ -157,6 +166,13 @@ export function buildWorld(scene, low) {
       water.position.y = heightAt(0, 115) + 0.2 + Math.sin(t * 1.4) * 0.02;
       if (gate.open) {
         gate.glow.material.opacity = 0.35 + Math.sin(t * 3) * 0.15;
+      }
+      posePages(pages, t);
+      poseRope(rope, t);
+      for (const w of floats) {
+        if (!w.floated) continue;
+        w.mesh.position.y = heightAt(w.x, w.z) + 0.22 + Math.sin(t * 1.6 + w.x) * 0.06;
+        w.mesh.rotation.z = Math.sin(t * 1.3 + w.z) * 0.04;
       }
     },
     resolve(x, z, radius, extra) {
@@ -235,6 +251,136 @@ function wagon(wood, canvas, dark) {
     g.add(w);
   }
   return g;
+}
+
+function buildPages(scene) {
+  const tex = pageTexture();
+  const spots = [
+    ["handbills", -5.6, -5.4],
+    ["dentistry", 4.3, 36],
+    ["bear", -4.5, 58],
+    ["pendulum", 3.6, 81],
+    ["circus", -6.2, 100.4],
+  ];
+  return spots.map(([id, x, z]) => {
+    const mat = new THREE.MeshStandardMaterial({
+      map: tex, emissive: 0xffe2a8, emissiveIntensity: 0.55,
+      roughness: 0.55, metalness: 0.04, side: THREE.DoubleSide,
+    });
+    const mesh = new THREE.Mesh(new THREE.PlaneGeometry(0.7, 0.96), mat);
+    const y = heightAt(x, z) + 1.2;
+    mesh.position.set(x, y, z);
+    mesh.castShadow = true;
+    const glow = new THREE.PointLight(0xffe6b0, 1.6, 5.5, 2);
+    glow.position.set(0, 0, 0.15);
+    mesh.add(glow);
+    const ring = new THREE.Mesh(
+      new THREE.RingGeometry(0.32, 0.5, 18),
+      new THREE.MeshBasicMaterial({ color: 0xffe6b0, transparent: true, opacity: 0.75, side: THREE.DoubleSide }),
+    );
+    ring.rotation.x = -Math.PI / 2;
+    ring.position.y = heightAt(x, z) - y + 0.08;
+    mesh.add(ring);
+    scene.add(mesh);
+    return { id, x, z, mesh, got: false, baseY: y };
+  });
+}
+
+function posePages(pages, t) {
+  for (const p of pages) {
+    if (p.got) {
+      p.mesh.visible = false;
+      continue;
+    }
+    p.mesh.visible = true;
+    p.mesh.position.y = p.baseY + Math.sin(t * 2.1 + p.x) * 0.12;
+    p.mesh.rotation.y = t * 0.55 + p.z;
+    p.mesh.rotation.z = Math.sin(t * 1.4 + p.z) * 0.06;
+  }
+}
+
+function pageTexture() {
+  const c = document.createElement("canvas");
+  c.width = 128;
+  c.height = 168;
+  const g = c.getContext("2d");
+  g.clearRect(0, 0, 128, 168);
+  g.fillStyle = "#f3e6c8";
+  g.beginPath();
+  g.moveTo(14, 8);
+  g.lineTo(108, 6);
+  g.lineTo(120, 22);
+  g.lineTo(116, 70);
+  g.lineTo(122, 108);
+  g.lineTo(110, 156);
+  g.lineTo(18, 160);
+  g.lineTo(8, 120);
+  g.lineTo(12, 48);
+  g.closePath();
+  g.fill();
+  g.strokeStyle = "#8a6238";
+  g.lineWidth = 2;
+  g.stroke();
+  g.strokeStyle = "rgba(90, 58, 32, .35)";
+  g.lineWidth = 1;
+  for (let i = 0; i < 7; i++) {
+    g.beginPath();
+    g.moveTo(24, 36 + i * 16);
+    g.lineTo(100 - (i % 3) * 8, 36 + i * 16);
+    g.stroke();
+  }
+  const tex = new THREE.CanvasTexture(c);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  return tex;
+}
+
+function buildFloats(scene, wood, canvas, dark) {
+  return [[-3.5, 99.1], [3.6, 98.4]].map(([x, z]) => {
+    const mesh = wagon(wood, canvas, dark);
+    mesh.position.set(x, heightAt(x, z), z);
+    scene.add(mesh);
+    return { mesh, x, z, homeX: x, homeZ: z, drift: false, floated: false };
+  });
+}
+
+function buildRope(scene, wood) {
+  const z0 = 80;
+  const postMat = wood;
+  for (const x of [-3.3, 3.3]) {
+    const post = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.16, 4.3, 6), postMat);
+    post.position.set(x, heightAt(x, z0) + 2.15, z0);
+    post.castShadow = true;
+    scene.add(post);
+  }
+  const beam = new THREE.Mesh(new THREE.BoxGeometry(6.8, 0.16, 0.2), postMat);
+  beam.position.set(0, heightAt(0, z0) + 4.25, z0);
+  beam.castShadow = true;
+  scene.add(beam);
+  const line = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.07, 0.08, 1, 6),
+    new THREE.MeshLambertMaterial({ color: 0xd7c08a }),
+  );
+  const bob = new THREE.Mesh(
+    new THREE.SphereGeometry(0.42, 12, 10),
+    new THREE.MeshLambertMaterial({ color: 0x5c3e2c }),
+  );
+  bob.castShadow = true;
+  scene.add(line, bob);
+  return { z0, pivotY: heightAt(0, z0) + 4.2, len: 3.15, line, bob, x: 0, y: 1.2, low: false };
+}
+
+function poseRope(rope, t) {
+  const ang = Math.sin(t * 1.55) * 1.08;
+  const x = Math.sin(ang) * rope.len;
+  const y = rope.pivotY - Math.cos(ang) * rope.len;
+  rope.x = x;
+  rope.y = y;
+  rope.z = rope.z0;
+  rope.low = Math.abs(ang) < 0.36;
+  rope.bob.position.set(x, y, rope.z0);
+  rope.line.scale.y = rope.len;
+  rope.line.position.set(x * 0.5, (y + rope.pivotY) * 0.5, rope.z0);
+  rope.line.rotation.z = ang + Math.PI;
 }
 
 function campfire() {

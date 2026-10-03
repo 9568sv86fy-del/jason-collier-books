@@ -1,6 +1,6 @@
 import * as THREE from "three";
 import { clamp, damp, dampAngle, hypot2 } from "./util.js";
-import { heightAt } from "./world.js";
+import { halfWidth, heightAt } from "./world.js";
 import { createHuman, createShade, createCoach, handbillMesh } from "./rigs.js";
 
 const LINES = {
@@ -13,6 +13,11 @@ const LINES = {
     low: "Keeper, if you fall I will write a very moving handbill.",
     win: "I guaranteed the crossing. I was only mostly lying.",
     gate: "The picture is rolling. That is the way back to the set.",
+    circus: "A floating circus. I invented it just now, which is the same as planning.",
+    ford: "The river forgot how a crossing works. Wagons in. We will call it a circus.",
+    rope: "Those bandits want the trail. The rope wants a weight. Introduce them.",
+    ropeHint: "The key is not the punchline, Keeper. The rope is.",
+    rout: "The clumsiest pendulum in the West. Do not examine why it worked.",
   },
   tom: {
     greet: "Neck's itching. That usually means the map was a suggestion.",
@@ -21,6 +26,8 @@ const LINES = {
     hurt: "Still here. Still broad. Neck saw it coming.",
     win: "River's a river again. I'll take that.",
     gate: "I can see the knobs from here. I don't trust knobs.",
+    circus: "The wagon is a boat. My neck has filed a complaint.",
+    rout: "I was the weight on that rope. I did not apply for the job.",
     half: "It's leaning, Jang. So am I. Different reasons.",
   },
 };
@@ -69,14 +76,15 @@ export function createSim(scene, world, audio) {
   let seq = 1;
 
   const spawns = [
-    ["shade", 0.2, 11],
-    ["shade", -2.2, 38],
-    ["bandit", 2.2, 52],
-    ["shade", -1.4, 70],
-    ["bandit", 0.8, 84],
-    ["shade", -2.6, 93],
+    ["shade", 0.2, 11, false],
+    ["shade", -2.2, 38, false],
+    ["bandit", 2.2, 52, false],
+    ["shade", -1.4, 70, false],
+    ["bandit", -1.6, 76, true],
+    ["bandit", 1.4, 84.5, true],
+    ["shade", -2.6, 93, false],
   ];
-  for (const [kind, x, z] of spawns) enemies.push(makeEnemy(kind, x, z));
+  for (const [kind, x, z, pendulum] of spawns) enemies.push(makeEnemy(kind, x, z, pendulum));
 
   const bossRig = createCoach();
   scene.add(bossRig.root);
@@ -94,7 +102,9 @@ export function createSim(scene, world, audio) {
   ring.rotation.x = -Math.PI / 2;
   scene.add(ring);
 
-  function makeEnemy(kind, x, z) {
+  let circus = false;
+
+  function makeEnemy(kind, x, z, pendulum = false) {
     const shade = kind === "shade";
     const rig = shade
       ? createShade()
@@ -109,7 +119,7 @@ export function createSim(scene, world, audio) {
       hp: shade ? 42 : 58, hpMax: shade ? 42 : 58,
       radius: shade ? 0.6 : 0.48,
       state: "idle", t: 0, alive: true, hit: 0, didHit: false,
-      speed: 0, stunFor: 0, homeX: x, homeZ: z,
+      speed: 0, stunFor: 0, homeX: x, homeZ: z, pendulum, routed: false,
     };
   }
 
@@ -122,6 +132,20 @@ export function createSim(scene, world, audio) {
 
   function damageEnemy(e, amount, src) {
     if (!e.alive) return;
+    if (e.pendulum) {
+      e.hit = 1;
+      const dx = e.x - (src ? src.x : player.x);
+      const dz = e.z - (src ? src.z : player.z);
+      const l = hypot2(dx, dz) || 1;
+      e.x += (dx / l) * 0.45;
+      e.z += (dz / l) * 0.45;
+      audio.hit();
+      if (!flags.ropeHint) {
+        flags.ropeHint = true;
+        speak("jang", LINES.jang.ropeHint);
+      }
+      return;
+    }
     e.hp -= amount;
     e.hit = 1;
     const dx = e.x - (src ? src.x : player.x);
@@ -211,14 +235,18 @@ export function createSim(scene, world, audio) {
       if (e.t > e.stunFor) { e.state = "recover"; e.t = 0; }
     } else if (e.state === "idle") {
       e.speed = 0;
-      if (dist < 11 && player.hp > 0) {
+      const leash = e.pendulum && (player.z > 94 || player.z < 68);
+      if (dist < 11 && player.hp > 0 && !leash) {
         e.state = "chase";
         if (!flags.fight) { flags.fight = true; speak("jang", LINES.jang.fight); }
       }
+    } else if (e.state === "chase" && e.pendulum && (player.z > 94 || player.z < 68 || hypot2(e.x - e.homeX, e.z - e.homeZ) > 14)) {
+      e.state = "idle";
+      e.speed = 0;
     } else if (e.state === "chase") {
       e.speed = dist > 1.65 ? (e.kind === "shade" ? 2.5 : 2.15) : 0;
       if (dist > 0.2) e.yaw = dampAngle(e.yaw, Math.atan2(dx, dz), 8, dt);
-      if (dist < 1.7) { e.state = "tele"; e.t = 0; e.didHit = false; }
+      if (dist < (e.pendulum ? 0.9 : 1.7)) { e.state = "tele"; e.t = 0; e.didHit = false; }
       if (dist > 18) e.state = "idle";
     } else if (e.state === "tele") {
       e.speed = 0;
@@ -279,7 +307,7 @@ export function createSim(scene, world, audio) {
       return;
     }
     const dist = hypot2(player.x - boss.x, player.z - boss.z);
-    if (!boss.active && (player.z > 100 || dist < 16)) {
+    if (!boss.active && circus && player.z > 106.5) {
       boss.active = true;
       boss.state = "intro";
       boss.t = 0;
@@ -507,6 +535,101 @@ export function createSim(scene, world, audio) {
     speak("jang", LINES.jang.chest);
   }
 
+  function pageCount() {
+    return world.pages.filter((p) => p.got).length;
+  }
+
+  function collectPage() {
+    for (const p of world.pages) {
+      if (p.got) continue;
+      if (hypot2(p.x - player.x, p.z - player.z) < 1.45) {
+        p.got = true;
+        p.mesh.visible = false;
+        audio.chest();
+        if (!flags.paged) {
+          flags.paged = true;
+          speak("jang", "A torn page. The book wants it back more than the dust does.");
+        }
+        return { type: "page", id: p.id, n: pageCount() };
+      }
+    }
+    return null;
+  }
+
+  function updateFloats(dt) {
+    for (const w of world.floats) {
+      if (w.floated) continue;
+      if (!w.drift) {
+        let dx = w.x - player.x;
+        let dz = w.z - player.z;
+        let d = hypot2(dx, dz) || 0.001;
+        const min = 1.72;
+        if (d < min) {
+          const overlap = min - d;
+          w.x += (dx / d) * overlap;
+          w.z += (dz / d) * overlap;
+          if (player.z < w.z + 0.4) w.z += Math.max(overlap * 0.65, 0.05);
+          const half = halfWidth(w.z) - 1.4;
+          w.x = clamp(w.x, -half, half);
+          w.z = clamp(w.z, 94, 107);
+          dx = w.x - player.x;
+          dz = w.z - player.z;
+          d = hypot2(dx, dz) || 0.001;
+          player.x = w.x - (dx / d) * min;
+          if (player.z > w.z - 0.35) player.z = w.z - 0.35;
+        }
+        if (w.z > 102.45) w.drift = true;
+      } else {
+        w.z = Math.min(112.2, w.z + dt * 2.6);
+        w.x = damp(w.x, clamp(w.x, -5.5, 5.5), 2, dt);
+        if (w.z >= 111.6) w.floated = true;
+      }
+      w.mesh.position.set(w.x, heightAt(w.x, w.z) + (w.drift ? 0.16 : 0), w.z);
+      w.mesh.rotation.y = Math.atan2(player.x - w.x, 2);
+    }
+    if (!circus && world.floats.every((w) => w.floated)) {
+      circus = true;
+      speak("jang", LINES.jang.circus);
+      events.push({ type: "circus" });
+    }
+  }
+
+  function checkRope() {
+    const bob = world.rope;
+    if (!bob || !bob.low) return;
+    let any = false;
+    for (const e of enemies) {
+      if (!e.alive || !e.pendulum) continue;
+      if (hypot2(e.x - bob.x, e.z - bob.z) > 1.6) continue;
+      e.hp = 0;
+      e.alive = false;
+      e.state = "dead";
+      e.t = 0;
+      e.routed = true;
+      e.x += Math.sign(e.x - bob.x || 1) * 1.4;
+      e.z += 0.8;
+      any = true;
+    }
+    if (any) {
+      audio.hit();
+      if (!flags.rout) {
+        flags.rout = true;
+        speak("tom", LINES.tom.rout);
+        events.push({ type: "rout" });
+      }
+    }
+  }
+
+  function settleCircus() {
+    circus = true;
+    for (const w of world.floats) {
+      w.drift = true;
+      w.floated = true;
+      w.z = 112;
+      w.mesh.position.set(w.x, heightAt(w.x, 112) + 0.22, 112);
+    }
+  }
+
   let outroT = -1;
   let outroArmed = true;
   let playTime = 0;
@@ -566,6 +689,7 @@ export function createSim(scene, world, audio) {
     const resolved = world.resolve(player.x, player.z, 0.38, boss.alive && boss.active ? [{ x: boss.x, z: boss.z, r: 1.15 }] : null);
     player.x = resolved.x;
     player.z = resolved.z;
+    if (!circus && player.z > 103.2) player.z = 103.2;
     if (bossWall && boss.alive && player.z > 123) player.z = 123;
 
     player.vy -= 28 * dt;
@@ -616,11 +740,25 @@ export function createSim(scene, world, audio) {
       chest.lid.rotation.x = damp(chest.lid.rotation.x, target, 8, dt);
     }
 
+    updateFloats(dt);
+    checkRope();
+    const pageEv = collectPage();
+    if (pageEv) events.push(pageEv);
+    if (!flags.ford && !circus && player.z > 92) {
+      flags.ford = true;
+      speak("jang", LINES.jang.ford);
+    }
+    if (!flags.rope && player.z > 72 && player.z < 90) {
+      flags.rope = true;
+      speak("jang", LINES.jang.rope);
+    }
+
     const chest = tryChests();
     let prompt = null;
     if (chest) prompt = { id: "chest", label: "Open the chest" };
     const gateD = hypot2(player.x, player.z - 126);
-    if (!boss.alive && gateD < 2.4) prompt = { id: "gate", label: "Step back through the screen" };
+    const storyWhole = pageCount() >= world.pages.length;
+    if (!boss.alive && storyWhole && gateD < 2.4) prompt = { id: "gate", label: "Step back through the screen" };
     if (edge.use && prompt) {
       if (prompt.id === "chest") openChest(chest);
       if (prompt.id === "gate") {
@@ -658,10 +796,14 @@ export function createSim(scene, world, audio) {
     }
     if (step && step.step && player.grounded) audio.step();
 
-    let objective = "The canyon north of camp is humming. Walk it.";
-    if (player.z > 24 && boss.alive) objective = "Follow the trail to the river crossing.";
+    const got = pageCount();
+    let objective = `The Hum tore pages from this book. Gather them. ${got}/5`;
+    if (!flags.rout && player.z > 70 && player.z < 92 && boss.alive) objective = "Lure the bandits under the swinging rope.";
+    if (!circus && player.z > 90) objective = "Push both wagons into the river. Stage the floating circus.";
+    if (circus && boss.alive && !boss.active) objective = "The wagons are afloat. The dust coach is waiting in the ford.";
     if (boss.active && boss.alive) objective = "The dust coach is not a coach. Break it.";
-    if (!boss.alive) objective = "The screen is still open in the ford. Step back through.";
+    if (!boss.alive && got < 5) objective = `The coach is dust. The book still wants ${5 - got} page${got === 4 ? "" : "s"}.`;
+    if (!boss.alive && got >= 5) objective = "The story is restored. Step back through the screen.";
 
     return snapshot(camYaw, prompt, objective);
   }
@@ -779,7 +921,9 @@ export function createSim(scene, world, audio) {
       },
       lock: lockTarget && lockTarget.alive ? { id: lockTarget.id, x: lockTarget.x, y: heightAt(lockTarget.x, lockTarget.z) + (lockTarget.kind === "boss" ? 2.2 : 1.5), z: lockTarget.z } : null,
       prompt,
-      objective: objective || "The canyon north of camp is humming.",
+      pages: pageCount(),
+      circus,
+      objective: objective || "The Hum tore pages from this book.",
       events,
       camYaw,
     };
@@ -796,6 +940,7 @@ export function createSim(scene, world, audio) {
       player.vx = player.vz = 0;
     },
     wakeBoss() {
+      settleCircus();
       boss.active = true;
       boss.state = "intro";
       boss.t = 0;
@@ -898,8 +1043,29 @@ export function createSim(scene, world, audio) {
       }
       world.gate.setOpen(false);
       audio.setTension(0);
+      circus = false;
+      for (const p of world.pages) {
+        p.got = false;
+        p.mesh.visible = true;
+      }
+      for (const w of world.floats) {
+        w.x = w.homeX;
+        w.z = w.homeZ;
+        w.drift = false;
+        w.floated = false;
+        w.mesh.position.set(w.x, heightAt(w.x, w.z), w.z);
+        w.mesh.rotation.z = 0;
+      }
+      for (const e of enemies) e.routed = false;
     },
-    skipToGate() {
+    skipToGate(withPages = true) {
+      settleCircus();
+      if (withPages) {
+        for (const p of world.pages) {
+          p.got = true;
+          p.mesh.visible = false;
+        }
+      }
       boss.alive = false;
       boss.hp = 0;
       boss.active = true;
@@ -917,6 +1083,9 @@ export function createSim(scene, world, audio) {
       player.hp = player.hpMax;
       player.action = "idle";
     },
+    pageCount,
+    circusDone: () => circus,
+    floats: () => world.floats.map((w) => ({ x: w.x, z: w.z, drift: w.drift, floated: w.floated })),
     player,
     enemies,
     boss,

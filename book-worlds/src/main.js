@@ -35,7 +35,7 @@ scene.add(shock);
 
 const params = new URLSearchParams(location.search);
 const start = params.get("start");
-const direct = start === "ford" || start === "play" || start === "gate";
+const direct = ["ford", "play", "gate", "almost", "rope", "bank"].includes(start);
 let mode = direct ? "play" : "hub";
 let playing = mode === "play";
 let station = 0;
@@ -69,6 +69,7 @@ const el = {
   lantern: document.getElementById("lantern-fill"),
   coins: document.getElementById("coins"),
   potions: document.getElementById("potions"),
+  pages: document.getElementById("pages"),
   obj: document.getElementById("obj"),
   bossbar: document.getElementById("bossbar"),
   bossFill: document.getElementById("boss-fill"),
@@ -106,7 +107,7 @@ const CARDS = {
     script: "Please stand by",
     kicker: "Book Worlds  ·  Station 1",
     title: "The California Trail",
-    body: "The Hum is leaking through the broadcast into every book. The Keeper has to tune each station and close the signal before the static takes the page. This channel is the wagon road. Jang and Tom, two Philadelphia debtors posing as guides, are pretending they meant to be here. The dust disagrees. The weapon in the Keeper's hand is a brass skeleton key worn like a saber — the Trail Key.",
+    body: "The Hum is leaking through the broadcast into every book, and it has torn five pages out of this one. The scenes are scrambled. The Keeper has to gather those pages, put the river and the bandits back the way the story remembers, and close the signal. This channel is the wagon road. Jang and Tom, two Philadelphia debtors posing as guides, are pretending they meant to be here. The weapon in the Keeper's hand is a brass skeleton key worn like a saber — the Trail Key.",
     btn: "Step through",
     hint: true,
   },
@@ -114,8 +115,8 @@ const CARDS = {
     script: "End of the trail",
     kicker: "World I",
     title: "The river remembers",
-    body: "The stagecoach beast comes apart into static and silt. Jang counts the oxen twice and gets a different number both times. Tom scratches the back of his neck and admits, quietly, that the humming on this channel has stopped. The ford still holds a way back through the screen.",
-    btn: "Go to the door",
+    body: "The stagecoach beast comes apart into static and silt. Jang counts the oxen twice and gets a different number both times. Tom scratches the back of his neck and admits, quietly, that the humming on this channel has thinned. The screen home stays shut until every torn page is back in the book.",
+    btn: "Back to the trail",
     hint: false,
   },
   dead: {
@@ -125,6 +126,34 @@ const CARDS = {
     body: "The Keeper hits the dirt. Jang is already composing the handbill. Tom offers a hand the size of a skillet.",
     btn: "Get up",
     hint: false,
+  },
+};
+
+const PAGES = {
+  handbills: {
+    script: "A torn page",
+    title: "Flashy handbills",
+    body: "Philadelphia still had their debts, so the prairie got a new set of names. They printed flashy handbills — experienced navigators, reasonable rates, safe passage guaranteed — and families believed the ink. The guides had never taken a wagon anywhere but away from a creditor.",
+  },
+  dentistry: {
+    script: "A torn page",
+    title: "Negotiated by dentistry",
+    body: "Pawnee warriors met the train already in the right. Jang negotiated anyway. What passed for a truce turned on dentistry: a promise of teeth standing in for a promise of sense.",
+  },
+  bear: {
+    script: "A torn page",
+    title: "The hunt turns around",
+    body: "They set out after a bear with the confidence of men who had heard of bears. The bear declined the role. Before the woods grew quiet, the hunters were the ones being followed home.",
+  },
+  pendulum: {
+    script: "A torn page",
+    title: "A human pendulum",
+    body: "Bandits had the wagons boxed in a narrow place. The way through was a rope, a bad idea, and Tom, who is built like a counterweight. He became the clumsiest human pendulum in the territory. The bandits left on the backswing.",
+  },
+  circus: {
+    script: "A torn page",
+    title: "The floating circus",
+    body: "The river would not ford and would not negotiate. Jang announced a circus. The wagons went in as boats, the oxen as a reluctant audience, and the crossing floated because a lie, told with enough canvas, will sometimes hold water.",
   },
 };
 
@@ -142,6 +171,21 @@ function showCard(id) {
   playing = false;
   input.enabled = false;
 }
+function showPage(id, n) {
+  const c = PAGES[id];
+  mode = "page";
+  el.script.textContent = c.script;
+  el.kicker.textContent = `Story page  ·  ${n} of 5`;
+  el.title.textContent = c.title;
+  el.body.textContent = c.body;
+  el.btn.textContent = "Tuck it back";
+  el.hint.hidden = true;
+  el.card.hidden = false;
+  el.card.dataset.card = "page";
+  playing = false;
+  input.enabled = false;
+}
+
 function hideCard() {
   el.card.hidden = true;
   el.hub.hidden = true;
@@ -156,11 +200,12 @@ function paintStation() {
   el.screen.dataset.station = st.id;
   el.screen.classList.toggle("is-static", !st.live);
   el.freq.textContent = st.freq;
-  el.stScript.textContent = st.script;
+  el.stScript.textContent = st.live && signalClosed ? "Story restored" : st.script;
   el.stTitle.textContent = st.title;
   el.stSub.textContent = st.sub;
   el.stNum.textContent = `Station ${station + 1}`;
   el.stSoon.hidden = st.live;
+  el.stBadge.textContent = "Story restored";
   el.stBadge.hidden = !(st.live && signalClosed);
   el.tune.disabled = !st.live;
   el.tune.textContent = !st.live ? "Coming soon" : signalClosed ? "Tune in again" : "Tune in";
@@ -300,7 +345,7 @@ el.btn.addEventListener("click", () => {
   } else if (mode === "dead") {
     sim.revive();
     hideCard();
-  } else if (mode === "outro") {
+  } else if (mode === "outro" || mode === "page") {
     hideCard();
   }
 });
@@ -315,7 +360,25 @@ if (start === "ford") {
 } else if (start === "gate") {
   camYaw = 0;
   camPitch = 0.36;
-  sim.skipToGate();
+  sim.skipToGate(true);
+  hideCard();
+  audio.unlock();
+} else if (start === "almost") {
+  camYaw = 0;
+  camPitch = 0.36;
+  sim.skipToGate(false);
+  hideCard();
+  audio.unlock();
+} else if (start === "rope") {
+  camYaw = 0;
+  camPitch = 0.36;
+  sim.place(0, 80, 0);
+  hideCard();
+  audio.unlock();
+} else if (start === "bank") {
+  camYaw = 0;
+  camPitch = 0.42;
+  sim.place(0, 96, 0);
   hideCard();
   audio.unlock();
 } else if (start === "play") {
@@ -431,6 +494,7 @@ function frame(now) {
     else if (ev.type === "dead") showCard("dead");
     else if (ev.type === "outro") showCard("outro");
     else if (ev.type === "gate") pullBack();
+    else if (ev.type === "page") showPage(ev.id, ev.n);
     else if (ev.type === "boss") shake = 0.2;
   }
 
@@ -452,6 +516,7 @@ function paintHud(snap) {
   el.lantern.style.width = `${clamp(p.flash, 0, 1) * 100}%`;
   el.coins.textContent = String(p.coins);
   el.potions.textContent = p.potions > 0 ? `Potion ${p.potions}` : "";
+  el.pages.textContent = `Pages ${snap.pages || 0}/5`;
   el.obj.textContent = snap.objective;
   el.pips.innerHTML = [1, 2, 3].map((i) => `<i class="${p.combo >= i ? "on" : ""}"></i>`).join("");
   const showBoss = snap.boss.active && (snap.boss.alive || snap.boss.hp <= 0);
@@ -506,7 +571,10 @@ window.__BOOKWORLDS = {
     const p = sim.player;
     return { x: p.x, y: p.y, z: p.z, hp: p.hp, yaw: p.yaw, hits: sim.hits() };
   },
-  enemies: () => sim.enemies.map((e) => ({ id: e.id, kind: e.kind, hp: e.hp, alive: e.alive, x: e.x, z: e.z })),
+  enemies: () => sim.enemies.map((e) => ({ id: e.id, kind: e.kind, hp: e.hp, alive: e.alive, x: e.x, z: e.z, pendulum: !!e.pendulum, routed: !!e.routed })),
+  pages: () => sim.pageCount(),
+  circus: () => sim.circusDone(),
+  floats: () => sim.floats(),
   boss: () => ({ hp: sim.boss.hp, alive: sim.boss.alive, active: sim.boss.active, x: sim.boss.x, z: sim.boss.z }),
   hits: () => sim.hits(),
 };
