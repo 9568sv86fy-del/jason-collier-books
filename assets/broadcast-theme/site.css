@@ -1,0 +1,367 @@
+/* Lighter sepia Art Deco layer for every page except the homepage cabinet.
+   Loaded last. Does not restyle players, the Past Inspirations sets,
+   I Spy, coloring tools, or Thorne’s bench. */
+
+body.broadcast-lite {
+  --bg: #110e0b;
+  --ink: #f4ecdf;
+  --muted: #d9cbb6;
+  --line: rgba(228, 208, 164, .28);
+  --fire: #c9a36c;
+  --fire2: #e4d0a4;
+  --brass: #e4d0a4;
+  --ui: "Josefin Sans", "Gill Sans", "Trebuchet MS", sans-serif;
+  --serif: "Cormorant Garamond", Palatino, Georgia, serif;
+  --script: "Pinyon Script", "Segoe Script", cursive;
+  background-color: #100e0c;
+  background-image:
+    radial-gradient(ellipse at 50% -10%, rgba(90, 62, 36, .28), transparent 46%),
+    linear-gradient(180deg, #16130f 0%, #0c0a08 42%, #12100d 100%);
+  color: var(--ink);
+  font-family: var(--serif);
+  font-weight: 500;
+}
+body.broadcast-lite ::selection { background: rgba(228, 208, 164, .45); color: #1a120c; }
+
+/* Grain stays put (no stepping animation) and a soft vignette sits under menus and dialogs. */
+body.broadcast-lite .grain {
+  z-index: 60;
+  opacity: .08;
+  mix-blend-mode: overlay;
+  animation: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+body.broadcast-lite::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: 35;
+  pointer-events: none;
+  background: radial-gradient(ellipse at center, transparent 58%, rgba(30, 16, 6, .16) 80%, rgba(8, 4, 2, .4) 100%);
+}
+
+/* Players and tools keep the faces they were built with. */
+body.broadcast-lite :is(.audiobook, .ab-tabs, .rs-episodes, .om-player, .om-eps, .pi-pair, .ispy-game, .ispy-hud, .cp-editor, .cp-side, .lab-rig, .lab-log, .lab-terminal) {
+  font-family: "Inter", system-ui, sans-serif;
+}
+
+/* Nav */
+body.broadcast-lite .nav {
+  background: rgba(14, 11, 9, .94);
+  border-bottom: 1px solid rgba(228, 208, 164, .32);
+  box-shadow: none;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+body.broadcast-lite .brand {
+  font-family: var(--ui);
+  font-weight: 400;
+  letter-spacing: .14em;
+  font-size: 1.35rem;
+}
+body.broadcast-lite .brand span { color: var(--brass); }
+body.broadcast-lite .nav-link,
+body.broadcast-lite .nav-label {
+  font-family: var(--ui);
+  font-weight: 400;
+  font-size: .78rem;
+  letter-spacing: .16em;
+  color: var(--muted);
+}
+body.broadcast-lite .nav-link.on,
+body.broadcast-lite .nav-label.on,
+body.broadcast-lite .nav-link:hover,
+body.broadcast-lite .nav-label:hover,
+body.broadcast-lite .nav-link:focus-visible,
+body.broadcast-lite .nav-label:focus-visible,
+body.broadcast-lite .nav-menu a.on,
+body.broadcast-lite .nav-menu a:hover,
+body.broadcast-lite .nav-menu a:focus-visible {
+  color: var(--brass);
+  background: transparent;
+}
+body.broadcast-lite .nav-link.on { box-shadow: inset 0 -1px 0 var(--brass); }
+body.broadcast-lite .nav-menu {
+  background: #16130f;
+  border: 1px solid rgba(228, 208, 164, .32);
+  border-radius: 2px;
+  box-shadow: 0 16px 30px rgba(0, 0, 0, .45);
+}
+body.broadcast-lite .nav-menu a {
+  font-family: var(--ui);
+  font-weight: 400;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+  font-size: .78rem;
+}
+body.broadcast-lite .nav-toggle {
+  border-color: rgba(228, 208, 164, .4);
+  border-radius: 2px;
+}
+@media (max-width: 860px) {
+  body.broadcast-lite .nav nav,
+  body.broadcast-lite .nav.open {
+    background: #120f0c;
+  }
+  body.broadcast-lite .nav-link,
+  body.broadcast-lite .nav-label,
+  body.broadcast-lite .nav-menu a {
+    border-bottom-color: rgba(228, 208, 164, .16);
+  }
+  body.broadcast-lite .nav-link.on { box-shadow: none; color: var(--brass); }
+  body.broadcast-lite .nav-link.on::before,
+  body.broadcast-lite .nav-menu a.on::before { color: var(--brass); }
+}
+@media (min-width: 861px) and (max-width: 1080px) {
+  body.broadcast-lite .nav-link,
+  body.broadcast-lite .nav-label {
+    letter-spacing: .08em;
+    padding: .45rem .4rem;
+    font-size: .68rem;
+  }
+}
+
+/* Type */
+body.broadcast-lite .kicker,
+body.broadcast-lite .excerpt-label,
+body.broadcast-lite .genre {
+  font-family: var(--ui);
+  font-weight: 400;
+  letter-spacing: .2em;
+  text-transform: uppercase;
+  color: var(--brass);
+}
+body.broadcast-lite :is(.page-head, .own-head, .about-text, .contact, .ispy-head, .lab-intro) > .kicker,
+body.broadcast-lite .ispy-head > .lab-kicker,
+body.broadcast-lite .lab-intro > .lab-kicker {
+  font-family: var(--script);
+  font-weight: 400;
+  letter-spacing: 0;
+  text-transform: none;
+  font-size: clamp(1.65rem, 3.4vw, 2.25rem);
+  line-height: 1.15;
+  color: #f7f0e4;
+}
+body.broadcast-lite .genre {
+  font-size: .74rem;
+  line-height: 1.45;
+}
+body.broadcast-lite :is(.page-head h1, .about h2, .contact h2, .own-head h2, .book .title, .rusty-text h2, .ispy-h1, .lab-title, .play-feature-title, .ab-h) {
+  font-family: var(--ui);
+  font-weight: 400;
+  text-transform: uppercase;
+  letter-spacing: .08em;
+  color: #fbf6ee;
+  text-shadow: none;
+  background: none;
+  -webkit-text-fill-color: currentColor;
+  filter: none;
+}
+body.broadcast-lite .book .title small,
+body.broadcast-lite .rusty-text h2 small,
+body.broadcast-lite .ab-h small,
+body.broadcast-lite .play-feature-title small {
+  font-family: var(--ui);
+  font-weight: 400;
+  letter-spacing: .14em;
+  text-transform: uppercase;
+  color: var(--brass);
+  -webkit-text-fill-color: currentColor;
+}
+body.broadcast-lite :is(.lede, .lede.big, .hero-line, .review, .own-sub, .brass-intro, .work-title) {
+  font-family: var(--serif);
+  font-style: italic;
+  font-weight: 500;
+}
+body.broadcast-lite .book-body > p,
+body.broadcast-lite .about p,
+body.broadcast-lite .contact p,
+body.broadcast-lite .page-head > p:not(.kicker),
+body.broadcast-lite .own-head > p:not(.kicker) {
+  color: var(--muted);
+}
+
+/* Title cards and deco rules */
+body.broadcast-lite .page-head,
+body.broadcast-lite .own-head {
+  position: relative;
+  overflow: hidden;
+  text-align: center;
+  margin: 0 0 1.5rem;
+  padding: 1.15rem .9rem 1.2rem;
+  background: #100e0c;
+  border: 1px solid rgba(228, 208, 164, .28);
+}
+body.broadcast-lite .page-head::before,
+body.broadcast-lite .own-head::before,
+body.broadcast-lite .book-body::before {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 0;
+  width: 140%;
+  height: 11rem;
+  transform: translateX(-50%);
+  pointer-events: none;
+  background: repeating-conic-gradient(rgba(243, 230, 206, .12) 0deg 1.1deg, rgba(243, 230, 206, 0) 1.1deg 8deg);
+  -webkit-mask-image: linear-gradient(#000 20%, transparent 92%);
+  mask-image: linear-gradient(#000 20%, transparent 92%);
+}
+body.broadcast-lite .page-head::after,
+body.broadcast-lite .own-head::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: radial-gradient(ellipse at 50% 32%, rgba(16, 14, 12, .66), rgba(16, 14, 12, .92) 72%);
+}
+body.broadcast-lite .book-body { position: relative; overflow: hidden; }
+body.broadcast-lite .page-head > *,
+body.broadcast-lite .own-head > *,
+body.broadcast-lite .book-body > * { position: relative; z-index: 1; }
+body.broadcast-lite .page-head > p:not(.kicker) {
+  text-align: left;
+  max-width: 44rem;
+  margin-left: auto;
+  margin-right: auto;
+  background: rgba(16, 14, 12, .86);
+  padding: .75rem .9rem;
+}
+body.broadcast-lite .book .lede {
+  font-size: clamp(1.25rem, 2vw, 1.6rem);
+  line-height: 1.35;
+  color: #f3eadf;
+}
+body.broadcast-lite :is(.page-head h1, .own-head h2, .about h2, .contact h2, .ispy-h1, .lab-title)::after {
+  content: "";
+  display: block;
+  width: min(12rem, 70%);
+  height: 1px;
+  margin: .75rem auto 0;
+  background: linear-gradient(90deg, transparent, rgba(244, 236, 223, .8), transparent);
+  box-shadow: 0 7px 0 -6px rgba(228, 208, 164, .7);
+}
+body.broadcast-lite .book .title::after,
+body.broadcast-lite .rusty-text h2::after {
+  content: "";
+  display: block;
+  width: min(10rem, 70%);
+  height: 1px;
+  margin: .7rem 0 0;
+  background: linear-gradient(90deg, rgba(244, 236, 223, .85), transparent);
+}
+body.broadcast-lite :is(.about, .contact, .ab-page, .own, .rusty, .book, .western, .scifi, .woods) {
+  background: transparent;
+  border-top-color: rgba(228, 208, 164, .2);
+}
+body.broadcast-lite :is(.page-head h1, .about h2, .contact h2, .own-head h2, .ispy-h1, .lab-title) {
+  font-size: clamp(1.85rem, 6.4vw, 4.2rem);
+  overflow-wrap: break-word;
+}
+body.broadcast-lite .western::after,
+body.broadcast-lite .scifi::after,
+body.broadcast-lite .woods::after {
+  background: linear-gradient(180deg, rgba(12, 10, 8, .15), rgba(12, 10, 8, .45) 80%, rgba(12, 10, 8, .7));
+}
+body.broadcast-lite .book-ready .book-body {
+  background: rgba(18, 15, 12, .78);
+  border-color: rgba(228, 208, 164, .28);
+}
+body.broadcast-lite .excerpt {
+  border-color: rgba(228, 208, 164, .32);
+  background: rgba(12, 10, 8, .55);
+}
+body.broadcast-lite .review { border-color: var(--brass); color: #f3eadf; }
+body.broadcast-lite .signal { color: #f3eadf !important; }
+body.broadcast-lite .signal strong { color: #fff; text-shadow: none; }
+body.broadcast-lite .pulse-ring::before,
+body.broadcast-lite .pulse-ring::after { border-color: rgba(228, 208, 164, .45); }
+
+/* Buttons. The duplicated class beats the polish layer. Players are not .btn. */
+body.broadcast-lite :is(a, button, span).btn.btn:not(.milestone *) {
+  font-family: var(--ui);
+  font-weight: 400;
+  letter-spacing: .14em;
+  border-radius: 2px;
+  box-shadow: none;
+}
+body.broadcast-lite :is(a, button, span).btn-fire.btn-fire:not(.milestone *),
+body.broadcast-lite :is(a, button).btn-brass.btn-brass {
+  background: #f3e6c8;
+  color: #24180f;
+  border-color: #f3e6c8;
+}
+body.broadcast-lite :is(a, button, span).btn-line.btn-line:not(.milestone *) {
+  background: transparent;
+  color: #f4ecdf;
+  border-color: rgba(228, 208, 164, .55);
+}
+body.broadcast-lite :is(a, button, span).btn-line.btn-line:not(.milestone *):hover,
+body.broadcast-lite :is(a, button, span).btn-fire.btn-fire:not(.milestone *):hover,
+body.broadcast-lite :is(a, button).btn-brass.btn-brass:hover {
+  border-color: #fff6e4;
+  color: #24180f;
+  background: #fff6e4;
+}
+body.broadcast-lite :is(a, button, span).btn-line.btn-line:not(.milestone *):hover { color: #fbf6ee; background: transparent; }
+body.broadcast-lite .book-body > p.cta-row a {
+  font-family: var(--serif);
+  font-style: italic;
+  font-weight: 500;
+  letter-spacing: .01em;
+  text-transform: none;
+  color: #f3e6c8;
+  border-bottom-color: rgba(243, 230, 200, .45);
+}
+body.broadcast-lite .ab-jump a {
+  font-family: var(--ui);
+  font-weight: 400;
+  letter-spacing: .14em;
+  border-radius: 2px;
+  border-color: rgba(228, 208, 164, .4);
+}
+body.broadcast-lite .ab-jump a:hover { border-color: var(--brass); color: var(--brass); }
+body.broadcast-lite .play-feature {
+  background: #16130f;
+  border-color: rgba(228, 208, 164, .32);
+  border-radius: 2px;
+}
+body.broadcast-lite .play-feature:hover,
+body.broadcast-lite .play-feature:focus-visible { border-color: var(--brass); }
+
+/* Footer */
+body.broadcast-lite footer {
+  font-family: var(--ui);
+  letter-spacing: .12em;
+  text-transform: uppercase;
+  color: #cbbba4;
+  background: transparent;
+  border-top: 1px solid rgba(228, 208, 164, .28);
+}
+body.broadcast-lite footer a { color: #cbbba4; }
+body.broadcast-lite footer a:hover { color: var(--ink); }
+body.broadcast-lite .visit-count {
+  color: var(--brass);
+  font-family: var(--ui);
+  text-transform: none;
+}
+
+@media (max-width: 640px) {
+  body.broadcast-lite .page-head,
+  body.broadcast-lite .own-head { padding: .9rem .7rem 1rem; }
+  body.broadcast-lite .book .title,
+  body.broadcast-lite .rusty-text h2 {
+    font-size: clamp(1.55rem, 7.4vw, 2.15rem);
+    letter-spacing: .04em;
+  }
+  body.broadcast-lite .page-head h1,
+  body.broadcast-lite .ispy-h1,
+  body.broadcast-lite .lab-title {
+    letter-spacing: .05em;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  body.broadcast-lite .grain,
+  body.broadcast-lite .lab-led { animation: none; }
+}
