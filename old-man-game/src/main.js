@@ -14,6 +14,7 @@ import { cinchGame } from "./tactile.js";
 import { BOUNDS, OVERLOOKS, PLACES, PLACE_IDS, VIEWS, heightAt, placeAt, trailBetween, trailDist } from "./terrain.js";
 import { collide, occlusion, trunksNear, crownDepth } from "./forest.js";
 import { clamp, damp, dampAngle, fmtClock, hash2, lerp, smooth, wrapPi } from "./util.js";
+import { preloadThoughts, speakThought, stopThought } from "./thoughts.js";
 
 const SAVE_KEY = "oldman-v2-save";
 const canvas = document.getElementById("view");
@@ -67,7 +68,12 @@ const T = { now: 0 };
 /* --------------------------------- creatures state --------------------------------- */
 const bull = { x: 0, z: 0, yaw: 0, mode: "graze", vis: false, place: null, run: null, alertT: 0, wander: 0 };
 const cows = [0, 1, 2].map((i) => ({ x: 0, z: 0, yaw: 0, off: [Math.cos(i * 2.1) * 9, Math.sin(i * 2.1) * 7], run: null, place: null }));
-const W = { mode: "away", x: 0, z: 0, yaw: 0, t: 0, side: 1, hideT: 0, lastTrack: { x: 0, z: 0 }, seenNight: 0, eyes: 0, stillT: 0, charge: null, nextApproachAbs: 0, ridge: null, assault: null, pinned: 0 };
+const W = { mode: "away", x: 0, z: 0, yaw: 0, t: 0, side: 1, hideT: 0, lastTrack: { x: 0, z: 0 }, seenNight: 0, eyes: 0, stillT: 0, charge: null, nextApproachAbs: 0, nextSpotAbs: 0, ridge: null, assault: null, pinned: 0, spot: null, scare: null };
+const fp = { k: 0, yaw: 0, pitch: 0.02 };
+let spotArm = 0;
+let thinkAt = 0;
+let farT = 18;
+let breathHeld = false;
 
 /* --------------------------------- boot --------------------------------- */
 function resize() { E.resize(); }
@@ -85,19 +91,51 @@ function save() {
   if (!S || S.mode !== "play") return;
   try { localStorage.setItem(SAVE_KEY, JSON.stringify({ S, P: { x: P.x, z: P.z, yaw: P.yaw } })); } catch {}
 }
+function migrateSave(s) {
+  if (!s || typeof s !== "object" || !s.elk) return false;
+  const blank = G.newGame(s.seed || 1);
+  for (const k of Object.keys(blank)) if (s[k] === undefined) s[k] = blank[k];
+  if (!s.flags || typeof s.flags !== "object") s.flags = {};
+  if (!s.stats || typeof s.stats !== "object") s.stats = { shots: 0, cards: 0, nights: 0, seen: 0, stills: 0 };
+  if (!s.walker || typeof s.walker !== "object") s.walker = { nextApproach: 0, approaches: 0, took: false };
+  if (!Array.isArray(s.notes)) s.notes = [];
+  if (!Array.isArray(s.beats)) s.beats = [];
+  if (!Array.isArray(s.sticks)) s.sticks = [];
+  if (!s.cams || typeof s.cams !== "object") s.cams = {};
+  if (!s.thoughts || typeof s.thoughts !== "object") s.thoughts = {};
+  if (typeof s.heart !== "number") s.heart = 80;
+  if (typeof s.minutes !== "number") s.minutes = G.DAWN;
+  if (typeof s.day !== "number") s.day = 1;
+  s.v = 2;
+  return s.mode === "play";
+}
 function load() {
   try {
     const raw = localStorage.getItem(SAVE_KEY);
     if (!raw) return false;
     const d = JSON.parse(raw);
-    if (!d.S || d.S.v !== 2 || d.S.mode !== "play") return false;
+    if (!d.S || !d.P || !migrateSave(d.S)) return false;
     S = d.S;
     if (S.flags.finale) S.flags.finale = 0; // a chase resumes when you near the truck again
     Object.assign(P, d.P);
+    if (![P.x, P.z, P.yaw].every((n) => Number.isFinite(n))) return false;
     cam.yaw = P.yaw;
     layElkTracks();
     return true;
   } catch { return false; }
+}
+const THOUGHT_REPEAT = new Set(["hear", "nerve", "close", "retreat", "missed"]);
+function think(id) {
+  if (!S || S.mode !== "play") return;
+  const now = performance.now();
+  if (now - thinkAt < 6500 && !THOUGHT_REPEAT.has(id)) return;
+  S.thoughts = S.thoughts || {};
+  const key = id + ":" + S.day;
+  if (S.thoughts[key] && !THOUGHT_REPEAT.has(id)) return;
+  S.thoughts[key] = 1;
+  thinkAt = now;
+  const text = speakThought(id, !X.muted());
+  if (text) hud.thought(text, T.now || now);
 }
 
 /* elk tracks: a followable line of prints from the spur toward wherever he feeds today */
@@ -212,6 +250,7 @@ function startPlay() {
   A.ensureWind();
   A.ensureAmbience();
   X.init();
+  preloadThoughts();
   hud.setLine(S.line || "", T.now);
   if (!S.line) G.say(S, "The truck ticks as it cools. The trail starts behind it, up through the spruce.");
 }
@@ -227,7 +266,7 @@ function pauseMenu() {
   );
   c.querySelector("#pRes").onclick = () => { hud.closeOverlay(); paused = false; };
   c.querySelector("#pHow").onclick = () => controlsCard(false);
-  c.querySelector("#pMute").onclick = () => { X.toggleMute(); hud.closeOverlay(); paused = false; };
+  c.querySelector("#pMute").onclick = () => { X.toggleMute(); if (X.muted()) stopThought(); hud.closeOverlay(); paused = false; };
   c.querySelector("#pNew").onclick = () => { localStorage.removeItem(SAVE_KEY); hud.closeOverlay(); showTitle(); };
 }
 function notesSheet() {
@@ -293,7 +332,7 @@ function ctxActions() {
   return out;
 }
 function doAction(id) {
-  if (paused || mode !== "play") return;
+  if (paused || mode !== "play" || W.mode === "spot" || W.mode === "scare") return;
   A.unlockAudio();
   if (id === "stick") {
     const st = nearestStick();
@@ -311,7 +350,7 @@ function doAction(id) {
       fear: clamp(1 - S.heart / 100, 0, 1), learned: !!S.flags.fireLearned, auto: !!window.__autoFire,
     }, (ok) => {
       paused = false; harlanPose = null;
-      if (ok) { G.lightFire(S); X.lighter(); advance(10); save(); }
+      if (ok) { G.lightFire(S); X.lighter(); think("fire"); advance(10); save(); }
       else G.say(S, "You set the flint and steel down. The fire is laid, waiting.");
     }, { strike: () => X.lighter?.(), crackle: () => {} });
   } else if (id === "wall") {
@@ -379,7 +418,7 @@ function advance(mins) {
 
 /* LOOK: glass from an overlook, else read sign / listen */
 function doLook() {
-  if (paused || mode !== "play") return;
+  if (paused || mode !== "play" || W.mode === "spot" || W.mode === "scare") return;
   A.unlockAudio();
   if (W.mode === "still") return;
   const ov = hereOverlook();
@@ -397,6 +436,10 @@ function doLook() {
     if (signRing) signRing.visible = false;
   }
   G.say(S, text, nearKind === "walker");
+  if (nearKind === "walker") think("tracks");
+  else if (nearKind === "elk") think("elk");
+  else if (place === "timber") think("timber");
+  else think("sign");
   advance(nearKind ? 4 : 10);
   if (S.tut === 0 && place === "spur") S.tut = 1;
 }
@@ -406,7 +449,7 @@ function elkTrackNear() {
 }
 function bloodNear() { return true; }
 function doRifle() {
-  if (paused || mode !== "play") return;
+  if (paused || mode !== "play" || W.mode === "spot" || W.mode === "scare") return;
   if (!S.rifle) { G.say(S, "Your hands go for the Winchester and find nothing. The Colt, then. Seven rounds and a short reach."); enterOptic("scope", true); return; }
   if (S.rounds <= 0) { G.say(S, "The magazine is empty. It is a heavy stick."); return; }
   enterOptic("scope");
@@ -454,7 +497,8 @@ function showCard(spot) {
     const c = hud.overlay(`<h2>TRAIL CAMERA · FRAME ${i + 1}/3</h2><div id="cardHost"></div><p>${f.text}</p><button class="btn hot" id="cNext">${i < 2 ? "NEXT FRAME" : "POCKET THE CARD"}</button>`);
     cv.className = "card";
     c.querySelector("#cardHost").appendChild(cv);
-    if (f.kind === "face") { X.sting(); hud.flash(0.25, 300); }
+    if (f.kind === "face") { X.sting(); hud.flash(0.25, 300); think("card"); }
+    else if (f.kind === "edge" || f.kind === "mid") think("eyes");
     c.querySelector("#cNext").onclick = () => {
       i++;
       if (i < 3) show();
@@ -688,6 +732,146 @@ function placeWalker(dist, ahead, side) {
   x = clamp(x, BOUNDS.x0 + 10, BOUNDS.x1 - 10); z = clamp(z, BOUNDS.z0 + 10, BOUNDS.z1 - 10);
   return { x, z };
 }
+function placeSpotHide(initial) {
+  const yaw = fp.yaw || cam.yaw;
+  const trunks = trunksNear(P.x, P.z, 22).filter((tr) => {
+    const d = Math.hypot(tr.x - P.x, tr.z - P.z);
+    return d > 7 && d < 18 && tr.r > 0.18;
+  });
+  let pick = null, best = -1;
+  for (const tr of trunks) {
+    const ang = Math.atan2(-(tr.x - P.x), -(tr.z - P.z));
+    const off = Math.abs(wrapPi(ang - yaw));
+    const score = off > 0.4 && off < 1.9 ? off : -1;
+    if (score > best) { best = score; pick = tr; }
+  }
+  if (!pick && trunks.length) pick = trunks[(Math.random() * trunks.length) | 0];
+  if (!W.spot) W.spot = { t: 0, window: 9.5, held: 0, cool: 1.6, tx: P.x, tz: P.z };
+  if (pick) {
+    const dx = pick.x - P.x, dz = pick.z - P.z, d = Math.hypot(dx, dz) || 1;
+    const px = -dz / d, pz = dx / d;
+    W.spot.tx = pick.x + px * 0.42 + (dx / d) * 0.2;
+    W.spot.tz = pick.z + pz * 0.42 + (dz / d) * 0.2;
+  } else {
+    const side = Math.random() < 0.5 ? 1 : -1;
+    const p = placeWalker(12, 0.4, side * 0.7);
+    W.spot.tx = p.x; W.spot.tz = p.z;
+  }
+  if (initial) { W.x = W.spot.tx; W.z = W.spot.tz; }
+}
+function startSpot(force = false) {
+  if (!force && W.mode !== "pace" && W.mode !== "away") return;
+  if (!force && W.mode === "away" && W.hideT > 0) return;
+  W.mode = "spot";
+  W.t = 0;
+  W.spot = { t: 0, window: 9.5, held: 0, cool: 1.7, tx: P.x, tz: P.z };
+  fp.yaw = cam.yaw;
+  fp.pitch = 0.02;
+  input.lookOnly = true;
+  input.clear();
+  placeSpotHide(true);
+  X.breathing(false);
+  X.breathing(true, 0, true);
+  breathHeld = true;
+  A.duck(0.62, 0.8);
+  A.setHeartbeat(Math.min(S.heart, 36), true, true);
+  think("close");
+  hud.setWarn("FIND IT", true);
+  document.body.classList.add("spotting");
+}
+function spotSuccess() {
+  X.breathing(false);
+  breathHeld = false;
+  think("retreat");
+  S.heart = clamp(S.heart - 4, 0, 100);
+  S.stats.seen = (S.stats.seen || 0) + 1;
+  G.say(S, "You hold it in the middle of what you can see. It steps behind a trunk. The trunk is empty.", true);
+  X.snapAt(panOf(W.x, W.z));
+  W.mode = "flee";
+  W.t = 0;
+  W.nextSpotAbs = G.absMin(S) + 80;
+  hud.setWarn("");
+  input.lookOnly = false;
+}
+function startScare() {
+  W.mode = "scare";
+  W.scare = { t: 0, fx: W.x, fz: W.z, stung: false };
+  A.duck(0.8, 0.45);
+  hud.setWarn("");
+}
+function endScare() {
+  X.breathing(false);
+  breathHeld = false;
+  hud.flash(0.15, 700);
+  S.heart = clamp(S.heart - 18, 6, 100);
+  think("missed");
+  G.say(S, "You come to on your knees. The timber is empty. Your nerve is not.", true);
+  W.mode = "away";
+  W.hideT = 30;
+  W.nextSpotAbs = G.absMin(S) + 55;
+  E.walker.root.visible = false;
+  input.lookOnly = false;
+  hud.setWarn("");
+}
+function updateSpot(dt) {
+  const t = T.now / 1000;
+  const sp = W.spot;
+  if (!paused) sp.t += dt;
+  sp.cool -= dt;
+  const d = Math.hypot(W.x - P.x, W.z - P.z);
+  const wantYaw = Math.atan2(-(W.x - P.x), -(W.z - P.z));
+  const yawErr = Math.abs(wrapPi(wantYaw - fp.yaw));
+  const eye = heightAt(P.x, P.z) + 1.62;
+  const wantPitch = Math.atan2(heightAt(W.x, W.z) + 2.2 - eye, Math.max(1.5, d));
+  const pitchErr = Math.abs(wantPitch - fp.pitch);
+  const looking = yawErr < 0.48;
+  const centered = yawErr < 0.13 && pitchErr < 0.2 && d < 24 && d > 1.5;
+  if (!paused && centered) sp.held += dt;
+  else sp.held = Math.max(0, sp.held - dt * 0.4);
+  if (!window.__oldman.holdSpot && !looking && sp.cool <= 0 && !paused) {
+    placeSpotHide(false);
+    sp.cool = 1.45;
+    if (Math.random() < 0.55) X.snapAt(panOf(sp.tx, sp.tz) * 0.5);
+  }
+  if (!window.__oldman.holdSpot) {
+    W.x = damp(W.x, sp.tx, looking ? 0.2 : 2.6, dt);
+    W.z = damp(W.z, sp.tz, looking ? 0.2 : 2.6, dt);
+  }
+  const c = collide(W.x, W.z, 0.45);
+  W.x = c.x; W.z = c.z;
+  W.yaw = Math.atan2(P.x - W.x, P.z - W.z);
+  E.walker.root.visible = true;
+  E.walker.root.position.set(W.x, heightAt(W.x, W.z), W.z);
+  E.walker.root.rotation.y = W.yaw + Math.PI;
+  E.walker.animate(looking ? "stand" : "walk", dt, t, G.isDark(S.minutes) || S.minutes > 17 * 60 ? 1 : 0.2);
+  W.walkerNear = true;
+  hud.fear(0.48 + Math.sin(t * 6.5) * 0.08);
+  const fill = document.getElementById("spotfill");
+  if (fill) fill.style.width = `${Math.max(0, (1 - sp.t / sp.window) * 100)}%`;
+  if (sp.held > 0.7) { spotSuccess(); return; }
+  if (!paused && sp.t > sp.window) startScare();
+}
+function updateScare(dt) {
+  const sc = W.scare;
+  sc.t += dt;
+  const k = clamp(sc.t / 0.5, 0, 1);
+  const tx = P.x - Math.sin(fp.yaw) * 2.15;
+  const tz = P.z - Math.cos(fp.yaw) * 2.15;
+  W.x = lerp(sc.fx, tx, k * k);
+  W.z = lerp(sc.fz, tz, k * k);
+  W.yaw = Math.atan2(P.x - W.x, P.z - W.z);
+  E.walker.root.visible = true;
+  E.walker.root.position.set(W.x, heightAt(W.x, W.z), W.z);
+  E.walker.root.rotation.y = W.yaw + Math.PI;
+  E.walker.animate(k < 1 ? "run" : "reach", dt, T.now / 1000, 1);
+  if (sc.t > 0.42 && !sc.stung) {
+    sc.stung = true;
+    X.sting();
+    hud.flash(0.72, 420);
+    cam.shake = 1.15;
+  }
+  if (sc.t > 1.15) endScare();
+}
 function updateWalker(dt) {
   const t = T.now / 1000;
   const m = S.minutes;
@@ -698,6 +882,8 @@ function updateWalker(dt) {
   // the finale: walking out with the meat (or on the last day), it follows you down
   if (!S.flags.finale && S.mode === "play" && W.mode !== "assault" && (S.elk.packed || (S.day >= 7 && !S.flags.stayFinale)) && Math.hypot(P.x - PLACES.truck.x, P.z - PLACES.truck.z) < 120) startChase();
   if (W.mode === "chase") { updateChase(dt); return; }
+  if (W.mode === "spot") { updateSpot(dt); return; }
+  if (W.mode === "scare") { updateScare(dt); return; }
   const pressureK = clamp((S.pressure + S.day * 8) / 100, 0, 1);
   const pace = lerp(46, 17, pressureK);
   let visible = false, eyes = 0, anim = "stand";
@@ -809,6 +995,12 @@ function updateWalker(dt) {
         W.hideT = 8 + Math.random() * 10;
         visible = false;
         if (tr) X.snapAt(panOf(tr.x, tr.z));
+      }
+      // close enough, in the timber: the world snaps into his eyes and he has to find it
+      const timberHere = trunksNear(P.x, P.z, 14).length > 2;
+      if (timberHere && d > 8 && d < 26 && (dark || m > 17 * 60 + 25) && !atFire && G.absMin(S) >= (W.nextSpotAbs || 0) && !window.__oldman?.freezeW) {
+        startSpot(false);
+        return;
       }
       // hold-still: away from the fire in the dark, it comes in close behind you
       const fireD = Math.hypot(P.x - CAMP_FIRE.x, P.z - CAMP_FIRE.z);
@@ -991,13 +1183,16 @@ function stepClock(mins) {
       const b = e.beat;
       if (b.fx) {
         const ang = hash2(S.day, b.from) * 2 - 1;
+        A.duck(0.45, 0.35);
         A.playFx(b.fx, { pan: b.near ? ang * 0.6 : ang, near: !!b.near });
+        think("hear");
       }
       if (b.id.startsWith("n") && b.heart) { cam.shake = Math.max(cam.shake, 0.3); }
       if (b.id === "n4-flash") hud.flash(0.08, 400);
       if (b.id === "d2-tracks") { for (let i = 0; i < 30; i++) { const a = (i / 30) * Math.PI * 2; E.walkerTracks.add(CAMP_FIRE.x + Math.cos(a) * 15, CAMP_FIRE.z + Math.sin(a) * 15, -a, 1.1); } }
     } else if (e.type === "nightfall") {
       A.nightFall();
+      think("night");
       hud.toast(S.day === 1 ? "FIRST DARK" : `NIGHT ${S.day}`, G.atFireNow(S, P.x, P.z) ? "Stay in the light." : "You are a long way from the fire.");
     } else if (e.type === "dusk") {
       A.hushBirds(true);
@@ -1104,7 +1299,21 @@ function tick(now, dt, last) {
 
   // ---- movement ----
   let speed = 0;
-  if (live && W.mode !== "still") {
+  const spotting = W.mode === "spot" || W.mode === "scare";
+  if (spotArm > 0 && live) { spotArm -= dt; if (spotArm <= 0) startSpot(true); }
+  if (live && spotting) {
+    input.lookOnly = true;
+    const ax = auto ? { turn: 0, fwd: 0 } : input.axes();
+    fp.yaw = wrapPi(fp.yaw - input.lookDX * 0.008 - ax.turn * dt * 1.7);
+    fp.pitch = clamp(fp.pitch - input.lookDY * 0.0055, -0.95, 0.82);
+    input.lookDX = 0; input.lookDY = 0;
+  } else if (fp.k < 0.08) {
+    input.lookOnly = false;
+    fp.yaw = cam.yaw;
+    fp.pitch = 0.03;
+  }
+  fp.k = damp(fp.k, spotting ? 1 : 0, spotting ? 2.5 : 1.8, dt);
+  if (live && W.mode !== "still" && !spotting) {
     const ax = auto ? autoAxes(dt) : input.axes();
     // tank steering (playtest): left/right turns Harlan in place at a steady rate, forward walks where he
     // faces, back steps backward. Heading never snaps toward the stick direction.
@@ -1160,12 +1369,19 @@ function tick(now, dt, last) {
     }
   }
   const place = placeAt(P.x, P.z);
-  if (S.tut === 0 && place === "spur") { S.tut = 1; G.say(S, "The spur. Blazes on the spruce, old axe marks gone grey. Fresh tracks cut across the snow just past the post."); }
+  if (S.tut === 0 && place === "spur") { S.tut = 1; G.say(S, "The spur. Blazes on the spruce, old axe marks gone grey. Fresh tracks cut across the snow just past the post."); think("tracks"); }
+  if (place === "timber" && !S.flags.thoughtTimber) { S.flags.thoughtTimber = 1; think("timber"); }
+  if (G.isDark(S.minutes) && atCamp() && G.fireLit(S) && !S.flags.thoughtCamp) { S.flags.thoughtCamp = S.day; think("camp"); }
+  if (S.heart < 32 && !S.flags.thoughtNerve) { S.flags.thoughtNerve = 1; think("nerve"); }
+  if (S.heart > 55) S.flags.thoughtNerve = 0;
+  if (S.minutes < 6 * 60 + 30 && S.minutes > 5 * 60 + 20 && !S.flags.thoughtDawn) { S.flags.thoughtDawn = S.day; think("dawn"); }
+  if (S.minutes > 10 * 60) S.flags.thoughtDawn = 0;
 
   // ---- world ----
   const L = lightAt(S.minutes, moonOf(S.day), clamp(snowAt(S.day, S.minutes) - 0.4, 0, 1));
   const snow = snowAt(S.day, S.minutes);
   const lit = E.applyLight(L, S.minutes, { moon: moonOf(S.day), snow, storm: clamp(snow - 0.4, 0, 1) });
+  if (place === "timber" || Math.hypot(P.x - PLACES.timber.x, P.z - PLACES.timber.z) < 55) E.scene.fog.density *= 1.12;
   // good glass cuts the haze: optics see much farther than the naked eye
   if (mode === "optic") E.scene.fog.density *= optic && optic.kind === "binos" ? 0.3 : 0.4;
   // good glass gathers light: the last of dusk and the firelight read better through the scope
@@ -1223,7 +1439,7 @@ function tick(now, dt, last) {
   const lampYaw = mode === "optic" && optic ? optic.yaw : lerp(P.yaw, cam.yaw, 0.0) ;
   const lx = -Math.sin(lampYaw), lz = -Math.cos(lampYaw);
   const flick = 0.94 + Math.sin(t * 37) * 0.03 * (S.heart < 30 ? 3 : 1);
-  E.lamp.intensity = lampOn ? 17 * flick * (S.heart < 25 ? 0.8 : 1) : 0;
+  E.lamp.intensity = lampOn ? (28 + dark * 10) * flick * (S.heart < 25 ? 0.85 : 1) : 0;
   E.lamp.angle = S.heart < 35 ? 0.34 : 0.42;
   E.lamp.position.set(P.x + lx * 0.25, hy + 1.82, P.z + lz * 0.25);
   E.lamp.target.position.set(P.x + lx * 12, heightAt(P.x + lx * 12, P.z + lz * 12) + 0.2, P.z + lz * 12);
@@ -1267,7 +1483,7 @@ function tick(now, dt, last) {
       const f = i / 12;
       const sx = P.x + (-fx * dist + rx * side) * f, sz = P.z + (-fz * dist + rz * side) * f;
       const sy = lerp(hy + 1.6, wantY, f);
-      if (crownDepth(sx, sy, sz) > 0) { k = Math.max(0.28, (i - 1) / 12); break; }
+      if (crownDepth(sx, sy, sz, 0.65) > 0) { k = Math.max(0.22, (i - 1) / 12); break; }
     }
     cam.boom = damp(cam.boom ?? 1, k, k < (cam.boom ?? 1) ? 14 : 2.5, dt); // snap in fast, ease back out
     const kb = cam.boom;
@@ -1276,20 +1492,33 @@ function tick(now, dt, last) {
     cy = Math.max(cy, heightAt(cx, cz) + 0.9);
     cam.x = damp(cam.x || cx, cx, 12, dt); cam.z = damp(cam.z || cz, cz, 12, dt); cam.y = damp(cam.y || cy, cy, 9, dt);
     // last guard after smoothing: if the lens still ends up in a bough, slide it straight toward Harlan
-    for (let g = 0; g < 4 && crownDepth(cam.x, cam.y, cam.z, 0.15) > 0; g++) { cam.x = lerp(cam.x, P.x, 0.3); cam.z = lerp(cam.z, P.z, 0.3); }
-    camT.position.set(cam.x, cam.y, cam.z);
+    for (let g = 0; g < 8 && crownDepth(cam.x, cam.y, cam.z, 0.45) > 0; g++) { cam.x = lerp(cam.x, P.x, 0.34); cam.z = lerp(cam.z, P.z, 0.34); cam.y += 0.12; }
+    const blend = fp.k * fp.k * (3 - 2 * fp.k);
+    const eyeY = hy + 1.62;
     cam.shake = Math.max(0, cam.shake - dt * 1.5);
     const sh = cam.shake * 0.12;
-    camT.position.x += (Math.random() - 0.5) * sh; camT.position.y += (Math.random() - 0.5) * sh;
+    const px = lerp(cam.x, P.x, blend) + (Math.random() - 0.5) * sh;
+    const py = lerp(cam.y, eyeY, blend) + (Math.random() - 0.5) * sh * 0.6;
+    const pz = lerp(cam.z, P.z, blend) + (Math.random() - 0.5) * sh;
+    camT.position.set(px, py, pz);
+    H.root.visible = blend < 0.42;
     const ahead = 7;
     const ly = heightAt(P.x + fx * ahead, P.z + fz * ahead);
-    camT.lookAt(P.x + fx * ahead + rx * side * 0.6, Math.max(ly, hy) + 1.15 - cam.pitch * 2 + (W.mode === "still" ? -0.2 : 0), P.z + fz * ahead + rz * side * 0.6);
-    const bf = baseFov();
-    if (camT.fov !== bf) { camT.fov = bf; camT.updateProjectionMatrix(); }
+    const ox = P.x + fx * ahead + rx * side * 0.6;
+    const oy = Math.max(ly, hy) + 1.15 - cam.pitch * 2 + (W.mode === "still" ? -0.2 : 0);
+    const oz = P.z + fz * ahead + rz * side * 0.6;
+    const yawL = cam.yaw + wrapPi(fp.yaw - cam.yaw) * blend;
+    const pit = lerp(-cam.pitch * 0.25, fp.pitch, blend);
+    const lx = px - Math.sin(yawL) * Math.cos(pit) * 8;
+    const ly2 = py + Math.sin(pit) * 8;
+    const lz = pz - Math.cos(yawL) * Math.cos(pit) * 8;
+    camT.lookAt(lerp(ox, lx, blend), lerp(oy, ly2, blend), lerp(oz, lz, blend));
+    const bf = baseFov() * lerp(1, 0.82, blend);
+    if (Math.abs(camT.fov - bf) > 0.04) { camT.fov = bf; camT.updateProjectionMatrix(); }
   }
   occlusion.uCam.value.copy(camT.position);
   occlusion.uPlayer.value.set(P.x, hy + 1.1, P.z);
-  occlusion.uOn.value = mode === "optic" ? 0 : 1;
+  occlusion.uOn.value = mode === "optic" || fp.k > 0.45 ? 0 : 1;
   E.sky.follow(camT);
   E.sky.starU.time.value = t;
   E.snowU.t.value = t;
@@ -1316,9 +1545,14 @@ function tick(now, dt, last) {
     A.setAmbience({ creek: clamp(1 - creekD / 70, 0, 1) * 0.08, tension: W.walkerNear ? 0.03 : 0, rustle: 0.02 + snow * 0.02, phase: night ? "night" : S.minutes > 16 * 60 ? "dusk" : "day" });
     A.setWind(0.02 + snow * 0.05 + (hereOverlook() ? 0.02 : 0));
     const dread = night ? (G.atFireNow(S, P.x, P.z) ? 0.35 : 0.8) : S.minutes > 16 * 60 + 30 ? 0.4 : 0.06;
-    A.setDread(W.mode === "still" || W.mode === "assault" ? 1 : dread, !!W.walkerNear || W.mode === "still");
-    const hk = `${Math.round(S.heart / 6)}|${night || W.walkerNear}`;
-    if (hk !== heartKey) { heartKey = hk; A.setHeartbeat(S.heart, true, night || !!W.walkerNear); }
+    A.setDread(W.mode === "still" || W.mode === "assault" || W.mode === "spot" || W.mode === "scare" ? 1 : dread, !!W.walkerNear || W.mode === "still" || W.mode === "spot");
+    if (G.isDark(S.minutes) && W.mode === "pace") {
+      farT -= 0.5;
+      if (farT <= 0) { farT = 28 + Math.random() * 24; A.duck(0.35, 0.4); X.distant((Math.random() * 2 - 1) * 0.8); }
+    }
+    const scare = W.mode === "spot" || W.mode === "scare";
+    const hk = `${Math.round(S.heart / 6)}|${night || W.walkerNear}|${W.mode}`;
+    if (hk !== heartKey) { heartKey = hk; A.setHeartbeat(scare ? Math.min(S.heart, 30) : S.heart, true, night || !!W.walkerNear || scare); }
     X.fireLevel(G.fireLit(S) ? clamp(1 - Math.hypot(P.x - CAMP_FIRE.x, P.z - CAMP_FIRE.z) / 30, 0, 1) : 0);
   }
   saveT += dt;
@@ -1391,6 +1625,8 @@ function updateHud(dark) {
   hud.setTop(S.day, S.minutes, phase, G.isDark(S.minutes));
   hud.setNerve(S.heart);
   hud.setLine(S.line, now);
+  hud.tickThought(now);
+  document.body.classList.toggle("spotting", W.mode === "spot" || W.mode === "scare" || fp.k > 0.4);
   const ctx = { atCamp: atCamp(), px: P.x, pz: P.z };
   const ob = G.objective(S, ctx);
   const dist = ob && ob.target ? Math.hypot(ob.target.x - P.x, ob.target.z - P.z) : null;
@@ -1427,7 +1663,7 @@ function updateHud(dark) {
     hud.waypoint(project(ob.target.x, ty, ob.target.z), ob.target.label, dist);
   } else hud.waypoint(null);
   // "PUSH TO WALK" goes for good after the first real walk
-  if (P.travelled > 3 && !hintDone) { hintDone = true; try { localStorage.setItem("oldman-walked", "1"); } catch {} }
+  if (!hintDone && (input.usedStick || input.usedKeys || P.travelled > 0.4)) { hintDone = true; try { localStorage.setItem("oldman-walked", "1"); } catch {} }
   document.getElementById("touchhint").classList.toggle("gone", hintDone || mode !== "play");
   // keyboard hint (desktop)
   const kh = hud.el.keyhint;
@@ -1491,6 +1727,17 @@ window.__oldman = {
   bullPos() { return { x: bull.x, z: bull.z, vis: bull.vis }; },
   forceAssault() { S.flags.assaultDay = 0; startAssault(); },
   forceStill() { startHoldStill(); },
+  forceSpot() { startSpot(true); },
+  lookAtWalker() {
+    fp.yaw = Math.atan2(-(W.x - P.x), -(W.z - P.z));
+    const d = Math.hypot(W.x - P.x, W.z - P.z) || 1;
+    fp.pitch = Math.atan2(heightAt(W.x, W.z) + 2.15 - (heightAt(P.x, P.z) + 1.62), d);
+  },
+  holdSpot: false,
+  armSpot(sec = 1.4) { spotArm = sec; },
+  get fp() { return fp.k; },
+  get fpYaw() { return fp.yaw; },
+  get spotting() { return W.mode; },
   set warpT(v) { window.__warp = v; },
 };
 
@@ -1499,3 +1746,11 @@ whenLoaded(12000).then(() => { document.getElementById("loadMsg").textContent = 
 freshGame();
 showTitle();
 requestAnimationFrame(frame);
+if (new URLSearchParams(location.search).get("spot") === "1") {
+  setTimeout(() => {
+    window.__oldman.start();
+    window.__oldman.setTime(1, 19 * 60 + 20);
+    window.__oldman.tp("timber", 5);
+    window.__oldman.armSpot(1.3);
+  }, 500);
+}

@@ -46,7 +46,8 @@ export function occlude(mat) {
             if (d < r && nz > smoothstep(r * 0.45, r, d) * 0.92) discard;
           }
           float dc = length(vOccW - uCam);
-          if (dc < 5.5 && nz > smoothstep(2.0, 5.5, dc)) discard;
+          if (dc < 1.85) discard;
+          if (dc < 4.4 && nz > smoothstep(1.85, 4.4, dc)) discard;
         }`,
       );
   };
@@ -89,63 +90,98 @@ function paint(geo, fn) {
   return geo;
 }
 
-/** a spruce, unit height (1), base at y=0. v3: many tiers of star-shaped bough whorls; the tips droop under
- *  their load, the whorl bulges (heavy snow), snow sits thick on the inner, upper faces and thins out to green
- *  tips; undersides and the inner crown go dark (cheap baked occlusion). */
+/** a spruce, unit height (1), base at y=0. Separate drooping boughs (not cones): a snowy
+ *  ridge on top, dark needles underneath, gaps between limbs so a close camera never
+ *  fills the frame with one flat face. */
 function spruceGeometry(seed, snowy = 0.55, detail = Q.tier) {
-  const r = rng(seed);
-  // detail by quality tier: high 10 whorls with a bulging mid ring; medium 8; low 6 flat cones
+  const rnd = rng(seed);
   const hi = detail === "high", lo = detail === "low";
-  const tiers = hi ? 10 : lo ? 6 : 8;
-  const parts = [];
-  for (let k = 0; k < tiers; k++) {
-    const t = k / (tiers - 1);
-    const base = 0.12 + t * 0.74 + (r() - 0.5) * 0.015;
-    const h = 0.2 - t * 0.07;
-    const rad = 0.29 * Math.pow(1 - t * 0.86, 0.95) + 0.025;
-    const nb = (lo ? 5 : 7) + Math.floor(r() * (lo ? 2 : 3)), rot = r() * 6.28;
-    const g = new THREE.ConeGeometry(rad * (hi ? 1 : 1.04), h * (10 / tiers) * (hi ? 1 : 0.85), nb * 2, hi ? 2 : 1, true);
-    const p = g.attributes.position;
-    const tag = new Float32Array(p.count); // 0 apex, 0.5 mid, 1 rim; stored for painting
-    for (let i = 0; i < p.count; i++) {
-      const y = p.getY(i), a = Math.atan2(p.getZ(i), p.getX(i)) + rot;
-      const star = Math.pow(Math.abs(Math.cos(a * nb / 2)), 0.7); // 1 at a bough tip, 0 between
-      let x = p.getX(i), z = p.getZ(i), yy = y;
-      if (y < -h * 0.25) { // rim: bough tips reach out and droop
-        const j = 0.68 + 0.5 * star + (r() - 0.5) * 0.08;
-        x *= j; z *= j; yy = y - (0.015 + 0.05 * star) * (0.6 + rad * 2.5);
-        tag[i] = 1;
-      } else if (y < h * 0.25) { // mid ring: bulge out and up, like a whorl carrying snow
-        const j = 1.12 + 0.12 * star;
-        x *= j; z *= j; yy = y + 0.008;
-        tag[i] = 0.5;
-      }
-      p.setXYZ(i, x, yy, z);
+  const tiers = hi ? 7 : lo ? 5 : 6;
+  const branches = hi ? 6 : 5;
+  const segs = hi ? 3 : lo ? 2 : 3;
+  const pos = [], nor = [], col = [];
+  const ink = new THREE.Color();
+  const emit = (a, b, c, nx, ny, nz) => {
+    for (const p of [a, b, c]) {
+      ink.setRGB(p[3], p[4], p[5]).convertSRGBToLinear();
+      pos.push(p[0], p[1], p[2]);
+      nor.push(nx, ny, nz);
+      col.push(ink.r, ink.g, ink.b);
     }
-    g.setAttribute("tag", new THREE.BufferAttribute(tag, 1));
-    g.translate(0, base + h / 2, 0);
-    g.computeVertexNormals(); // smooth across the whorl (indexed), kept through the merge
-    parts.push(g.toNonIndexed());
+  };
+  const face = (a, b, c, up) => {
+    const ux = b[0] - a[0], uy = b[1] - a[1], uz = b[2] - a[2];
+    const vx = c[0] - a[0], vy = c[1] - a[1], vz = c[2] - a[2];
+    let nx = uy * vz - uz * vy, ny = uz * vx - ux * vz, nz = ux * vy - uy * vx;
+    const l = Math.hypot(nx, ny, nz) || 1;
+    nx /= l; ny /= l; nz /= l;
+    if (ny * up < 0) emit(a, c, b, -nx, -ny, -nz);
+    else emit(a, b, c, nx, ny, nz);
+  };
+  const mix = (g, s, k) => {
+    const r = g[0] + (s[0] - g[0]) * k, gg = g[1] + (s[1] - g[1]) * k, b = g[2] + (s[2] - g[2]) * k;
+    return [r, gg, b];
+  };
+  for (let k = 0; k < tiers; k++) {
+    const t = k / Math.max(1, tiers - 1);
+    const y0 = 0.14 + t * 0.8 + (rnd() - 0.5) * 0.01;
+    const reach = (0.38 * Math.pow(1 - t * 0.9, 0.85) + 0.018) * (0.88 + rnd() * 0.22);
+    const droop = 0.035 + 0.12 * (1 - t);
+    const rot = rnd() * Math.PI * 2;
+    const nb = branches + (rnd() < 0.4 ? 1 : 0);
+    for (let b = 0; b < nb; b++) {
+      const ang = rot + (b / nb) * Math.PI * 2 + (rnd() - 0.5) * 0.22;
+      const len = reach * (0.78 + rnd() * 0.32);
+      const ca = Math.cos(ang), sa = Math.sin(ang);
+      const sx = -sa, sz = ca;
+      const rings = [];
+      for (let s = 0; s <= segs; s++) {
+        const u = s / segs;
+        const rr = len * Math.pow(Math.max(u, 0.02), 0.78);
+        const y = y0 + 0.01 - droop * u * u;
+        const hw = (0.05 * (1 - t * 0.35) + 0.01) * (1.05 - u * 0.86);
+        const lift = hw * 0.62;
+        const x = ca * rr, z = sa * rr;
+        const n = hash2(Math.floor(x * 50 + seed + b), Math.floor(z * 50 + k * 3));
+        const snowK = clamp(snowy * (1.05 - u * 0.62) * (0.55 + 0.45 * (1 - t)) + (n - 0.45) * 0.2, 0, 1);
+        const shade = 0.42 + 0.58 * u;
+        const needle = [0.045 * shade, (0.11 + n * 0.03) * shade, 0.055 * shade];
+        const snow = [0.78 + n * 0.06, 0.82 + n * 0.04, 0.88 + n * 0.03];
+        const dark = [needle[0] * 0.35, needle[1] * 0.4, needle[2] * 0.38];
+        const rc = mix(needle, snow, snowK);
+        const ec = mix(dark, snow, snowK * 0.22);
+        rings.push({
+          ridge: [x, y + lift, z, ...rc],
+          left: [x + sx * hw, y - lift * 0.35, z + sz * hw, ...ec],
+          right: [x - sx * hw, y - lift * 0.35, z - sz * hw, ...ec],
+        });
+      }
+      for (let s = 0; s < segs; s++) {
+        const A = rings[s], B = rings[s + 1];
+        face(A.ridge, B.ridge, B.left, 1); face(A.ridge, B.left, A.left, 1);
+        face(A.ridge, B.right, B.ridge, 1); face(A.ridge, A.right, B.right, 1);
+        face(A.left, B.left, B.right, -1); face(A.left, B.right, A.right, -1);
+      }
+    }
   }
-  const tags = []; for (const g of parts) tags.push(...g.attributes.tag.array);
-  for (const g of parts) g.deleteAttribute("tag");
-  const geo = merge(parts);
-  return paint(geo, (x, y, z, nx, ny, nz, c, i) => {
-    const n = hash2(Math.floor(x * 97 + seed), Math.floor(y * 131 + z * 71));
-    const tg = tags[i] ?? 1;
-    // snow: thick inside/up top, patchy toward the tips, none on undersides
-    const load = snowy * (lo ? 0.8 : 1) * (1.1 - tg * 0.75) + ny * 0.3 + (n - 0.5) * 0.55 - (1 - y) * 0.1;
-    const snow = ny > 0.2 ? smooth(0.42, 0.66, load) : 0;
-    const occl = 0.55 + 0.45 * tg; // inner crown darker
-    const d = (0.6 + n * 0.4) * occl * (0.75 + y * 0.35);
-    const gr = 0.09 * d, gg = 0.2 * d, gb = 0.14 * d;
-    c.setRGB(gr + (0.84 + n * 0.06 - gr) * snow, gg + (0.88 + n * 0.05 - gg) * snow, gb + (0.93 + n * 0.04 - gb) * snow);
-  });
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute("position", new THREE.Float32BufferAttribute(pos, 3));
+  geo.setAttribute("normal", new THREE.Float32BufferAttribute(nor, 3));
+  geo.setAttribute("color", new THREE.Float32BufferAttribute(col, 3));
+  return geo;
 }
 function trunkGeometry() {
-  const g = new THREE.CylinderGeometry(0.012, 0.03, 1, 6, 1, true);
+  const g = new THREE.CylinderGeometry(0.014, 0.042, 1, 8, 4, true);
+  const p = g.attributes.position;
+  for (let i = 0; i < p.count; i++) {
+    const y = p.getY(i) + 0.5;
+    const flare = y < 0.12 ? 1 + (0.12 - y) * 2.2 : 1;
+    p.setX(i, p.getX(i) * flare);
+    p.setZ(i, p.getZ(i) * flare);
+  }
   g.translate(0, 0.5, 0);
-  return paint(g, (x, y, z, nx, ny, nz, c) => c.setRGB(0.25, 0.18, 0.13));
+  g.computeVertexNormals();
+  return paint(g, (x, y, z, nx, ny, nz, c) => c.setRGB(0.22, 0.15, 0.11));
 }
 function snagGeometry(seed) {
   const r = rng(seed);
@@ -365,7 +401,7 @@ export function buildForest(scene) {
   const willowGeo = willowGeometry(3);
   const logGeo = logGeometry();
   // faceted shading reads crisper on snow-loaded boughs than smooth normals (tried both, 08:40)
-  const foliageMat = occlude(new THREE.MeshLambertMaterial({ vertexColors: true, flatShading: true }));
+  const foliageMat = occlude(new THREE.MeshLambertMaterial({ vertexColors: true, side: THREE.DoubleSide }));
   const woodMat = occlude(new THREE.MeshLambertMaterial({ vertexColors: true }));
   // bark on spruce trunks (CC0 Poly Haven bark, tiled up the trunk); low tier stays flat colour
   let barkMat = woodMat;
@@ -410,7 +446,7 @@ export function buildForest(scene) {
         bucket(jx, jz, "spruce" + Math.floor(r() * SPRUCE_V), mtx.clone());
         bucket(jx, jz, "trunk", mtx.clone());
         addCollider(jx, jz, Math.max(0.3, W * 0.045));
-        addCrown(jx, jz, y + H * 0.08, H, W * 0.48);
+        addCrown(jx, jz, y + H * 0.05, H * 0.98, W * 0.55);
         count++;
       } else if (kind === "snag") {
         const H = 7 + r() * 9;

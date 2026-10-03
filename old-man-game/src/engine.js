@@ -459,7 +459,7 @@ export function createEngine(canvas) {
         const q2 = new THREE.Quaternion().setFromAxisAngle(up, yaw);
         q.multiply(q2);
         s.set(scale, 1, scale);
-        m4.compose(new THREE.Vector3(x, heightAt(x, z) + 0.03, z), q, s);
+        m4.compose(new THREE.Vector3(x, heightAt(x, z) + 0.012, z), q, s);
         im.setMatrixAt(head, m4);
         head = (head + 1) % n;
         used = Math.min(n, used + 1);
@@ -498,10 +498,10 @@ export function createEngine(canvas) {
         // flakes / ice crystals crossing the headlamp cone catch the light
         vec3 dv = w - lampPos; float dl = max(length(dv), 0.001);
         vB = lampOn * smoothstep(0.86, 0.94, dot(dv / dl, lampDir)) * smoothstep(20.0, 1.2, dl) * smoothstep(0.3, 1.0, d);
-        gl_PointSize = clamp(px * 16.0 / d, 1.5, 12.0 * px) * (1.0 + vB * 1.3);
-        vA = smoothstep(32.0, 4.0, d) * smoothstep(0.3, 1.5, d);
+        gl_PointSize = clamp(px * 9.0 / d, 1.2, 4.5 * px) * (1.0 + vB * 0.8);
+        vA = smoothstep(32.0, 4.0, d) * smoothstep(0.4, 1.6, d);
       }`,
-    fragmentShader: `uniform float alpha; uniform vec3 tint; varying float vA; varying float vB; void main(){ vec2 d = gl_PointCoord - 0.5; float k = smoothstep(0.5, 0.1, length(d)); float beam = vB * max(alpha * 2.2, 0.6);
+    fragmentShader: `uniform float alpha; uniform vec3 tint; varying float vA; varying float vB; void main(){ vec2 d = gl_PointCoord - 0.5; float r = length(d); if (r > 0.48) discard; float k = smoothstep(0.48, 0.08, r); float beam = vB * max(alpha * 2.2, 0.6);
   gl_FragColor = vec4(mix(tint, vec3(1.6, 1.5, 1.35), clamp(vB, 0.0, 1.0)), k * clamp(vA * alpha + beam, 0.0, 1.0));
 #include <tonemapping_fragment>
 #include <colorspace_fragment>
@@ -702,8 +702,8 @@ export function createEngine(canvas) {
     flameMat.uniforms.k.value = fireK;
     const fl = 0.85 + Math.sin(t * 11) * 0.08 + Math.sin(t * 23.3) * 0.06 + Math.sin(t * 3.1) * 0.05;
     fireLight.position.set(fireP.x, fireP.y + 1.0, fireP.z);
-    fireLight.intensity = 9 * fireK * fl;
-    fireLight.distance = 26;
+    fireLight.intensity = 16 * fireK * fl;
+    fireLight.distance = 34;
     embers.visible = fireK > 0.05;
     for (let i = 0; i < EM; i++) {
       emberLife[i] += dt * (0.35 + (i % 5) * 0.08);

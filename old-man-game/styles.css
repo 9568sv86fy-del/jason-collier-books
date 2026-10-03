@@ -36,6 +36,19 @@ body { font-family: var(--ui); -webkit-user-select: none; user-select: none; tou
 .warn.hot { color: #ff6a4a; animation: pulse 1.2s infinite; }
 .line { margin: 8px 0 0; font-family: var(--display); font-size: 20px; line-height: 1.28; max-width: 22rem; color: var(--fg); opacity: 0; transition: opacity 0.6s; }
 .line.show { opacity: 1; }
+.thought { position: absolute; left: 50%; bottom: calc(128px + var(--safe-b)); transform: translateX(-50%); z-index: 22; margin: 0; max-width: min(92vw, 28rem); text-align: center; font-family: var(--display); font-style: italic; font-size: 22px; line-height: 1.25; color: #f3efe6; text-shadow: 0 2px 12px #000; opacity: 0; pointer-events: none; transition: opacity 0.45s; }
+.thought.show { opacity: 0.94; }
+#reticle { position: absolute; left: 50%; top: 46%; width: 22px; height: 22px; transform: translate(-50%, -50%); pointer-events: none; opacity: 0; z-index: 18; }
+#reticle i { position: absolute; background: rgba(236,230,218,0.8); }
+#reticle i:nth-child(1) { left: 0; top: 9px; width: 6px; height: 2px; }
+#reticle i:nth-child(2) { right: 0; top: 9px; width: 6px; height: 2px; }
+#reticle i:nth-child(3) { left: 10px; top: 0; width: 2px; height: 6px; }
+#reticle i:nth-child(4) { left: 10px; bottom: 0; width: 2px; height: 6px; }
+#spotbar { position: absolute; left: 50%; bottom: calc(96px + var(--safe-b)); width: 132px; height: 3px; transform: translateX(-50%); background: rgba(255,255,255,0.16); opacity: 0; z-index: 22; pointer-events: none; }
+#spotbar b { display: block; height: 100%; width: 100%; background: #e7d7c4; }
+body.spotting #reticle, body.spotting #spotbar { opacity: 1; }
+body.spotting #vignette { background: radial-gradient(ellipse at 50% 46%, rgba(0,0,0,0) 22%, rgba(0,0,0,0.88) 100%); }
+body.spotting #stick, body.spotting #touchhint, body.spotting #ctxBtns { opacity: 0; pointer-events: none; }
 
 #labels { position: absolute; inset: 0; pointer-events: none; z-index: 5; }
 .plabel { position: absolute; transform: translate(-50%, -100%); font-size: 13px; letter-spacing: 0.3em; color: rgba(236,230,218,0.85); text-shadow: 0 1px 8px #000; white-space: nowrap; }
