@@ -351,7 +351,7 @@ el.btn.addEventListener("click", () => {
   if (mode === "title") {
     camYaw = 0;
     camPitch = 0.42;
-    sim.begin();
+    sim.begin({ restore: !start });
     hideCard();
     narrate.say("enter");
   } else if (mode === "dead") {
@@ -463,7 +463,19 @@ function frame(now) {
     }
   }
 
-  const dist = 6.3;
+  let dist = 6.3;
+  let lookX = snap.player.x;
+  let lookY = snap.player.y + 1.35;
+  let lookZ = snap.player.z;
+  if (snap.lock && mode === "play") {
+    const dx = snap.lock.x - snap.player.x;
+    const dz = snap.lock.z - snap.player.z;
+    const sep = Math.hypot(dx, dz);
+    dist = clamp(6.4 + sep * 0.28, 6.4, 10.5);
+    lookX = snap.player.x + dx * 0.38;
+    lookZ = snap.player.z + dz * 0.38;
+    lookY = snap.player.y + 1.25;
+  }
   const horiz = Math.cos(camPitch * 0.55) * dist;
   const lift = 1.7 + Math.sin(camPitch) * 2.1;
   let cx = snap.player.x - Math.sin(camYaw) * horiz;
@@ -481,7 +493,7 @@ function frame(now) {
   camPos.y = damp(camPos.y, snap.player.y + lift + bob, 5.5, raw);
   camPos.z = damp(camPos.z, cz, 5.5, raw);
   shake = Math.max(0, shake - raw);
-  lookAt.set(snap.player.x, snap.player.y + 1.35, snap.player.z);
+  lookAt.set(lookX, lookY, lookZ);
   camera.position.copy(camPos);
   camera.position.x += Math.sin(now / 40) * shake * 0.12;
   camera.position.y += Math.cos(now / 35) * shake * 0.08;
@@ -501,7 +513,9 @@ function frame(now) {
   for (const ev of snap.events) {
     if (ev.type === "say") say(ev.who, ev.text);
     else if (ev.type === "dmg") addFloat(ev.x, ev.y, ev.z, ev.n, ev.coin);
-    else if (ev.type === "hurt") shake = 0.35;
+    else if (ev.type === "hurt") shake = Math.max(shake, 0.35);
+    else if (ev.type === "hit") shake = Math.max(shake, ev.heavy ? 0.55 : 0.26);
+    else if (ev.type === "level") addFloat(ev.x, ev.y, ev.z, "Lv " + ev.n, true);
     else if (ev.type === "flash") { flashI = 1; shockK = 0.45; el.flash.classList.add("on"); setTimeout(() => el.flash.classList.remove("on"), 160); }
     else if (ev.type === "dead") showCard("dead");
     else if (ev.type === "outro") showCard("outro");
@@ -527,18 +541,36 @@ function paintHud(snap) {
   el.hp.style.width = `${clamp(p.hp / p.hpMax, 0, 1) * 100}%`;
   el.hpNum.textContent = String(Math.ceil(p.hp));
   el.lantern.style.width = `${clamp(p.flash, 0, 1) * 100}%`;
-  el.coins.textContent = String(p.coins);
-  el.potions.textContent = p.potions > 0 ? `Potion ${p.potions}` : "";
+  el.coins.textContent = `${p.coins} coins`;
+  el.potions.textContent = p.potions > 0 ? `Tonic ${p.potions}` : "";
   el.pages.textContent = `Pages ${snap.pages || 0}/5`;
   el.obj.textContent = snap.objective;
-  el.pips.innerHTML = [1, 2, 3].map((i) => `<i class="${p.combo >= i ? "on" : ""}"></i>`).join("");
+  el.pips.innerHTML = [1, 2, 3, 4].map((i) => `<i class="${p.combo >= i ? "on" : ""}"></i>`).join("");
+  setRing("hp-ring", 40, p.hp / p.hpMax);
+  setRing("mp-ring", 28, (p.mp ?? p.hp) / (p.mpMax || p.hpMax));
+  const gHp = document.getElementById("g-hp");
+  const gMp = document.getElementById("g-mp");
+  const gLv = document.getElementById("g-lv");
+  const gMini = document.getElementById("g-lv-mini");
+  if (gHp) gHp.textContent = String(Math.ceil(p.hp));
+  if (gMp) gMp.textContent = String(Math.ceil(p.mp ?? 0));
+  if (gLv) gLv.textContent = `Lv ${p.level || 1}`;
+  if (gMini) gMini.textContent = `Lv ${p.level || 1}`;
+  paintParty(snap);
+  renderMenu(snap);
   const showBoss = snap.boss.active && (snap.boss.alive || snap.boss.hp <= 0);
   el.bossbar.hidden = !showBoss || mode !== "play";
   if (showBoss) el.bossFill.style.width = `${clamp(snap.boss.hp / snap.boss.hpMax, 0, 1) * 100}%`;
-  if (snap.prompt && mode === "play") {
+  const react = snap.reaction;
+  const shown = react || snap.prompt;
+  if (shown && mode === "play") {
     el.prompt.hidden = false;
-    el.prompt.textContent = `${snap.prompt.label}  ·  E`;
-  } else el.prompt.hidden = true;
+    el.prompt.classList.toggle("is-react", !!react);
+    el.prompt.textContent = `${shown.label}  ·  ${react ? "F" : "E"}`;
+  } else {
+    el.prompt.hidden = true;
+    el.prompt.classList.remove("is-react");
+  }
   if (snap.lock && mode === "play") {
     const pt = project(snap.lock.x, snap.lock.y, snap.lock.z);
     if (pt) {
@@ -591,6 +623,135 @@ window.__BOOKWORLDS = {
   floats: () => sim.floats(),
   boss: () => ({ hp: sim.boss.hp, alive: sim.boss.alive, active: sim.boss.active, x: sim.boss.x, z: sim.boss.z }),
   hits: () => sim.hits(),
+  mp: () => sim.mp(),
+  level: () => sim.level(),
+  team: () => sim.team(),
+  reaction: () => sim.reaction(),
+  lockId: () => sim.lockId(),
 };
+
+function setRing(id, radius, pct) {
+  const node = document.getElementById(id);
+  if (!node) return;
+  const circ = 2 * Math.PI * radius;
+  node.style.strokeDasharray = String(circ);
+  node.style.strokeDashoffset = String(circ * (1 - clamp(pct, 0, 1)));
+}
+
+function paintParty(snap) {
+  const rows = snap.party || [];
+  for (const row of rows) {
+    const bar = document.getElementById(row.id + "-hp");
+    if (bar) bar.style.width = `${clamp(row.hp / row.hpMax, 0, 1) * 100}%`;
+  }
+  const team = document.getElementById("team-fill");
+  if (team) team.style.width = `${clamp((snap.player.team || 0) / 100, 0, 1) * 100}%`;
+}
+
+const MENU = {
+  root: [
+    { id: "attack", label: "Attack" },
+    { id: "magic", label: "Magic" },
+    { id: "items", label: "Items" },
+    { id: "special", label: "Special" },
+  ],
+  magic: [
+    { id: "flash", label: "Lantern Flash", cost: 25 },
+    { id: "devil", label: "Dust Devil", cost: 20 },
+    { id: "mend", label: "Trail Mend", cost: 30 },
+    { id: "back", label: "Back" },
+  ],
+  items: [
+    { id: "tonic", label: "Tonic" },
+    { id: "back", label: "Back" },
+  ],
+  special: [
+    { id: "team", label: "Wagon Toss" },
+    { id: "back", label: "Back" },
+  ],
+};
+let menuPane = "root";
+let menuIndex = 0;
+let menuSig = "";
+
+function menuList() {
+  return MENU[menuPane] || MENU.root;
+}
+
+function renderMenu(snap) {
+  const node = document.getElementById("cmd");
+  if (!node) return;
+  const list = menuList();
+  menuIndex = (menuIndex % list.length + list.length) % list.length;
+  const p = snap && snap.player;
+  const sig = `${menuPane}|${menuIndex}|${p ? p.potions : 0}|${p ? Math.ceil(p.mp) : 0}|${p ? Math.floor(p.team || 0) : 0}|${mode}`;
+  if (sig === menuSig) return;
+  menuSig = sig;
+  node.innerHTML = `<p class="cmd-kicker">${menuPane === "root" ? "Commands" : menuPane}</p>` + list.map((item, i) => {
+    let note = "";
+    let disabled = false;
+    if (item.cost) note = String(item.cost);
+    if (item.id === "tonic") note = "x" + ((p && p.potions) || 0);
+    if (item.id === "team") note = p && p.team >= 100 ? "ready" : "meter";
+    if (item.id === "flash" || item.id === "devil" || item.id === "mend") disabled = !p || p.mp < item.cost;
+    if (item.id === "tonic") disabled = !p || p.potions <= 0;
+    if (item.id === "team") disabled = !p || p.team < 100;
+    return `<button type="button" data-cmd="${item.id}" class="${i === menuIndex ? "is-on" : ""}" ${disabled ? "disabled" : ""}><span>${item.label}</span><small>${note}</small></button>`;
+  }).join("");
+}
+
+function activateMenu(id) {
+  if (id === "magic" || id === "items" || id === "special") {
+    menuPane = id;
+    menuIndex = 0;
+    menuSig = "";
+    return;
+  }
+  if (id === "back") {
+    menuPane = "root";
+    menuIndex = 0;
+    menuSig = "";
+    return;
+  }
+  if (id === "attack") input.press("attack");
+  else if (id === "flash") input.press("flash");
+  else if (id === "devil") input.press("devil");
+  else if (id === "mend") input.press("mend");
+  else if (id === "tonic") input.press("potion");
+  else if (id === "team") input.press("special");
+}
+
+document.getElementById("cmd").addEventListener("click", (e) => {
+  const btn = e.target.closest("[data-cmd]");
+  if (!btn || mode !== "play") return;
+  e.preventDefault();
+  e.stopPropagation();
+  activateMenu(btn.getAttribute("data-cmd"));
+  menuSig = "";
+});
+
+window.addEventListener("wheel", (e) => {
+  if (mode !== "play" || !playing) return;
+  if (e.target.closest && e.target.closest("#hub, #card")) return;
+  menuIndex += e.deltaY > 0 ? 1 : -1;
+  menuSig = "";
+  e.preventDefault();
+}, { passive: false });
+
+window.addEventListener("keydown", (e) => {
+  if (mode !== "play" || !playing) return;
+  const k = e.key.toLowerCase();
+  if (k === "[") { menuIndex -= 1; menuSig = ""; e.preventDefault(); }
+  else if (k === "]") { menuIndex += 1; menuSig = ""; e.preventDefault(); }
+  else if (k === "m") {
+    const list = menuList();
+    const item = list[(menuIndex % list.length + list.length) % list.length];
+    if (item) activateMenu(item.id);
+    menuSig = "";
+    e.preventDefault();
+  } else if (k === "b" || k === "backspace") {
+    if (menuPane !== "root") { menuPane = "root"; menuIndex = 0; menuSig = ""; e.preventDefault(); }
+  }
+});
 
 requestAnimationFrame(frame);

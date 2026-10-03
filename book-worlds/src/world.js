@@ -111,6 +111,8 @@ export function buildWorld(scene, low) {
   block(-3.3, rope.z0, 0.5);
   block(3.3, rope.z0, 0.5);
 
+  const radio = buildRadio(scene);
+
   const gate = buildGate();
   gate.root.position.set(0, heightAt(0, 126), 126);
   scene.add(gate.root);
@@ -139,6 +141,7 @@ export function buildWorld(scene, low) {
     pages,
     floats,
     rope,
+    radio,
     gate,
     fire,
     sun,
@@ -169,6 +172,10 @@ export function buildWorld(scene, low) {
       }
       posePages(pages, t);
       poseRope(rope, t);
+      if (radio) {
+        radio.glow.material.opacity = 0.4 + Math.sin(t * 3.2) * 0.35;
+        radio.glow.scale.setScalar(0.9 + Math.sin(t * 5) * 0.12);
+      }
       for (const w of floats) {
         if (!w.floated) continue;
         w.mesh.position.y = heightAt(w.x, w.z) + 0.22 + Math.sin(t * 1.6 + w.x) * 0.06;
@@ -517,6 +524,33 @@ function mesas(scene) {
     m.add(top);
     scene.add(m);
   }
+}
+
+function buildRadio(scene) {
+  const woodMat = new THREE.MeshStandardMaterial({ color: 0x6a4328, roughness: 0.72 });
+  const brassMat = new THREE.MeshStandardMaterial({ color: 0xe0c07a, roughness: 0.35, metalness: 0.65 });
+  const root = new THREE.Group();
+  const box = new THREE.Mesh(new THREE.BoxGeometry(0.78, 0.42, 0.34), woodMat);
+  box.castShadow = true;
+  const speaker = new THREE.Mesh(new THREE.BoxGeometry(0.28, 0.22, 0.04), brassMat);
+  speaker.position.set(-0.16, 0, 0.16);
+  const dial = new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.07, 0.08, 10), brassMat);
+  dial.rotation.x = Math.PI / 2;
+  dial.position.set(0.2, -0.02, 0.16);
+  const mast = new THREE.Mesh(new THREE.CylinderGeometry(0.015, 0.015, 0.55, 6), brassMat);
+  mast.position.set(0.28, 0.42, 0);
+  const glow = new THREE.Mesh(
+    new THREE.SphereGeometry(0.1, 10, 8),
+    new THREE.MeshBasicMaterial({ color: 0xffe6b0, transparent: true, opacity: 0.75 }),
+  );
+  glow.position.set(0, 0.55, 0);
+  root.add(box, speaker, dial, mast, glow);
+  const x = 6.2;
+  const z = -4.8;
+  root.position.set(x, heightAt(x, z) + 0.22, z);
+  root.rotation.y = -0.6;
+  scene.add(root);
+  return { root, glow, x, z };
 }
 
 function buildGate() {

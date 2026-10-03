@@ -1,7 +1,11 @@
 // WASD / arrows move. Mouse or touch-drag looks. Buttons and keys share one edge queue.
 export function createInput(root) {
   const keys = new Set();
-  const pressed = { attack: false, dodge: false, jump: false, flash: false, lock: false, use: false, potion: false };
+  const pressed = {
+    attack: false, dodge: false, jump: false, flash: false, lock: false, use: false, potion: false,
+    guard: false, devil: false, mend: false, special: false, cycle: false,
+  };
+  let guardPointer = false;
   const st = {
     mx: 0,
     my: 0,
@@ -82,9 +86,14 @@ export function createInput(root) {
     if (k === "shift") return "dodge";
     if (k === " ") return "jump";
     if (k === "f") return "flash";
-    if (k === "q" || k === "tab") return "lock";
+    if (k === "q") return "lock";
+    if (k === "tab") return "cycle";
     if (k === "e") return "use";
-    if (k === "r") return "potion";
+    if (k === "r" || k === "1") return "potion";
+    if (k === "2") return "devil";
+    if (k === "3") return "mend";
+    if (k === "4") return "special";
+    if (k === "g") return "guard";
     return null;
   };
   window.addEventListener("keydown", (e) => {
@@ -106,9 +115,16 @@ export function createInput(root) {
     const fire = (e) => {
       e.stopPropagation();
       e.preventDefault();
-      if (st.enabled && pressed[slot] != null) pressed[slot] = true;
+      if (slot === "guard") guardPointer = true;
+      else if (st.enabled && pressed[slot] != null) pressed[slot] = true;
     };
     btn.addEventListener("pointerdown", fire);
+    if (slot === "guard") {
+      const up = (e) => { guardPointer = false; e.stopPropagation(); };
+      btn.addEventListener("pointerup", up);
+      btn.addEventListener("pointercancel", up);
+      btn.addEventListener("pointerleave", up);
+    }
   });
 
   st.axes = () => {
@@ -126,6 +142,10 @@ export function createInput(root) {
     for (const k of Object.keys(pressed)) pressed[k] = false;
     return edge;
   };
+  st.press = (slot) => {
+    if (st.enabled && pressed[slot] != null) pressed[slot] = true;
+  };
+  st.held = () => ({ guard: keys.has("g") || guardPointer });
   st.consumeLook = () => {
     const d = { dx: st.lookDX, dy: st.lookDY };
     st.lookDX = st.lookDY = 0;

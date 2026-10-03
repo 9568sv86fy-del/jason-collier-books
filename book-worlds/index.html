@@ -39,7 +39,7 @@
         <div class="track" aria-hidden="true"><b id="lantern-fill"></b></div>
       </div>
       <div class="pips" id="pips" aria-hidden="true"></div>
-      <div class="meta"><span id="coins">0</span><span id="potions"></span><span id="pages">Pages 0/5</span></div>
+      <div class="meta"><span id="g-lv-mini">Lv 1</span><span id="coins">0 coins</span><span id="potions"></span><span id="pages">Pages 0/5</span></div>
       <p id="obj"></p>
     </div>
     <div id="bossbar" hidden>
@@ -47,6 +47,26 @@
       <div class="track"><b id="boss-fill"></b></div>
     </div>
   </header>
+
+  <div id="party" aria-label="Party">
+    <p><span>Jang</span><i><b id="jang-hp"></b></i></p>
+    <p><span>Tom</span><i><b id="tom-hp"></b></i></p>
+    <p class="team"><span>Team</span><i><b id="team-fill"></b></i></p>
+  </div>
+
+  <nav id="cmd" class="ui" aria-label="Command menu"></nav>
+
+  <div id="gauges" aria-hidden="true">
+    <svg viewBox="0 0 150 150">
+      <circle cx="62" cy="88" r="40" class="ring track"></circle>
+      <circle id="hp-ring" cx="62" cy="88" r="40" class="ring hp"></circle>
+      <circle cx="106" cy="74" r="28" class="ring track"></circle>
+      <circle id="mp-ring" cx="106" cy="74" r="28" class="ring mp"></circle>
+    </svg>
+    <b id="g-hp">100</b>
+    <b id="g-mp">100</b>
+    <span id="g-lv">Lv 1</span>
+  </div>
 
   <p id="prompt" hidden></p>
   <div id="reticle" hidden aria-hidden="true"></div>
@@ -60,10 +80,11 @@
     <button type="button" data-act="dodge">Dodge</button>
     <button type="button" class="big" data-act="attack">Attack</button>
     <button type="button" data-act="jump">Jump</button>
+    <button type="button" data-act="guard">Guard</button>
     <button type="button" data-act="potion">Potion</button>
     <button type="button" data-act="use">Use</button>
   </div>
-  <p id="keys">WASD move · mouse looks · J attack · Space jump · Shift dodge · F lantern · Q lock · E use · R potion</p>
+  <p id="keys">WASD move · J attack · Space high jump · Shift dodge · G guard · F lantern or reaction · 1 tonic · 2 dust devil · 3 trail mend · 4 wagon toss · Q lock · Tab cycle · [ ] menu · M confirm</p>
 
   <div id="hub">
     <div class="bw-parlor" aria-hidden="true"></div>
@@ -191,7 +212,7 @@
       <h1 id="card-title">The California Trail</h1>
       <p class="paper" id="card-body"></p>
       <button type="button" id="card-btn">Take the trail</button>
-      <p class="hint" id="card-hint">WASD or arrows move · drag the mouse to look · J attacks · Shift dodges · F is the lantern</p>
+      <p class="hint" id="card-hint">WASD moves · drag looks · J attacks · Space jumps again in the air · Shift dodges · G guards · the command menu is bottom left</p>
     </div>
   </div>
   <div id="bulletin" hidden role="status" aria-live="polite">

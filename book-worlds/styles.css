@@ -437,3 +437,74 @@ body.touch.playing #bulletin { bottom: calc(196px + env(safe-area-inset-bottom))
     animation: none; transition: none;
   }
 }
+
+#hud .bar-label, #hud .track { display: none; }
+#keys { bottom: auto; top: 118px; max-width: 34rem; line-height: 1.45; }
+
+#party, #cmd, #gauges { display: none; }
+body.playing #party, body.playing #cmd, body.playing #gauges { display: block; }
+
+#party {
+  position: absolute; top: calc(12px + env(safe-area-inset-top)); right: 14px; z-index: 6;
+  width: min(220px, 46vw); pointer-events: none;
+}
+#party p { display: grid; grid-template-columns: 52px 1fr; gap: 8px; align-items: center; margin-top: 6px; }
+#party span {
+  font-family: var(--ui); font-size: 11px; letter-spacing: .16em; text-transform: uppercase; color: var(--paper);
+  text-shadow: 0 1px 2px #000;
+}
+#party i { display: block; height: 7px; background: rgba(16, 12, 8, .65); border: 1px solid rgba(228, 208, 164, .55); }
+#party b { display: block; height: 100%; width: 100%; background: linear-gradient(90deg, #6a4328, #e7c48a); }
+#party .team b { background: linear-gradient(90deg, #8a3a28, #f3e6c8); }
+
+#cmd {
+  position: absolute; left: 14px; bottom: calc(18px + env(safe-area-inset-bottom)); z-index: 6;
+  width: min(15rem, 46vw); padding: .45rem; pointer-events: auto;
+  background: #f3e6c8; color: #24180f;
+  box-shadow: 0 16px 36px rgba(0, 0, 0, .35), inset 0 0 0 1px rgba(70, 46, 22, .4);
+}
+#cmd .cmd-kicker {
+  font-family: var(--ui); font-size: .62rem; letter-spacing: .2em; text-transform: uppercase; color: #6a4320;
+  padding: .15rem .35rem .3rem;
+}
+#cmd button {
+  display: flex; justify-content: space-between; gap: 8px; width: 100%;
+  min-height: 36px; margin: 0; padding: .35rem .5rem; cursor: pointer; text-align: left;
+  background: transparent; color: #24180f; border: 0;
+  font-family: var(--serif); font-style: italic; font-size: 1.05rem;
+}
+#cmd button small { font-family: var(--ui); font-style: normal; font-size: .62rem; letter-spacing: .12em; color: #6a4320; }
+#cmd button.is-on { background: #24180f; color: #f3e6c8; }
+#cmd button.is-on small { color: #e7c48a; }
+#cmd button:disabled { opacity: .4; }
+#prompt.is-react {
+  animation: bw-blink 0.7s steps(1) infinite;
+  letter-spacing: .04em;
+}
+
+#gauges {
+  position: absolute; right: 8px; bottom: calc(8px + env(safe-area-inset-bottom)); z-index: 6;
+  width: 150px; height: 150px; pointer-events: none;
+}
+#gauges svg { width: 100%; height: 100%; overflow: visible; }
+#gauges .ring { fill: none; stroke-width: 8; stroke-linecap: round; }
+#gauges .track { stroke: rgba(20, 14, 10, .55); }
+#gauges .hp, #gauges .mp { transform-box: fill-box; transform-origin: center; transform: rotate(-90deg); }
+#gauges .hp { stroke: #8eae6a; }
+#gauges .mp { stroke: #7aa0c4; }
+#g-hp, #g-mp, #g-lv {
+  position: absolute; font-family: var(--ui); letter-spacing: .08em; color: #f6edd8;
+  text-shadow: 0 1px 2px #000;
+}
+#g-hp { left: 38px; top: 78px; font-size: 13px; }
+#g-mp { left: 90px; top: 66px; font-size: 12px; }
+#g-lv { left: 34px; top: 118px; font-size: 11px; letter-spacing: .16em; }
+
+body.touch.playing #cmd { bottom: calc(168px + env(safe-area-inset-bottom)); width: min(11.5rem, 48vw); }
+body.touch.playing #cmd button { min-height: 40px; font-size: .98rem; }
+body.touch.playing #gauges { bottom: calc(158px + env(safe-area-inset-bottom)); transform: scale(.78); transform-origin: bottom right; }
+body.touch #actions button[data-act="lock"],
+body.touch #actions button[data-act="flash"],
+body.touch #actions button[data-act="potion"],
+body.touch #actions button[data-act="use"] { display: none; }
+body.touch #keys { display: none; }

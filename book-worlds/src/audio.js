@@ -150,6 +150,14 @@ export function createAudio() {
       stepAt = now;
       burst({ dur: 0.05, freq: 160, type: "lowpass", gain: 0.05 });
     },
+    jump() { burst({ dur: 0.08, freq: 420, type: "bandpass", gain: 0.08, q: 0.7, from: 280, to: 520 }); },
+    parry() { burst({ dur: 0.12, freq: 1400, type: "highpass", gain: 0.2, q: 2, from: 880, to: 220 }); },
+    guard() { burst({ dur: 0.07, freq: 240, type: "lowpass", gain: 0.16, from: 160, to: 90 }); },
+    heal() { burst({ dur: 0.22, freq: 660, type: "bandpass", gain: 0.12, q: 3, from: 520, to: 990 }); },
+    coin() { burst({ dur: 0.06, freq: 1200, type: "highpass", gain: 0.08, q: 2, from: 880, to: 1320 }); },
+    wind() { burst({ dur: 0.32, freq: 700, type: "bandpass", gain: 0.16, q: 0.6, from: 240, to: 90 }); },
+    finisher() { burst({ dur: 0.16, freq: 110, type: "lowpass", gain: 0.34, from: 180, to: 48 }); },
+    level() { burst({ dur: 0.28, freq: 520, type: "bandpass", gain: 0.14, q: 4, from: 440, to: 880 }); },
     dispose() {
       if (musicTimer) clearTimeout(musicTimer);
       try { ctx && ctx.close(); } catch { /* ignore */ }
