@@ -1,0 +1,246 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#100e0c">
+<title>Book Worlds: The California Trail | Jason Collier</title>
+<meta name="description" content="Book Worlds. Nonimaginaires are leaking through the broadcast. Tune the parlor cabinet to the California Trail and walk it with Jang and Tom.">
+<link rel="canonical" href="https://jasoncollierbooks.github.io/jason-collier-books/book-worlds/">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Jason Collier Books">
+<meta property="og:title" content="Book Worlds: The California Trail | Jason Collier">
+<meta property="og:description" content="Tune the cabinet. Brain fogs are eating the stories. World I is the California Trail.">
+<meta property="og:url" content="https://jasoncollierbooks.github.io/jason-collier-books/book-worlds/">
+<meta property="og:image" content="https://jasoncollierbooks.github.io/jason-collier-books/assets/broadcast-theme/og-broadcast.jpg">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Crect width='16' height='16' fill='%23100e0c'/%3E%3Ccircle cx='8' cy='8' r='3.2' fill='none' stroke='%23e4d0a4' stroke-width='1.2'/%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,500;0,600;1,500&family=Josefin+Sans:wght@400;600&family=Pinyon+Script&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="./styles.css">
+<script type="importmap">{ "imports": { "three": "../old-man-game/vendor/three.min.js" } }</script>
+</head>
+<body>
+<div id="app">
+  <canvas id="view"></canvas>
+  <div id="grain" aria-hidden="true"></div>
+  <div id="vignette" aria-hidden="true"></div>
+  <div id="hurt" aria-hidden="true"></div>
+  <div id="flash" aria-hidden="true"></div>
+
+  <header id="hud">
+    <div class="bars">
+      <div>
+        <div class="bar-label"><span>Keeper</span><span id="hp-num">100</span></div>
+        <div class="track" aria-hidden="true"><b id="hp-fill"></b></div>
+      </div>
+      <div>
+        <div class="bar-label"><span>Lantern</span></div>
+        <div class="track" aria-hidden="true"><b id="lantern-fill"></b></div>
+      </div>
+      <div class="pips" id="pips" aria-hidden="true"></div>
+      <div class="meta"><span id="g-lv-mini">Lv 1</span><span id="coins">0 coins</span><span id="potions"></span><span id="pages">Pages 0/5</span></div>
+      <p id="obj"></p>
+    </div>
+    <div id="bossbar" hidden>
+      <span id="boss-name">The Blank Bear</span>
+      <div class="track"><b id="boss-fill"></b></div>
+    </div>
+  </header>
+
+  <div id="party" aria-label="Party">
+    <p><span>Jang</span><i><b id="jang-hp"></b></i></p>
+    <p><span>Tom</span><i><b id="tom-hp"></b></i></p>
+    <p class="team"><span>Team</span><i><b id="team-fill"></b></i></p>
+  </div>
+
+  <nav id="cmd" class="ui" aria-label="Command menu"></nav>
+
+  <div id="gauges" aria-hidden="true">
+    <svg viewBox="0 0 150 150">
+      <circle cx="62" cy="88" r="40" class="ring track"></circle>
+      <circle id="hp-ring" cx="62" cy="88" r="40" class="ring hp"></circle>
+      <circle cx="106" cy="74" r="28" class="ring track"></circle>
+      <circle id="mp-ring" cx="106" cy="74" r="28" class="ring mp"></circle>
+    </svg>
+    <b id="g-hp">100</b>
+    <b id="g-mp">100</b>
+    <span id="g-lv">Lv 1</span>
+  </div>
+
+  <p id="prompt" hidden></p>
+  <div id="reticle" hidden aria-hidden="true"></div>
+  <div id="bubbles" hidden></div>
+  <div id="floats"></div>
+
+  <div id="stick" aria-hidden="true"><div id="knob"></div></div>
+  <div id="actions" class="ui">
+    <button type="button" data-act="lock">Lock</button>
+    <button type="button" data-act="flash">Flash</button>
+    <button type="button" data-act="dodge">Dodge</button>
+    <button type="button" class="big" data-act="attack">Attack</button>
+    <button type="button" data-act="jump">Jump</button>
+    <button type="button" data-act="guard">Guard</button>
+    <button type="button" data-act="potion">Potion</button>
+    <button type="button" data-act="use">Use</button>
+  </div>
+  <p id="keys">WASD move · J attack · Space high jump · Shift dodge · G guard · F lantern or reaction · 1 tonic · 2 dust devil · 3 trail mend · 4 wagon toss · Q lock · Tab cycle · [ ] menu · M confirm</p>
+
+  <div id="hub">
+    <div class="bw-parlor" aria-hidden="true"></div>
+    <div class="bw-set">
+      <div class="bw-antenna" aria-hidden="true"><span class="rod rod-l"></span><span class="mast"></span><span class="rod rod-r"></span></div>
+      <div class="bw-cabinet" id="cabinet">
+        <div class="bw-plaque" aria-hidden="true"><span></span><b>J·C</b><span></span></div>
+        <p class="bw-show">Book Worlds</p>
+        <div class="bw-main">
+          <div class="bw-bezel">
+            <div class="bw-glass">
+              <div class="bw-screen" id="screen" data-station="trail">
+                <div class="bw-pic" data-pic="trail">
+                  <svg viewBox="0 0 640 360" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
+                    <defs>
+                      <linearGradient id="trail-sky" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="0" stop-color="#5c3040"/>
+                        <stop offset=".42" stop-color="#e08a58"/>
+                        <stop offset="1" stop-color="#f6d7a6"/>
+                      </linearGradient>
+                    </defs>
+                    <rect width="640" height="360" fill="url(#trail-sky)"/>
+                    <circle cx="486" cy="108" r="34" fill="#fff3d2"/>
+                    <circle cx="486" cy="108" r="52" fill="#fff3d2" opacity=".28"/>
+                    <path d="M0 228 L70 176 L140 214 L220 150 L300 206 L390 142 L470 198 L560 160 L640 214 L640 360 L0 360 Z" fill="#8d5134"/>
+                    <path d="M0 268 L120 236 L210 258 L320 228 L430 260 L540 232 L640 258 L640 360 L0 360 Z" fill="#c4844e"/>
+                    <g fill="#3a2416">
+                      <rect x="214" y="214" width="132" height="40"/>
+                      <polygon points="346,214 402,226 402,254 346,254"/>
+                      <rect x="228" y="198" width="46" height="18"/>
+                      <circle cx="250" cy="258" r="16"/>
+                      <circle cx="330" cy="258" r="16"/>
+                      <circle cx="250" cy="258" r="6" fill="#e7c98a"/>
+                      <circle cx="330" cy="258" r="6" fill="#e7c98a"/>
+                    </g>
+                    <g fill="none" stroke="#f0ddb4" stroke-width="5" stroke-linecap="round">
+                      <circle cx="78" cy="78" r="16"/>
+                      <path d="M94 78 H150 M132 78 V96 M144 78 V90"/>
+                    </g>
+                  </svg>
+                </div>
+                <div class="bw-pic" data-pic="stack" hidden>
+                  <svg viewBox="0 0 640 360" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
+                    <defs>
+                      <linearGradient id="stack-sky" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="0" stop-color="#2a2428"/>
+                        <stop offset="1" stop-color="#c4896a"/>
+                      </linearGradient>
+                    </defs>
+                    <rect width="640" height="360" fill="url(#stack-sky)"/>
+                    <ellipse cx="330" cy="150" rx="168" ry="46" fill="#a89078"/>
+                    <ellipse cx="330" cy="150" rx="168" ry="46" fill="none" stroke="#5a4034" stroke-width="4"/>
+                    <rect x="250" y="186" width="150" height="28" rx="3" fill="#6a5348"/>
+                    <path d="M400 196 H470 L452 214 H400 Z" fill="#4a342c"/>
+                    <rect x="300" y="168" width="8" height="22" fill="#3a2a24"/>
+                  </svg>
+                </div>
+                <div class="bw-pic" data-pic="oldman" hidden>
+                  <svg viewBox="0 0 640 360" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
+                    <rect width="640" height="360" fill="#1c2430"/>
+                    <circle cx="500" cy="78" r="22" fill="#f3ead4" opacity=".85"/>
+                    <path d="M40 300 L180 120 L260 210 L340 80 L470 240 L560 150 L640 280 L640 360 L0 360 Z" fill="#243040"/>
+                    <path d="M300 168 L340 80 L372 156 Z" fill="#d9e2ea"/>
+                    <path d="M90 300 L120 230 L150 300 Z" fill="#1a2820"/>
+                    <path d="M150 310 L186 228 L220 310 Z" fill="#142018"/>
+                    <path d="M470 300 L510 220 L548 300 Z" fill="#1a2820"/>
+                  </svg>
+                </div>
+                <div class="bw-pic" data-pic="pulse" hidden>
+                  <svg viewBox="0 0 640 360" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
+                    <rect width="640" height="360" fill="#100e16"/>
+                    <g fill="#f4ecdf">
+                      <circle cx="80" cy="60" r="1.4"/><circle cx="160" cy="40" r="1.1"/><circle cx="240" cy="90" r="1.6"/>
+                      <circle cx="420" cy="50" r="1.2"/><circle cx="520" cy="80" r="1.5"/><circle cx="300" cy="36" r="1"/>
+                      <circle cx="100" cy="160" r="1.2"/><circle cx="560" cy="150" r="1.3"/><circle cx="380" cy="200" r="1"/>
+                      <circle cx="48" cy="240" r="1.4"/><circle cx="600" cy="250" r="1.1"/><circle cx="200" cy="280" r="1.2"/>
+                    </g>
+                    <ellipse cx="320" cy="180" rx="90" ry="28" fill="none" stroke="#e4d0a4" stroke-width="3" opacity=".8"/>
+                    <circle cx="320" cy="180" r="6" fill="#f7f0e4"/>
+                  </svg>
+                </div>
+                <div class="bw-snow" aria-hidden="true"></div>
+                <div class="bw-bars" aria-hidden="true"></div>
+                <div id="blank-face" class="blank-face" hidden aria-hidden="true">
+                  <svg viewBox="0 0 240 280">
+                    <ellipse cx="120" cy="196" rx="108" ry="90" fill="#3a3a3a"/>
+                    <ellipse cx="120" cy="92" rx="52" ry="70" fill="#bdbdbd"/>
+                  </svg>
+                  <p class="blank-voice" id="blank-voice"></p>
+                </div>
+                <p class="bw-soon" id="st-soon" hidden>Coming soon</p>
+                <div class="bw-caption">
+                  <p class="bw-freq" id="st-freq">54.7</p>
+                  <p class="bw-script" id="st-script">On the air</p>
+                  <h2 id="st-title">The California Trail</h2>
+                  <p class="bw-sub" id="st-sub">Jang &amp; Tom · Wagon Masters</p>
+                  <p class="bw-badge" id="st-badge" hidden>Signal closed</p>
+                </div>
+              </div>
+              <div class="bw-tube" aria-hidden="true">
+                <div class="scan"></div>
+                <div class="flicker"></div>
+                <div class="grain"></div>
+                <div class="sheen"></div>
+              </div>
+            </div>
+          </div>
+          <div class="bw-dial">
+            <div class="bw-cluster">
+              <button type="button" id="dial-prev" aria-label="Previous station">Prev</button>
+              <button type="button" id="dial-knob" aria-label="Turn the dial"></button>
+              <button type="button" id="dial-next" aria-label="Next station">Next</button>
+            </div>
+            <p class="bw-read" id="st-num">Station 1</p>
+            <button type="button" id="tune-in">Tune in</button>
+          </div>
+          <div class="bw-side" aria-hidden="true">
+            <span class="lamp"></span>
+            <span class="knob-deco"></span>
+            <span class="speaker"></span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div id="roll" hidden aria-hidden="true"><div class="bw-snow"></div><div class="bw-bars"></div></div>
+  <div id="blank-shade" class="blank-shade" hidden aria-hidden="true">
+    <svg viewBox="0 0 240 420">
+      <defs>
+        <radialGradient id="blank-void" cx="50%" cy="46%" r="58%">
+          <stop offset="0" stop-color="#d2d2d2"/>
+          <stop offset=".5" stop-color="#5a5a5a"/>
+          <stop offset="1" stop-color="#0c0c0c" stop-opacity="0"/>
+        </radialGradient>
+      </defs>
+      <ellipse cx="120" cy="292" rx="112" ry="150" fill="url(#blank-void)"/>
+      <ellipse cx="120" cy="108" rx="48" ry="66" fill="#c8c8c8"/>
+    </svg>
+  </div>
+
+  <div id="card" class="story" role="dialog" aria-modal="true" aria-labelledby="card-title" hidden>
+    <div class="story-card">
+      <p class="script" id="card-script">Please stand by</p>
+      <p class="kicker" id="card-kicker">Book Worlds · World I</p>
+      <h1 id="card-title">The California Trail</h1>
+      <p class="paper" id="card-body"></p>
+      <button type="button" id="card-btn">Take the trail</button>
+      <p class="hint" id="card-hint">WASD moves · drag looks · J attacks · Space jumps again in the air · Shift dodges · G guards · the command menu is bottom left</p>
+    </div>
+  </div>
+  <div id="bulletin" hidden role="status" aria-live="polite">
+    <p id="bulletin-kicker">Special bulletin</p>
+    <p id="bulletin-line"></p>
+  </div>
+  <div id="boot">Warming the tubes…</div>
+</div>
+<script type="module" src="./src/main.js"></script>
+</body>
+</html>

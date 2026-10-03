@@ -1,0 +1,14 @@
+[
+  { "id": "intro", "text": "We interrupt this program to bring you a special bulletin. Nonimaginaires, the brain fogs, are eating the California Trail. Five pages are going gray. Behind the fog is a dead air that swallows stories." },
+  { "id": "enter", "text": "A silent keeper steps through the glass. Color is already leaving the wagon road. Jang and Tom are selling a story the fog has started to eat." },
+  { "id": "page-handbills", "text": "A torn page. Two debtors printed flashy handbills and hired themselves out as guides who had never guided a wagon." },
+  { "id": "page-dentistry", "text": "A torn page. Pawnee warriors had the train surrounded. Jang bought the peace with dentistry." },
+  { "id": "page-bear", "text": "A torn page. The bear hunt turned inside out. The hunters became the hunted." },
+  { "id": "page-pendulum", "text": "A torn page. Bandits held the narrows until Tom, the clumsiest human pendulum in the West, cleared them on the backswing." },
+  { "id": "page-circus", "text": "A torn page. The river would not ford, so the crossing became a floating circus of wagons." },
+  { "id": "scene-rope", "text": "Bulletin from the canyon. Bandits wrapped in fog. A swinging rope is about to finish the argument." },
+  { "id": "scene-circus", "text": "We take you to the river. The crossing is scrambled. Those wagons have to float before this picture can go on." },
+  { "id": "boss", "text": "Stand by for the ford. The bear from the hunt has fused with a Nonimaginaire. It is trying to erase the pages." },
+  { "id": "restored", "text": "The pages are back in the book. Color returns to the signal. We return you now to your regular program." },
+  { "id": "blank-next", "text": "The next station is next." }
+]
