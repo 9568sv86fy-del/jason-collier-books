@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#100e0c">
+<title>Book Worlds: The California Trail | Jason Collier</title>
+<meta name="description" content="World I of Book Worlds. A young drifter called the Keeper walks the California Trail with Jang and Tom. An original browser action game.">
+<link rel="canonical" href="https://jasoncollierbooks.github.io/jason-collier-books/book-worlds/">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Jason Collier Books">
+<meta property="og:title" content="Book Worlds: The California Trail | Jason Collier">
+<meta property="og:description" content="World I. The Keeper, Jang, and Tom on a wagon road where another book is leaking through.">
+<meta property="og:url" content="https://jasoncollierbooks.github.io/jason-collier-books/book-worlds/">
+<meta property="og:image" content="https://jasoncollierbooks.github.io/jason-collier-books/assets/broadcast-theme/og-broadcast.jpg">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Crect width='16' height='16' fill='%23100e0c'/%3E%3Ccircle cx='8' cy='8' r='3.2' fill='none' stroke='%23e4d0a4' stroke-width='1.2'/%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,500;0,600;1,500&family=Josefin+Sans:wght@400;600&family=Pinyon+Script&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="./styles.css">
+<script type="importmap">{ "imports": { "three": "../old-man-game/vendor/three.min.js" } }</script>
+</head>
+<body>
+<div id="app">
+  <canvas id="view"></canvas>
+  <div id="grain" aria-hidden="true"></div>
+  <div id="vignette" aria-hidden="true"></div>
+  <div id="hurt" aria-hidden="true"></div>
+  <div id="flash" aria-hidden="true"></div>
+
+  <header id="hud">
+    <div class="bars">
+      <div>
+        <div class="bar-label"><span>Keeper</span><span id="hp-num">100</span></div>
+        <div class="track" aria-hidden="true"><b id="hp-fill"></b></div>
+      </div>
+      <div>
+        <div class="bar-label"><span>Lantern</span></div>
+        <div class="track" aria-hidden="true"><b id="lantern-fill"></b></div>
+      </div>
+      <div class="pips" id="pips" aria-hidden="true"></div>
+      <div class="meta"><span id="coins">0</span><span id="potions"></span></div>
+      <p id="obj"></p>
+    </div>
+    <div id="bossbar" hidden>
+      <span>The Dust Coach</span>
+      <div class="track"><b id="boss-fill"></b></div>
+    </div>
+  </header>
+
+  <p id="prompt" hidden></p>
+  <div id="reticle" hidden aria-hidden="true"></div>
+  <div id="bubbles" hidden></div>
+  <div id="floats"></div>
+
+  <div id="stick" aria-hidden="true"><div id="knob"></div></div>
+  <div id="actions" class="ui">
+    <button type="button" data-act="lock">Lock</button>
+    <button type="button" data-act="flash">Flash</button>
+    <button type="button" data-act="dodge">Dodge</button>
+    <button type="button" class="big" data-act="attack">Attack</button>
+    <button type="button" data-act="jump">Jump</button>
+    <button type="button" data-act="potion">Potion</button>
+    <button type="button" data-act="use">Use</button>
+  </div>
+  <p id="keys">WASD move · mouse looks · J attack · Space jump · Shift dodge · F lantern · Q lock · E use · R potion</p>
+
+  <div id="card" class="story" role="dialog" aria-modal="true" aria-labelledby="card-title">
+    <div class="story-card">
+      <p class="script" id="card-script">Please stand by</p>
+      <p class="kicker" id="card-kicker">Book Worlds · World I</p>
+      <h1 id="card-title">The California Trail</h1>
+      <p class="paper" id="card-body"></p>
+      <button type="button" id="card-btn">Take the trail</button>
+      <p class="hint" id="card-hint">WASD or arrows move · drag the mouse to look · J attacks · Shift dodges · F is the lantern</p>
+    </div>
+  </div>
+  <div id="boot">Loading the trail…</div>
+</div>
+<script type="module" src="./src/main.js"></script>
+</body>
+</html>
