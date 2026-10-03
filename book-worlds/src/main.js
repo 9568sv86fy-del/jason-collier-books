@@ -35,8 +35,13 @@ scene.add(shock);
 
 const params = new URLSearchParams(location.search);
 const start = params.get("start");
-let mode = start === "ford" || start === "play" ? "play" : "title";
+const direct = start === "ford" || start === "play" || start === "gate";
+let mode = direct ? "play" : "hub";
 let playing = mode === "play";
+let station = 0;
+let signalClosed = false;
+let transitioning = false;
+let pullTimer = 0;
 let ready = false;
 let camYaw = 0.25;
 let camPitch = 0.42;
@@ -75,31 +80,42 @@ const el = {
   flash: document.getElementById("flash"),
   hurt: document.getElementById("hurt"),
   hud: document.getElementById("hud"),
+  hub: document.getElementById("hub"),
+  screen: document.getElementById("screen"),
+  roll: document.getElementById("roll"),
+  freq: document.getElementById("st-freq"),
+  stScript: document.getElementById("st-script"),
+  stTitle: document.getElementById("st-title"),
+  stSub: document.getElementById("st-sub"),
+  stBadge: document.getElementById("st-badge"),
+  stSoon: document.getElementById("st-soon"),
+  stNum: document.getElementById("st-num"),
+  tune: document.getElementById("tune-in"),
+  knob: document.getElementById("dial-knob"),
 };
+
+const STATIONS = [
+  { id: "trail", freq: "54.7", script: "On the air", title: "The California Trail", sub: "Jang & Tom · Wagon Masters", live: true },
+  { id: "stack", freq: "67.2", script: "No signal", title: "The Rusty Stack", sub: "An airship in another sky", live: false },
+  { id: "oldman", freq: "81.4", script: "No signal", title: "Old Man on the Mountain", sub: "A ridge with its own weather", live: false },
+  { id: "pulse", freq: "103.0", script: "No signal", title: "The First Pulse", sub: "Space, and the Hum beneath it", live: false },
+];
 
 const CARDS = {
   title: {
     script: "Please stand by",
-    kicker: "Book Worlds  ·  World I",
+    kicker: "Book Worlds  ·  Station 1",
     title: "The California Trail",
-    body: "A young drifter called the Keeper comes down the ridge with a brass skeleton key worn like a saber — the Trail Key. In the wagon camp, Jang and Tom, two Philadelphia debtors posing as guides, are pretending the dust is not humming. It is. Something from another book is leaking through.",
-    btn: "Take the trail",
+    body: "The Hum is leaking through the broadcast into every book. The Keeper has to tune each station and close the signal before the static takes the page. This channel is the wagon road. Jang and Tom, two Philadelphia debtors posing as guides, are pretending they meant to be here. The dust disagrees. The weapon in the Keeper's hand is a brass skeleton key worn like a saber — the Trail Key.",
+    btn: "Step through",
     hint: true,
   },
   outro: {
     script: "End of the trail",
     kicker: "World I",
     title: "The river remembers",
-    body: "The stagecoach beast comes apart into static and silt. Jang counts the oxen twice and gets a different number both times. Tom scratches the back of his neck and admits, quietly, that the humming has stopped. North of the ford, a door of riveted brass stands where no door should.",
-    btn: "Approach the door",
-    hint: false,
-  },
-  soon: {
-    script: "Coming soon",
-    kicker: "World II",
-    title: "The Rusty Stack",
-    body: "The door is shut from the other side. Through the brass waits the shadow of an airship this trail has not earned yet — the ugliest freight hauler in the sky, and a sky that belongs to another book.",
-    btn: "Return to the ford",
+    body: "The stagecoach beast comes apart into static and silt. Jang counts the oxen twice and gets a different number both times. Tom scratches the back of his neck and admits, quietly, that the humming on this channel has stopped. The ford still holds a way back through the screen.",
+    btn: "Go to the door",
     hint: false,
   },
   dead: {
@@ -128,10 +144,157 @@ function showCard(id) {
 }
 function hideCard() {
   el.card.hidden = true;
+  el.hub.hidden = true;
   playing = true;
   input.enabled = true;
   mode = "play";
 }
+
+function paintStation() {
+  const st = STATIONS[station];
+  el.screen.classList.remove("is-tuning");
+  el.screen.dataset.station = st.id;
+  el.screen.classList.toggle("is-static", !st.live);
+  el.freq.textContent = st.freq;
+  el.stScript.textContent = st.script;
+  el.stTitle.textContent = st.title;
+  el.stSub.textContent = st.sub;
+  el.stNum.textContent = `Station ${station + 1}`;
+  el.stSoon.hidden = st.live;
+  el.stBadge.hidden = !(st.live && signalClosed);
+  el.tune.disabled = !st.live;
+  el.tune.textContent = !st.live ? "Coming soon" : signalClosed ? "Tune in again" : "Tune in";
+  el.knob.style.transform = `rotate(${station * 78 - 36}deg)`;
+  for (const pic of el.screen.querySelectorAll(".bw-pic")) pic.hidden = pic.dataset.pic !== st.id;
+  el.hub.dataset.station = st.id;
+  el.hub.dataset.closed = signalClosed ? "1" : "0";
+}
+
+function showHub() {
+  mode = "hub";
+  playing = false;
+  input.enabled = false;
+  el.card.hidden = true;
+  el.hub.hidden = false;
+  el.hub.classList.remove("pull", "return");
+  paintStation();
+}
+
+function reducedMotion() {
+  return matchMedia("(prefers-reduced-motion: reduce)").matches;
+}
+
+function setStation(index, fromUser) {
+  if (transitioning || mode !== "hub") return;
+  station = (index + STATIONS.length) % STATIONS.length;
+  paintStation();
+  if (!fromUser) return;
+  audio.unlock();
+  audio.dial();
+  audio.staticBurst();
+  el.screen.classList.add("is-tuning");
+  clearTimeout(pullTimer);
+  pullTimer = window.setTimeout(() => el.screen.classList.remove("is-tuning"), reducedMotion() ? 0 : 460);
+}
+
+function finishThrough() {
+  el.hub.classList.remove("pull");
+  el.hub.hidden = true;
+  el.roll.classList.remove("in", "out");
+  el.roll.hidden = true;
+  transitioning = false;
+  sim.resetTrail();
+  camYaw = 0.55;
+  camPitch = 0.4;
+  showCard("title");
+}
+
+function pullThrough() {
+  if (transitioning || mode !== "hub" || !STATIONS[station].live) return;
+  transitioning = true;
+  audio.unlock();
+  audio.staticBurst();
+  if (reducedMotion()) {
+    finishThrough();
+    return;
+  }
+  el.roll.hidden = false;
+  el.roll.classList.remove("out");
+  el.roll.classList.add("in");
+  el.hub.classList.add("pull");
+  clearTimeout(pullTimer);
+  pullTimer = window.setTimeout(finishThrough, 980);
+}
+
+function finishBack() {
+  el.hub.classList.remove("pull", "return");
+  el.hub.hidden = false;
+  el.roll.classList.remove("in", "out");
+  el.roll.hidden = true;
+  transitioning = false;
+  showHub();
+}
+
+function pullBack() {
+  if (transitioning) return;
+  transitioning = true;
+  signalClosed = true;
+  playing = false;
+  input.enabled = false;
+  mode = "hub";
+  audio.staticBurst();
+  el.card.hidden = true;
+  if (reducedMotion()) {
+    finishBack();
+    return;
+  }
+  el.roll.hidden = false;
+  el.roll.classList.remove("in", "out");
+  el.roll.classList.add("hold");
+  el.hub.hidden = false;
+  el.hub.classList.add("return");
+  paintStation();
+  requestAnimationFrame(() => {
+    requestAnimationFrame(() => {
+      el.hub.classList.remove("return");
+      el.roll.classList.remove("hold", "in");
+      el.roll.classList.add("out");
+    });
+  });
+  clearTimeout(pullTimer);
+  pullTimer = window.setTimeout(finishBack, 1000);
+}
+
+function tryTune() {
+  if (transitioning || mode !== "hub") return;
+  audio.unlock();
+  if (!STATIONS[station].live) {
+    audio.staticBurst();
+    el.screen.classList.add("is-tuning");
+    clearTimeout(pullTimer);
+    pullTimer = window.setTimeout(() => el.screen.classList.remove("is-tuning"), 420);
+    return;
+  }
+  pullThrough();
+}
+
+document.getElementById("dial-prev").addEventListener("click", () => setStation(station - 1, true));
+document.getElementById("dial-next").addEventListener("click", () => setStation(station + 1, true));
+el.knob.addEventListener("click", () => setStation(station + 1, true));
+el.tune.addEventListener("click", () => tryTune());
+window.addEventListener("keydown", (e) => {
+  if (mode !== "hub" || transitioning) return;
+  if (e.key === "ArrowRight" || e.key === "ArrowDown") {
+    e.preventDefault();
+    setStation(station + 1, true);
+  } else if (e.key === "ArrowLeft" || e.key === "ArrowUp") {
+    e.preventDefault();
+    setStation(station - 1, true);
+  } else if (e.key === "Enter" && !(e.target && e.target.closest && e.target.closest("button"))) {
+    e.preventDefault();
+    tryTune();
+  }
+});
 
 el.btn.addEventListener("click", () => {
   audio.unlock();
@@ -145,8 +308,6 @@ el.btn.addEventListener("click", () => {
     hideCard();
   } else if (mode === "outro") {
     hideCard();
-  } else if (mode === "soon") {
-    hideCard();
   }
 });
 
@@ -157,11 +318,17 @@ if (start === "ford") {
   sim.wakeBoss();
   hideCard();
   audio.unlock();
+} else if (start === "gate") {
+  camYaw = 0;
+  camPitch = 0.36;
+  sim.skipToGate();
+  hideCard();
+  audio.unlock();
 } else if (start === "play") {
   hideCard();
   audio.unlock();
 } else {
-  showCard("title");
+  showHub();
 }
 
 function resize() {
@@ -269,7 +436,7 @@ function frame(now) {
     else if (ev.type === "flash") { flashI = 1; shockK = 0.45; el.flash.classList.add("on"); setTimeout(() => el.flash.classList.remove("on"), 160); }
     else if (ev.type === "dead") showCard("dead");
     else if (ev.type === "outro") showCard("outro");
-    else if (ev.type === "gate") showCard("soon");
+    else if (ev.type === "gate") pullBack();
     else if (ev.type === "boss") shake = 0.2;
   }
 
@@ -338,6 +505,9 @@ function paintHud(snap) {
 window.__BOOKWORLDS = {
   ready: false,
   mode: () => mode,
+  station: () => station,
+  stationId: () => STATIONS[station].id,
+  signalClosed: () => signalClosed,
   player: () => {
     const p = sim.player;
     return { x: p.x, y: p.y, z: p.z, hp: p.hp, yaw: p.yaw, hits: sim.hits() };

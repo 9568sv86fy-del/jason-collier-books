@@ -142,6 +142,8 @@ export function createAudio() {
     flash() { burst({ dur: 0.28, freq: 1400, type: "bandpass", gain: 0.16, q: 4, from: 660, to: 1320 }); },
     chest() { burst({ dur: 0.14, freq: 320, type: "bandpass", gain: 0.2, q: 2, from: 520, to: 180 }); },
     roar() { burst({ dur: 0.45, freq: 90, type: "lowpass", gain: 0.32, from: 90, to: 40 }); },
+    dial() { burst({ dur: 0.16, freq: 480, type: "bandpass", gain: 0.14, q: 3, from: 240, to: 720 }); },
+    staticBurst() { burst({ dur: 0.55, freq: 2200, type: "highpass", gain: 0.14, q: 0.35 }); },
     step() {
       const now = performance.now();
       if (now - stepAt < 280) return;

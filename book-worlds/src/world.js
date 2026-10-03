@@ -396,7 +396,7 @@ function buildGate() {
   const glow = new THREE.Mesh(new THREE.PlaneGeometry(1.8, 2.8), glowMat);
   glow.position.y = 1.7;
   root.add(glow);
-  const plaque = signPlane("COMING SOON", "Rusty Stack");
+  const plaque = signPlane("THE SET", "Step back");
   plaque.position.set(0, 2.15, 0.18);
   root.add(plaque);
   return { root, glow, open: false, setOpen(v) { this.open = v; glowMat.opacity = v ? 0.45 : 0; } };

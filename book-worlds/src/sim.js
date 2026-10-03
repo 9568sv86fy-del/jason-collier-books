@@ -12,7 +12,7 @@ const LINES = {
     boss: "That coach has too many wheels and an opinion.",
     low: "Keeper, if you fall I will write a very moving handbill.",
     win: "I guaranteed the crossing. I was only mostly lying.",
-    gate: "A door in a river. Tom, do not scratch it open.",
+    gate: "The picture is rolling. That is the way back to the set.",
   },
   tom: {
     greet: "Neck's itching. That usually means the map was a suggestion.",
@@ -20,7 +20,7 @@ const LINES = {
     boss: "I don't like a wagon that growls, Jang.",
     hurt: "Still here. Still broad. Neck saw it coming.",
     win: "River's a river again. I'll take that.",
-    gate: "Pretty door. Doors usually want money we already spent.",
+    gate: "I can see the knobs from here. I don't trust knobs.",
     half: "It's leaning, Jang. So am I. Different reasons.",
   },
 };
@@ -508,6 +508,7 @@ export function createSim(scene, world, audio) {
   }
 
   let outroT = -1;
+  let outroArmed = true;
   let playTime = 0;
 
   function update(dt, input, camYaw, play, fresh = true) {
@@ -619,7 +620,7 @@ export function createSim(scene, world, audio) {
     let prompt = null;
     if (chest) prompt = { id: "chest", label: "Open the chest" };
     const gateD = hypot2(player.x, player.z - 126);
-    if (!boss.alive && gateD < 2.4) prompt = { id: "gate", label: "A brass door" };
+    if (!boss.alive && gateD < 2.4) prompt = { id: "gate", label: "Step back through the screen" };
     if (edge.use && prompt) {
       if (prompt.id === "chest") openChest(chest);
       if (prompt.id === "gate") {
@@ -629,7 +630,10 @@ export function createSim(scene, world, audio) {
       }
     }
 
-    if (flags.won && outroT < 0) outroT = 1.5;
+    if (flags.won && outroArmed && outroT < 0) {
+      outroT = 1.5;
+      outroArmed = false;
+    }
     if (outroT > 0) {
       outroT -= dt;
       if (outroT <= 0) events.push({ type: "outro" });
@@ -657,7 +661,7 @@ export function createSim(scene, world, audio) {
     let objective = "The canyon north of camp is humming. Walk it.";
     if (player.z > 24 && boss.alive) objective = "Follow the trail to the river crossing.";
     if (boss.active && boss.alive) objective = "The dust coach is not a coach. Break it.";
-    if (!boss.alive) objective = "A brass door stands in the ford.";
+    if (!boss.alive) objective = "The screen is still open in the ford. Step back through.";
 
     return snapshot(camYaw, prompt, objective);
   }
@@ -813,6 +817,105 @@ export function createSim(scene, world, audio) {
         player.z = -4;
       }
       player.y = heightAt(player.x, player.z);
+    },
+    resetTrail() {
+      while (bills.length) {
+        const b = bills.pop();
+        scene.remove(b.mesh);
+      }
+      pending.length = 0;
+      for (const k of Object.keys(flags)) delete flags[k];
+      outroT = -1;
+      outroArmed = true;
+      playTime = 0;
+      allyHold = 8;
+      sayLock = 0;
+      playerHits = 0;
+      bossWall = true;
+      lockTarget = null;
+      swingHit.clear();
+      player.x = 0;
+      player.z = -6;
+      player.y = heightAt(0, -6);
+      player.yaw = 0;
+      player.vx = player.vz = player.vy = 0;
+      player.hp = player.hpMax;
+      player.coins = 0;
+      player.potions = 1;
+      player.iframes = 0;
+      player.action = "idle";
+      player.actionT = 0;
+      player.combo = 0;
+      player.comboQueue = false;
+      player.flashCd = 0;
+      player.hurt = 0;
+      player.grounded = true;
+      const homes = [[-1.5, 0.6, 0.2], [1.7, 0.4, -0.1]];
+      allies.forEach((a, i) => {
+        a.x = homes[i][0];
+        a.z = homes[i][1];
+        a.yaw = homes[i][2];
+        a.cd = 1.2;
+        a.anim = "idle";
+        a.animT = 0;
+      });
+      for (const e of enemies) {
+        e.x = e.homeX;
+        e.z = e.homeZ;
+        e.yaw = Math.PI;
+        e.y = heightAt(e.homeX, e.homeZ);
+        e.hp = e.hpMax;
+        e.alive = true;
+        e.state = "idle";
+        e.t = 0;
+        e.hit = 0;
+        e.didHit = false;
+        e.speed = 0;
+        e.stunFor = 0;
+        e.rig.root.visible = true;
+        e.rig.root.rotation.x = 0;
+        e.rig.root.rotation.z = 0;
+        e.rig.root.position.set(e.x, e.y, e.z);
+      }
+      boss.alive = true;
+      boss.active = false;
+      boss.x = 0;
+      boss.z = 114;
+      boss.yaw = Math.PI;
+      boss.hp = boss.hpMax;
+      boss.state = "idle";
+      boss.t = 0;
+      boss.pattern = 0;
+      boss.didHit = false;
+      boss.hit = 0;
+      boss.stunFor = 0;
+      bossRig.root.visible = true;
+      bossRig.root.rotation.set(0, Math.PI, 0);
+      bossRig.root.position.set(0, heightAt(0, 114), 114);
+      for (const chest of world.chests) {
+        chest.open = false;
+        chest.lid.rotation.x = 0;
+      }
+      world.gate.setOpen(false);
+      audio.setTension(0);
+    },
+    skipToGate() {
+      boss.alive = false;
+      boss.hp = 0;
+      boss.active = true;
+      boss.state = "dead";
+      boss.t = 1.6;
+      bossWall = false;
+      flags.won = true;
+      outroArmed = false;
+      outroT = 0;
+      player.x = 0;
+      player.z = 124.2;
+      player.y = heightAt(0, 124.2);
+      player.yaw = 0;
+      player.vx = player.vz = player.vy = 0;
+      player.hp = player.hpMax;
+      player.action = "idle";
     },
     player,
     enemies,
