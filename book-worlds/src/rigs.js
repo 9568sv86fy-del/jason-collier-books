@@ -211,10 +211,28 @@ export function createHuman(spec) {
     body.add(lamp);
     spec._glow = glow;
   }
-  if (spec.wisp) {
-    const wisp = new THREE.Mesh(new THREE.IcosahedronGeometry(0.08, 1), new THREE.MeshBasicMaterial({ color: 0xb9a0d0 }));
-    wisp.position.set(0.18, 1.55, 0);
-    body.add(wisp);
+  let fogDust = null;
+  if (spec.wisp || spec.fog) {
+    const wrap = new THREE.Group();
+    const smear = new THREE.Mesh(
+      new THREE.SphereGeometry(0.28, 10, 8),
+      new THREE.MeshLambertMaterial({
+        color: 0x9a9a9a, emissive: 0x5a5a5a, emissiveIntensity: 0.22,
+        transparent: true, opacity: 0.62, depthWrite: false,
+      }),
+    );
+    smear.scale.set(1.35, 1.7, 1.05);
+    smear.position.set(0, 1.05, 0.02);
+    const collar = new THREE.Mesh(
+      new THREE.SphereGeometry(0.16, 8, 6),
+      new THREE.MeshLambertMaterial({ color: 0xc4c4c4, emissive: 0x6e6e6e, emissiveIntensity: 0.15 }),
+    );
+    collar.scale.set(1.2, 0.45, 0.85);
+    collar.position.set(0.04, 1.48, 0.08);
+    fogDust = makeDust(20, 0xe4e4e4, 0.85);
+    fogDust.position.y = 1.15;
+    wrap.add(smear, collar, fogDust);
+    body.add(wrap);
   }
 
   root.scale.set(spec.bulk || 1, spec.height || 1, spec.bulk || 1);
@@ -335,6 +353,7 @@ export function createHuman(spec) {
     if (a.hurt > 0) {
       body.rotation.x = damp(body.rotation.x, -0.25 * a.hurt, 14, dt);
     }
+    if (fogDust) spinDust(fogDust, performance.now() / 1000 * 1.4);
 
     root.updateMatrixWorld(true);
     neck.getWorldPosition(tmp);
@@ -415,130 +434,92 @@ export function handbillMesh() {
   return m;
 }
 
-export function createShade() {
+export function createFog(opts = {}) {
+  const tall = !!opts.tall;
   const root = new THREE.Group();
-  const mat = new THREE.MeshLambertMaterial({ color: 0x1a1022, emissive: 0x7a5aaa, emissiveIntensity: 0.6 });
-  const body = new THREE.Mesh(new THREE.IcosahedronGeometry(0.42, 2), mat);
-  body.scale.set(0.72, 1.25, 0.72);
-  body.position.y = 0.95;
-  body.castShadow = true;
-  root.add(body);
-  const wisps = [];
-  for (let i = 0; i < 4; i++) {
-    const w = new THREE.Mesh(new THREE.CapsuleGeometry(0.05, 0.28, 2, 6), mat);
-    w.position.y = 0.7;
-    root.add(w);
-    wisps.push(w);
-  }
-  const eyeMat = new THREE.MeshBasicMaterial({ color: 0xf4efe6 });
-  const eyes = new THREE.Group();
-  for (const s of [-1, 1]) {
-    const e = new THREE.Mesh(new THREE.SphereGeometry(0.035, 8, 6), eyeMat);
-    e.position.set(s * 0.1, 1.15, 0.22);
-    eyes.add(e);
-  }
-  root.add(eyes);
-  const dust = makeDust(28, 0xc8b8e0, 0.9);
-  dust.position.y = 0.9;
+  const smearMat = new THREE.MeshLambertMaterial({ color: 0x8a8a8a, emissive: 0x4e4e4e, emissiveIntensity: 0.22 });
+  const paleMat = new THREE.MeshLambertMaterial({ color: 0xb7b7b7, emissive: 0x6a6a6a, emissiveIntensity: 0.16 });
+  const darkMat = new THREE.MeshLambertMaterial({ color: 0x5c5c5c, emissive: 0x2c2c2c, emissiveIntensity: 0.18 });
+  const faceMat = new THREE.MeshLambertMaterial({ color: 0xd0d0d0, emissive: 0x8e8e8e, emissiveIntensity: 0.12 });
+  const blobs = [
+    { mat: smearMat, r: 0.4, s: [1.25, 0.48, 0.72], p: [0, tall ? 0.95 : 0.7, 0] },
+    { mat: paleMat, r: 0.3, s: [0.85, 0.4, 1.15], p: [0.14, tall ? 1.35 : 1.02, 0.04] },
+    { mat: darkMat, r: 0.24, s: [1.4, 0.32, 0.58], p: [-0.18, tall ? 0.62 : 0.46, 0.06] },
+    { mat: paleMat, r: tall ? 0.28 : 0.18, s: [0.7, tall ? 1.15 : 0.72, 0.5], p: [0.02, tall ? 1.85 : 1.28, 0.02] },
+    { mat: darkMat, r: 0.16, s: [1.6, 0.28, 0.9], p: [0.08, tall ? 0.38 : 0.28, -0.04] },
+  ];
+  const smears = blobs.map((b) => {
+    const m = new THREE.Mesh(new THREE.SphereGeometry(b.r, 10, 8), b.mat);
+    m.scale.set(b.s[0], b.s[1], b.s[2]);
+    m.position.set(b.p[0], b.p[1], b.p[2]);
+    m.castShadow = true;
+    root.add(m);
+    return m;
+  });
+  const face = new THREE.Mesh(new THREE.SphereGeometry(tall ? 0.2 : 0.15, 14, 12), faceMat);
+  face.scale.set(1.2, 1.45, 0.62);
+  face.position.set(0, tall ? 2.15 : 1.42, 0.14);
+  root.add(face);
+  const dust = makeDust(tall ? 56 : 34, 0xd4d4d4, tall ? 1.7 : 1.05);
+  dust.position.y = tall ? 1.3 : 0.9;
   root.add(dust);
-  root.add(blobShadow());
-  let phase = Math.random() * 5;
+  const staticP = makeDust(tall ? 26 : 16, 0xf4f4f4, tall ? 1.35 : 0.75);
+  staticP.position.y = tall ? 1.6 : 1.1;
+  root.add(staticP);
+  const shadow = blobShadow();
+  shadow.scale.setScalar(tall ? 1.6 : 1.05);
+  root.add(shadow);
+  if (opts.scale) root.scale.setScalar(opts.scale);
+  let phase = Math.random() * 6;
   return {
     root,
-    mat,
+    faceMat,
+    smearMat,
     update(dt, a) {
-      phase += dt * (a.speed > 0.2 ? 6 : 2.2);
-      const bob = Math.sin(phase) * 0.06;
-      body.position.y = 0.95 + bob + (a.tele ? 0.12 : 0);
-      body.rotation.y += dt * 0.8;
-      const lean = a.tele ? -0.45 : a.strike ? 0.55 : 0;
-      body.rotation.x = damp(body.rotation.x, lean, 10, dt);
-      const pulse = 0.45 + Math.sin(phase * 3) * 0.25 + (a.tele ? 0.7 : 0) + (a.hit || 0);
-      mat.emissiveIntensity = pulse;
-      wisps.forEach((w, i) => {
-        const ang = phase * 1.4 + i * 1.6;
-        w.position.x = Math.cos(ang) * 0.28;
-        w.position.z = Math.sin(ang) * 0.28;
-        w.position.y = 0.55 + Math.sin(ang * 1.3) * 0.1;
-        w.rotation.z = Math.sin(ang) * 0.6;
+      phase += dt * (a.speed > 0.2 ? 2.8 : 1.25);
+      const bob = Math.sin(phase) * (tall ? 0.09 : 0.055);
+      const drift = Math.sin(phase * 0.7) * 0.06;
+      smears.forEach((m, i) => {
+        const b = blobs[i];
+        m.position.y = b.p[1] + bob + Math.sin(phase * 1.35 + i * 0.8) * 0.035 + (a.tele ? 0.1 : 0);
+        m.position.x = b.p[0] + drift * (i % 2 ? 1 : -0.6);
+        m.rotation.z = Math.sin(phase * 0.9 + i) * 0.18;
+        m.rotation.y += dt * (0.35 + i * 0.08);
       });
-      eyes.position.y = bob;
+      face.position.y = (tall ? 2.15 : 1.42) + bob * 0.55;
+      face.position.x = drift * 0.4;
+      const pulse = 0.16 + Math.sin(phase * 2.2) * 0.08 + (a.tele ? 0.32 : 0) + (a.hit || 0) * 0.55;
+      smearMat.emissiveIntensity = pulse;
+      faceMat.emissiveIntensity = 0.1 + (a.hit || 0) * 0.7;
       spinDust(dust, phase);
-      const s = Math.sin(phase);
-      return { step: a.speed > 0.4 && s < 0 && Math.sin(phase - dt * 6) > 0 };
+      spinDust(staticP, phase * 1.9);
+      return { step: false };
     },
   };
 }
 
-export function createCoach() {
-  const root = new THREE.Group();
-  const wood = M(0x6a4630);
-  const dark = M(0x2a1c16);
-  const cloth = M(0xcbb892, { side: THREE.DoubleSide });
-  const chassis = new THREE.Mesh(new THREE.BoxGeometry(1.7, 0.55, 3.4), wood);
-  chassis.position.y = 0.95;
-  chassis.castShadow = true;
-  const cabinMat = new THREE.MeshLambertMaterial({ color: 0x2a1c16, emissive: 0x000000, emissiveIntensity: 0 });
-  const cabin = new THREE.Mesh(new THREE.BoxGeometry(1.55, 1.15, 1.7), cabinMat);
-  cabin.position.set(0, 1.7, -0.15);
-  cabin.castShadow = true;
-  const bonnet = new THREE.Mesh(new THREE.CylinderGeometry(0.85, 0.85, 1.9, 12, 1, true, 0, Math.PI), cloth);
-  bonnet.rotation.z = Math.PI / 2;
-  bonnet.rotation.y = Math.PI / 2;
-  bonnet.position.set(0, 2.15, -0.15);
-  bonnet.castShadow = true;
-  root.add(chassis, cabin, bonnet);
-  const wheels = [];
-  for (const [x, z] of [[-0.95, -1.15], [0.95, -1.15], [-0.95, 1.15], [0.95, 1.15]]) {
-    const w = new THREE.Group();
-    const tire = new THREE.Mesh(new THREE.TorusGeometry(0.48, 0.08, 6, 12), M(0x241810));
-    const hub = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.08, 0.2, 8), brassMat());
-    hub.rotation.z = Math.PI / 2;
-    for (let i = 0; i < 6; i++) {
-      const spoke = new THREE.Mesh(new THREE.BoxGeometry(0.03, 0.42, 0.03), M(0x8a7048));
-      spoke.rotation.z = (i / 6) * Math.PI;
-      w.add(spoke);
-    }
-    w.add(tire, hub);
-    w.position.set(x, 0.5, z);
-    w.rotation.y = Math.PI / 2;
-    root.add(w);
-    wheels.push(w);
-  }
-  const tongue = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.08, 1.1), wood);
-  tongue.position.set(0, 0.85, 2.15);
-  root.add(tongue);
-  const eyeMat = new THREE.MeshBasicMaterial({ color: 0xf2efe6 });
-  const eyes = [];
-  for (const s of [-1, 1]) {
-    const e = new THREE.Mesh(new THREE.BoxGeometry(0.28, 0.08, 0.05), eyeMat);
-    e.position.set(s * 0.32, 1.75, 0.72);
-    root.add(e);
-    eyes.push(e);
-  }
-  const dust = makeDust(70, 0xd8c4a0, 2.2);
-  dust.position.y = 1.2;
-  root.add(dust);
-  const staticP = makeDust(24, 0xd2c6ee, 1.6);
-  staticP.position.y = 1.5;
-  root.add(staticP);
-  let spin = 0;
+export function createNonimaginaire() {
+  const fog = createFog({ tall: true, scale: 2.45 });
+  const root = fog.root;
+  const halo = makeDust(90, 0xeeeeee, 1.55);
+  halo.position.y = 1.8;
+  root.add(halo);
   let phase = 0;
   return {
     root,
     update(dt, a) {
-      phase += dt * (a.moving ? 9 : 2);
-      spin += dt * (a.moving ? 10 : 0.4);
-      wheels.forEach((w) => { w.rotation.x = spin; });
-      const rear = a.state === "chargeWind" ? -0.14 : a.state === "slam" ? 0.08 : 0;
-      root.rotation.x = damp(root.rotation.x, rear, 8, dt);
-      root.position.y = Math.abs(Math.sin(phase)) * (a.moving ? 0.06 : 0.02);
-      const flicker = 0.65 + Math.sin(phase * 8) * 0.35;
-      eyes.forEach((e) => { e.scale.y = flicker; });
-      spinDust(dust, phase);
-      spinDust(staticP, phase * 1.7);
-      cabinMat.emissive.setHex(a.hit > 0 ? 0xffe2b0 : 0x000000);
-      cabinMat.emissiveIntensity = a.hit > 0 ? a.hit : 0;
+      phase += dt * (a.moving ? 3.4 : 1.3);
+      fog.update(dt, {
+        speed: a.moving ? 2.2 : 0.2,
+        tele: a.state === "chargeWind" || a.state === "roarWind",
+        strike: a.state === "slam" || a.state === "charge",
+        hit: a.hit || 0,
+      });
+      const lean = a.state === "chargeWind" ? -0.2 : a.state === "slam" ? 0.24 : a.state === "roar" ? -0.08 : 0;
+      root.rotation.x = damp(root.rotation.x, lean, 7, dt);
+      if (a.state !== "dead") root.position.y += Math.sin(phase) * (a.moving ? 0.07 : 0.035);
+      spinDust(halo, phase * 1.35);
+      fog.smearMat.emissive.setHex(a.hit > 0.2 ? 0xd8d8d8 : 0x4e4e4e);
     },
   };
 }

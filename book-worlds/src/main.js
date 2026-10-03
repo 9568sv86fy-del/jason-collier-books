@@ -109,7 +109,7 @@ const CARDS = {
     script: "Please stand by",
     kicker: "Book Worlds  ·  Station 1",
     title: "The California Trail",
-    body: "The Hum is leaking through the broadcast into every book, and it has torn five pages out of this one. The scenes are scrambled. The Keeper has to gather those pages, put the river and the bandits back the way the story remembers, and close the signal. This channel is the wagon road. Jang and Tom, two Philadelphia debtors posing as guides, are pretending they meant to be here. The weapon in the Keeper's hand is a brass skeleton key worn like a saber — the Trail Key.",
+    body: "Nonimaginaires — brain fogs born where imagination dies — are leaking through the broadcast and eating this story. Five pages are going gray. The scenes are scrambled. The Keeper has to gather those pages, put the river and the bandits back the way the story remembers, and restore the imagination on this channel. This channel is the wagon road. Jang and Tom, two Philadelphia debtors posing as guides, are pretending they meant to be here. The weapon in the Keeper's hand is a brass skeleton key worn like a saber — the Trail Key.",
     btn: "Step through",
     hint: true,
   },
@@ -117,7 +117,7 @@ const CARDS = {
     script: "End of the trail",
     kicker: "World I",
     title: "The river remembers",
-    body: "The stagecoach beast comes apart into static and silt. Jang counts the oxen twice and gets a different number both times. Tom scratches the back of his neck and admits, quietly, that the humming on this channel has thinned. The screen home stays shut until every torn page is back in the book.",
+    body: "The great fog comes apart, and the sepia crawls back into the ford. Jang counts the oxen twice and gets a different number both times. Tom scratches the back of his neck and admits, quietly, that the picture has its color again. The screen home stays shut until every torn page is back in the book.",
     btn: "Back to the trail",
     hint: false,
   },
@@ -526,6 +526,8 @@ function frame(now) {
   }
 
   paintHud(snap);
+  const drain = snap.drain || 0;
+  renderer.domElement.style.filter = drain > 0.02 ? `saturate(${(1 - drain * 0.94).toFixed(3)})` : "";
   renderer.render(scene, camera);
   if (!ready) {
     ready = true;
@@ -616,7 +618,7 @@ window.__BOOKWORLDS = {
     const p = sim.player;
     return { x: p.x, y: p.y, z: p.z, hp: p.hp, yaw: p.yaw, hits: sim.hits() };
   },
-  enemies: () => sim.enemies.map((e) => ({ id: e.id, kind: e.kind, hp: e.hp, alive: e.alive, x: e.x, z: e.z, pendulum: !!e.pendulum, routed: !!e.routed })),
+  enemies: () => sim.enemies.map((e) => ({ id: e.id, kind: e.kind, hp: e.hp, hpMax: e.hpMax, alive: e.alive, x: e.x, z: e.z, pendulum: !!e.pendulum, routed: !!e.routed })),
   bulletin: () => narrate.current(),
   pages: () => sim.pageCount(),
   circus: () => sim.circusDone(),

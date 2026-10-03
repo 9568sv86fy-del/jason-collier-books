@@ -1,15 +1,15 @@
 import * as THREE from "three";
 import { clamp, damp, dampAngle, hypot2 } from "./util.js";
 import { halfWidth, heightAt } from "./world.js";
-import { createHuman, createShade, createCoach, handbillMesh } from "./rigs.js";
+import { createHuman, createFog, createNonimaginaire, handbillMesh } from "./rigs.js";
 
 const LINES = {
   jang: {
     greet: "Experienced navigators. The experience is mostly running from Philadelphia.",
-    fight: "If it doesn't bleed, bill it as weather.",
+    fight: "No face, no invoice. Bill it as weather.",
     bill: "Handbill to the face. Surprisingly binding.",
     chest: "A chest. Honest men would walk away. We are saving them the trip.",
-    boss: "That coach has too many wheels and an opinion.",
+    boss: "That fog has no face and too many opinions.",
     low: "Keeper, if you fall I will write a very moving handbill.",
     win: "I guaranteed the crossing. I was only mostly lying.",
     gate: "The picture is rolling. That is the way back to the set.",
@@ -18,14 +18,14 @@ const LINES = {
     rope: "Those bandits want the trail. The rope wants a weight. Introduce them.",
     ropeHint: "The key is not the punchline, Keeper. The rope is.",
     rout: "The clumsiest pendulum in the West. Do not examine why it worked.",
-    lasso: "Lasso the axle. It is not a horse, but it can be convinced.",
+    lasso: "Lasso the smear. It is not a horse, but it can be convinced.",
     save: "The set remembers. That is more than the map ever did.",
     level: "The trail just got longer in the legs. Try to look like you meant that.",
   },
   tom: {
     greet: "Neck's itching. That usually means the map was a suggestion.",
     fight: "I can shove it. Shoving is the whole of my education.",
-    boss: "I don't like a wagon that growls, Jang.",
+    boss: "I don't like a cloud that eats the pages, Jang.",
     hurt: "Still here. Still broad. Neck saw it coming.",
     win: "River's a river again. I'll take that.",
     gate: "I can see the knobs from here. I don't trust knobs.",
@@ -86,22 +86,22 @@ export function createSim(scene, world, audio) {
     {
       id: "camp", minZ: -40, maxZ: 24, wave: 0, active: false, cleared: false,
       waves: [
-        [{ kind: "shade", x: 0.2, z: 11 }],
-        [{ kind: "bandit", x: -3.2, z: 8 }, { kind: "shade", x: 3.4, z: 14 }],
+        [{ kind: "fog", x: 0.2, z: 11 }, { kind: "fog", x: 1.7, z: 12.6 }],
+        [{ kind: "bandit", x: -3.2, z: 8 }, { kind: "fog", x: 3.4, z: 14 }],
       ],
     },
     {
       id: "narrows", minZ: 28, maxZ: 66, wave: 0, active: false, cleared: false,
       waves: [
-        [{ kind: "shade", x: -2.2, z: 38 }],
-        [{ kind: "bandit", x: 2.2, z: 52 }, { kind: "shade", x: -1.2, z: 60 }],
+        [{ kind: "blanker", x: -2.2, z: 38 }],
+        [{ kind: "bandit", x: 2.2, z: 52 }, { kind: "fog", x: -1.2, z: 60 }],
       ],
     },
     {
       id: "rope", minZ: 68, maxZ: 92, wave: 0, active: false, cleared: false,
       waves: [
         [
-          { kind: "shade", x: -1.4, z: 70 },
+          { kind: "fog", x: -1.4, z: 70 },
           { kind: "bandit", x: -1.6, z: 76, pendulum: true },
           { kind: "bandit", x: 1.4, z: 84.5, pendulum: true },
         ],
@@ -109,7 +109,7 @@ export function createSim(scene, world, audio) {
     },
   ];
 
-  const bossRig = createCoach();
+  const bossRig = createNonimaginaire();
   scene.add(bossRig.root);
   const boss = {
     id: "boss", kind: "boss", alive: true, active: false,
@@ -136,26 +136,64 @@ export function createSim(scene, world, audio) {
   let reaction = null;
   let lassoCd = 0;
   let lastPrompt = null;
-  let lastObjective = "The Hum tore pages from this book.";
+  let lastObjective = "Brain fogs are eating the pages.";
   const orbGeo = new THREE.SphereGeometry(0.14, 8, 6);
 
+  function profileFor(kind) {
+    if (kind === "fog") return { hp: 42, radius: 0.55, speed: 2.55, tele: 0.52, lunge: 7, reach: 1.5, dmg: 8, xp: 14, flash: 30 };
+    if (kind === "blanker") return { hp: 74, radius: 0.82, speed: 1.45, tele: 0.88, lunge: 3.4, reach: 2.05, dmg: 14, xp: 22, flash: 24 };
+    return { hp: 58, radius: 0.48, speed: 2.15, tele: 0.72, lunge: 2.2, reach: 1.7, dmg: 12, xp: 20, flash: 16 };
+  }
+
+  function erasePatches(x, z) {
+    const patches = [];
+    for (let i = 0; i < 3; i++) {
+      const mesh = new THREE.Mesh(
+        new THREE.CircleGeometry(1.35 + i * 0.35, 20),
+        new THREE.MeshBasicMaterial({ color: 0x9a9a9a, transparent: true, opacity: 0, depthWrite: false, side: THREE.DoubleSide }),
+      );
+      const ang = i * 2.2 + 0.4;
+      const rad = 1.3 + i * 0.85;
+      const px = x + Math.cos(ang) * rad;
+      const pz = z + Math.sin(ang) * rad;
+      mesh.rotation.x = -Math.PI / 2;
+      mesh.position.set(px, heightAt(px, pz) + 0.045, pz);
+      mesh.renderOrder = 2;
+      scene.add(mesh);
+      patches.push(mesh);
+    }
+    return patches;
+  }
+
+  function fadePatches(e, dt, target) {
+    if (!e.patches) return;
+    for (const mesh of e.patches) {
+      mesh.material.opacity = damp(mesh.material.opacity, target, 2.4, dt);
+    }
+    if (!e.alive && e.patches.every((mesh) => mesh.material.opacity < 0.03)) {
+      for (const mesh of e.patches) scene.remove(mesh);
+      e.patches = null;
+    }
+  }
+
   function makeEnemy(kind, x, z, pendulum = false) {
-    const shade = kind === "shade";
-    const rig = shade
-      ? createShade()
+    const fog = kind === "fog" || kind === "blanker";
+    const rig = fog
+      ? createFog({ tall: kind === "blanker", scale: kind === "blanker" ? 1.38 : 0.92 })
       : createHuman({
-        cloth: 0x4a4038, cloth2: 0x2a2420, pants: 0x3a342c, boots: 0x1c1612,
-        hat: 0x3a3028, hair: 0x1a1410, skin: 0xb08a68, bandana: true, club: true, wisp: true,
+        cloth: 0x6e6e6a, cloth2: 0x4e4e4a, pants: 0x5a5a56, boots: 0x2a2a28,
+        hat: 0x3a3a38, hair: 0x1a1410, skin: 0xb08a68, bandana: true, club: true, fog: true,
         height: 1.02, bulk: 1.02, chest: 1.05,
       });
     scene.add(rig.root);
+    const prof = profileFor(kind);
     return {
-      id: "e" + (seq++), kind, rig, x, z, yaw: Math.PI, y: 0,
-      hp: shade ? 42 : 58, hpMax: shade ? 42 : 58,
-      radius: shade ? 0.6 : 0.48,
+      id: "e" + (seq++), kind, rig, prof, x, z, yaw: Math.PI, y: 0,
+      hp: prof.hp, hpMax: prof.hp, radius: prof.radius,
       state: "idle", t: 0, alive: true, hit: 0, didHit: false,
       speed: 0, stunFor: 0, homeX: x, homeZ: z, pendulum, routed: false,
       rise: 0, arena: null, portal: null,
+      patches: kind === "blanker" ? erasePatches(x, z) : null,
     };
   }
 
@@ -215,7 +253,7 @@ export function createSim(scene, world, audio) {
       e.state = "dead";
       e.t = 0;
       dropLoot(e);
-      grantXp(e.kind === "boss" ? 90 : e.kind === "shade" ? 14 : 20);
+      grantXp(e.kind === "boss" ? 90 : (e.prof ? e.prof.xp : 20));
       if (e.kind === "boss") {
         audio.roar();
         flags.won = true;
@@ -305,6 +343,7 @@ export function createSim(scene, world, audio) {
       e.t += dt;
       e.rig.root.position.y = heightAt(e.x, e.z) - Math.min(1.2, e.t) * 0.8;
       e.rig.root.rotation.x = Math.min(1.2, e.t);
+      fadePatches(e, dt, 0);
       if (e.t > 1.3) e.rig.root.visible = false;
       if (e.portal) {
         e.portal.material.opacity = Math.max(0, e.portal.material.opacity - dt * 1.6);
@@ -334,7 +373,7 @@ export function createSim(scene, world, audio) {
       e.state = "idle";
       e.speed = 0;
     } else if (e.state === "chase") {
-      e.speed = dist > 1.65 ? (e.kind === "shade" ? 2.5 : 2.15) : 0;
+      e.speed = dist > 1.65 ? e.prof.speed : 0;
       if (dist > 0.2) e.yaw = dampAngle(e.yaw, Math.atan2(dx, dz), 8, dt);
       if (dist < (e.pendulum ? 0.9 : 1.7)) { e.state = "tele"; e.t = 0; e.didHit = false; }
       if (dist > 18) e.state = "idle";
@@ -342,17 +381,16 @@ export function createSim(scene, world, audio) {
       e.speed = 0;
       e.t += dt;
       e.yaw = dampAngle(e.yaw, Math.atan2(dx, dz), 10, dt);
-      const need = e.kind === "shade" ? 0.55 : 0.72;
+      const need = e.prof.tele;
       if (e.t > need) { e.state = "strike"; e.t = 0; }
     } else if (e.state === "strike") {
       e.t += dt;
-      const lunge = e.kind === "shade" ? 7 : 2.2;
+      const lunge = e.prof.lunge;
       e.speed = e.t < 0.28 ? lunge : 0;
       if (!e.didHit && e.t > 0.12 && e.t < 0.32) {
-        const reach = e.kind === "shade" ? 1.55 : 1.7;
-        if (dist < reach + 0.4) {
+        if (dist < e.prof.reach + 0.4) {
           e.didHit = true;
-          hurtPlayer(e.kind === "shade" ? 8 : 12, e.x, e.z, e);
+          hurtPlayer(e.prof.dmg, e.x, e.z, e);
         }
       }
       if (e.t > 0.42) { e.state = "recover"; e.t = 0; }
@@ -378,6 +416,7 @@ export function createSim(scene, world, audio) {
         e.portal = null;
       }
     }
+    fadePatches(e, dt, 0.58);
     e.rig.root.position.set(e.x, e.y, e.z);
     e.rig.root.rotation.y = e.yaw;
     const anim = e.rig.update(dt, {
@@ -989,15 +1028,15 @@ export function createSim(scene, world, audio) {
     if (step && step.step && player.grounded) audio.step();
 
     const got = pageCount();
-    let objective = `The Hum tore pages from this book. Gather them. ${got}/5`;
+    let objective = `Brain fogs are eating the pages. Gather them. ${got}/5`;
     if (!flags.rout && player.z > 70 && player.z < 92 && boss.alive) objective = "Lure the bandits under the swinging rope.";
     if (!circus && player.z > 90) objective = "Push both wagons into the river. Stage the floating circus.";
-    if (circus && boss.alive && !boss.active) objective = "The wagons are afloat. The dust coach is waiting in the ford.";
-    if (boss.active && boss.alive) objective = "The dust coach is not a coach. Break it.";
-    if (!boss.alive && got < 5) objective = `The coach is dust. The book still wants ${5 - got} page${got === 4 ? "" : "s"}.`;
+    if (circus && boss.alive && !boss.active) objective = "The wagons are afloat. A Nonimaginaire is waiting in the ford.";
+    if (boss.active && boss.alive) objective = "The Nonimaginaire is erasing the pages. Break it.";
+    if (!boss.alive && got < 5) objective = `The fog is thinning. The book still wants ${5 - got} page${got === 4 ? "" : "s"}.`;
     if (!boss.alive && got >= 5) objective = "The story is restored. Step back through the screen.";
     const here = arenas.find((a) => a.active && !a.cleared);
-    if (here && objective.startsWith("The Hum tore")) objective = "Static is pouring through a tear in the picture. Clear this stretch.";
+    if (here && objective.startsWith("Brain fogs")) objective = "Gray is eating this stretch. Clear the fog.";
 
     lastPrompt = reaction || prompt;
     lastObjective = objective;
@@ -1096,7 +1135,7 @@ export function createSim(scene, world, audio) {
       const d = hypot2(e.x - player.x, e.z - player.z);
       const rad = e.kind === "boss" ? 5.2 : 4.3;
       if (d < rad) {
-        const dmg = e.kind === "shade" ? 30 : e.kind === "boss" ? 36 : 16;
+        const dmg = e.kind === "boss" ? 36 : (e.prof ? e.prof.flash : 16);
         damageEnemy(e, dmg);
         if (e.alive && e.kind === "boss") {
           e.state = "stagger";
@@ -1293,7 +1332,7 @@ export function createSim(scene, world, audio) {
   function portalMesh(x, z) {
     const mesh = new THREE.Mesh(
       new THREE.CircleGeometry(0.95, 22),
-      new THREE.MeshBasicMaterial({ color: 0x120c16, transparent: true, opacity: 0.9, side: THREE.DoubleSide }),
+      new THREE.MeshBasicMaterial({ color: 0x3a3a3a, transparent: true, opacity: 0.9, side: THREE.DoubleSide }),
     );
     mesh.rotation.x = -Math.PI / 2;
     mesh.position.set(x, heightAt(x, z) + 0.06, z);
@@ -1444,6 +1483,20 @@ export function createSim(scene, world, audio) {
     bossRig.update(dt, { moving: false, state: "idle", hit: 0 });
   }
 
+  function colorDrain() {
+    let drain = 0;
+    const sources = enemies.filter((e) => e.alive);
+    if (boss.alive) sources.push(boss);
+    for (const e of sources) {
+      const d = hypot2(e.x - player.x, e.z - player.z);
+      const inner = e.kind === "boss" ? 12 : e.kind === "blanker" ? 5.5 : 3.4;
+      const outer = inner + (e.kind === "boss" ? 10 : 5);
+      const t = d <= inner ? 1 : clamp(1 - (d - inner) / (outer - inner), 0, 1);
+      drain = Math.max(drain, t);
+    }
+    return drain;
+  }
+
   function snapshot(camYaw, prompt, objective) {
     const head = (rig, x, y, z) => ({ x, y: y + 1.85, z });
     return {
@@ -1476,7 +1529,8 @@ export function createSim(scene, world, audio) {
       prompt,
       pages: pageCount(),
       circus,
-      objective: objective || "The Hum tore pages from this book.",
+      objective: objective || "Brain fogs are eating the pages.",
+      drain: colorDrain(),
       events,
       camYaw,
     };
