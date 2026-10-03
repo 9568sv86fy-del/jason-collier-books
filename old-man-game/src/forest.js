@@ -304,6 +304,32 @@ export function crownDepth(x, y, z, pad = 0.35) {
     }
   return worst;
 }
+/** Height where (x, z) is clear of spruce crowns. The given y is returned when it is already outside. */
+export function crownClearY(x, y, z, pad = 0.28) {
+  const cx = Math.floor(x / CRC), cz = Math.floor(z / CRC);
+  let need = y;
+  const trunk = 0.35 + pad;
+  for (let j = -1; j <= 1; j++)
+    for (let i = -1; i <= 1; i++) {
+      const a = crowns.get(`${cx + i},${cz + j}`);
+      if (!a) continue;
+      for (const c of a) {
+        const d = Math.hypot(x - c.x, z - c.z);
+        const top = c.y0 + c.h;
+        if (y >= top) continue;
+        if (d >= trunk && y < c.y0) continue;
+        if (d >= c.r + trunk && y >= c.y0) continue;
+        let yClear;
+        if (d <= trunk || c.r < 0.05) yClear = top + 0.35;
+        else {
+          const f = 1 - (d - trunk) / c.r;
+          yClear = f >= 1 ? top + 0.35 : c.y0 + c.h * Math.max(0, f) + 0.15;
+        }
+        if (need < yClear) need = yClear;
+      }
+    }
+  return need;
+}
 function addCollider(x, z, r) {
   const k = `${Math.floor(x / CC)},${Math.floor(z / CC)}`;
   let a = colliders.get(k);

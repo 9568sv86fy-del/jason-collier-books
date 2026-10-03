@@ -69,12 +69,12 @@ export function createHud() {
         lineTimer = 0;
       }
     },
-    thought(text, now) {
+    thought(text, now, ms = 4200) {
       const node = $("thought");
       if (!node) return;
       node.textContent = text || "";
       node.classList.add("show");
-      thoughtTimer = now + 4200;
+      thoughtTimer = now + (ms > 400 ? ms : 4200);
     },
     tickThought(now) {
       if (thoughtTimer && now > thoughtTimer) {

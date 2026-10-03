@@ -12,9 +12,9 @@ import { lightAt, moonOf, snowAt } from "./light.js";
 import { fireGame } from "./firegame.js";
 import { cinchGame } from "./tactile.js";
 import { BOUNDS, OVERLOOKS, PLACES, PLACE_IDS, VIEWS, heightAt, placeAt, trailBetween, trailDist } from "./terrain.js";
-import { collide, occlusion, trunksNear, crownDepth } from "./forest.js";
+import { collide, occlusion, trunksNear, crownDepth, crownClearY } from "./forest.js";
 import { clamp, damp, dampAngle, fmtClock, hash2, lerp, smooth, wrapPi } from "./util.js";
-import { preloadThoughts, speakThought, stopThought } from "./thoughts.js";
+import { LINES, armThought, preloadThoughts, speakThought, stopThought, thoughtBusy, voiceReady } from "./thoughts.js";
 
 const SAVE_KEY = "oldman-v2-save";
 const canvas = document.getElementById("view");
@@ -69,7 +69,13 @@ const T = { now: 0 };
 const bull = { x: 0, z: 0, yaw: 0, mode: "graze", vis: false, place: null, run: null, alertT: 0, wander: 0 };
 const cows = [0, 1, 2].map((i) => ({ x: 0, z: 0, yaw: 0, off: [Math.cos(i * 2.1) * 9, Math.sin(i * 2.1) * 7], run: null, place: null }));
 const W = { mode: "away", x: 0, z: 0, yaw: 0, t: 0, side: 1, hideT: 0, lastTrack: { x: 0, z: 0 }, seenNight: 0, eyes: 0, stillT: 0, charge: null, nextApproachAbs: 0, nextSpotAbs: 0, ridge: null, assault: null, pinned: 0, spot: null, scare: null };
-const fp = { k: 0, yaw: 0, pitch: 0.02 };
+const fp = { k: 0, target: 0, yaw: 0, pitch: 0.02, hold: 0, latched: false, sync: false };
+const FP_ENTER = 22; // metres: drop into his eyes
+const FP_EXIT = 34; // farther than enter, so the boundary cannot chatter
+const FP_HOLD = 1.7; // seconds in first person before an exit is allowed
+const FP_EASE = 0.85; // seconds to ease position and FOV
+const LOOK_X = 0.0058;
+const LOOK_Y = 0.0042;
 let spotArm = 0;
 let thinkAt = 0;
 let farT = 18;
@@ -124,18 +130,30 @@ function load() {
     return true;
   } catch { return false; }
 }
-const THOUGHT_REPEAT = new Set(["hear", "nerve", "close", "retreat", "missed"]);
+const THOUGHT_BEAT = new Set(["close", "retreat", "missed", "fire", "night", "dawn", "card", "eyes"]);
+const THOUGHT_TENSE = new Set(["close", "retreat", "missed", "nerve", "hear", "fire", "night", "dawn", "card", "eyes"]);
+function monsterNear() {
+  return W.mode === "spot" || W.mode === "scare" || W.mode === "still" || W.mode === "charge" || !!W.walkerNear;
+}
+function tensionHigh() {
+  return monsterNear() || (S && S.heart < 38) || W.mode === "assault" || W.mode === "chase";
+}
 function think(id) {
-  if (!S || S.mode !== "play") return;
+  if (!S || S.mode !== "play") return false;
+  if (thoughtBusy()) return false;
   const now = performance.now();
-  if (now - thinkAt < 6500 && !THOUGHT_REPEAT.has(id)) return;
-  S.thoughts = S.thoughts || {};
-  const key = id + ":" + S.day;
-  if (S.thoughts[key] && !THOUGHT_REPEAT.has(id)) return;
-  S.thoughts[key] = 1;
+  const near = monsterNear();
+  const high = tensionHigh();
+  if (near && id !== "close" && id !== "retreat" && id !== "missed") return false;
+  if (high && !THOUGHT_TENSE.has(id)) return false;
+  const gap = THOUGHT_BEAT.has(id) ? 4000 : (high || near ? 46000 : 28000);
+  if (now - thinkAt < gap) return false;
+  const gain = id === "close" ? 0.46 : high ? 0.8 : 1.22;
+  const spoken = speakThought(id, !X.muted(), { gain });
+  if (!spoken) return null;
   thinkAt = now;
-  const text = speakThought(id, !X.muted());
-  if (text) hud.thought(text, T.now || now);
+  hud.thought(spoken.text, T.now || now, spoken.ms);
+  return spoken;
 }
 
 /* elk tracks: a followable line of prints from the spur toward wherever he feeds today */
@@ -760,13 +778,15 @@ function placeSpotHide(initial) {
   if (initial) { W.x = W.spot.tx; W.z = W.spot.tz; }
 }
 function startSpot(force = false) {
-  if (!force && W.mode !== "pace" && W.mode !== "away") return;
-  if (!force && W.mode === "away" && W.hideT > 0) return;
+  if (!force && W.mode !== "pace" && W.mode !== "away") return false;
+  if (!force && W.mode === "away" && W.hideT > 0) return false;
   W.mode = "spot";
   W.t = 0;
   W.spot = { t: 0, window: 9.5, held: 0, cool: 1.7, tx: P.x, tz: P.z };
-  fp.yaw = cam.yaw;
-  fp.pitch = 0.02;
+  fp.sync = true;
+  fp.target = 1;
+  fp.latched = true;
+  fp.hold = 0;
   input.lookOnly = true;
   input.clear();
   placeSpotHide(true);
@@ -778,6 +798,7 @@ function startSpot(force = false) {
   think("close");
   hud.setWarn("FIND IT", true);
   document.body.classList.add("spotting");
+  return true;
 }
 function spotSuccess() {
   X.breathing(false);
@@ -968,9 +989,10 @@ function updateWalker(dt) {
         const k = P.moving ? 1.6 : 0.4;
         W.x = damp(W.x, p.x, k, dt); W.z = damp(W.z, p.z, k, dt);
       }
-      if (window.__oldman.freezeW) { W.x = window.__oldman.freezeW[0]; W.z = window.__oldman.freezeW[1]; }
       const c = collide(W.x, W.z, 0.6);
       W.x = c.x; W.z = c.z;
+      // a frozen walker (tests, and a held position) stays put instead of being shoved by a trunk
+      if (window.__oldman.freezeW) { W.x = window.__oldman.freezeW[0]; W.z = window.__oldman.freezeW[1]; }
       W.yaw = Math.atan2(P.x - W.x, P.z - W.z);
       // tracks: parallel to yours, thirty yards off. Not crossing. Following.
       if (Math.hypot(W.x - W.lastTrack.x, W.z - W.lastTrack.z) > 1.7) {
@@ -996,12 +1018,7 @@ function updateWalker(dt) {
         visible = false;
         if (tr) X.snapAt(panOf(tr.x, tr.z));
       }
-      // close enough, in the timber: the world snaps into his eyes and he has to find it
-      const timberHere = trunksNear(P.x, P.z, 14).length > 2;
-      if (timberHere && d > 8 && d < 26 && (dark || m > 17 * 60 + 25) && !atFire && G.absMin(S) >= (W.nextSpotAbs || 0) && !window.__oldman?.freezeW) {
-        startSpot(false);
-        return;
-      }
+      // first person is decided after the walker step, with a nearer enter than exit
       // hold-still: away from the fire in the dark, it comes in close behind you
       const fireD = Math.hypot(P.x - CAMP_FIRE.x, P.z - CAMP_FIRE.z);
       if (dark && !atFire && (fireD > 28 || !fireOn) && G.absMin(S) > W.nextApproachAbs && S.day >= 1) {
@@ -1261,13 +1278,114 @@ document.addEventListener("visibilitychange", () => { if (document.hidden && mod
 /* --------------------------------- frame --------------------------------- */
 const TURN_RATE = 1.9; // rad/s at full stick / A-D
 const tmpV = new THREE.Vector3();
+const _qT = new THREE.Quaternion();
+const _qF = new THREE.Quaternion();
+const _m4 = new THREE.Matrix4();
+const _up = new THREE.Vector3(0, 1, 0);
+const _a = new THREE.Vector3();
+const _b = new THREE.Vector3();
+function boomReach(px, pz, hy, yaw, dist, side, wantY) {
+  const fx = -Math.sin(yaw), fz = -Math.cos(yaw), rx = Math.cos(yaw), rz = -Math.sin(yaw);
+  let lo = 0.2, hi = 1;
+  for (let n = 0; n < 7; n++) {
+    const mid = (lo + hi) * 0.5;
+    const sx = px + (-fx * dist + rx * side) * mid;
+    const sz = pz + (-fz * dist + rz * side) * mid;
+    const sy = lerp(hy + 1.62, wantY, mid);
+    const buried = sy < heightAt(sx, sz) + 0.95 || crownDepth(sx, sy, sz, 0.5) > 0;
+    if (buried) hi = mid; else lo = mid;
+  }
+  return lo;
+}
+function camOnBoom(yaw, dist, side, kb, hy, wantY) {
+  const fx = -Math.sin(yaw), fz = -Math.cos(yaw), rx = Math.cos(yaw), rz = -Math.sin(yaw);
+  const x = P.x + (-fx * dist + rx * side) * kb;
+  const z = P.z + (-fz * dist + rz * side) * kb;
+  let y = lerp(hy + 1.75, wantY, Math.max(kb, 0.45));
+  y = Math.max(y, heightAt(x, z) + 1.05);
+  const buried = crownDepth(x, y, z, 0.28);
+  return { x, y, z, buried, depth: buried };
+}
+/** A point on the ring around Harlan, at about shoulder height. */
+function ringSpot(yaw, back, side, hy, wantY) {
+  const fx = -Math.sin(yaw), fz = -Math.cos(yaw), rx = Math.cos(yaw), rz = -Math.sin(yaw);
+  const x = P.x + (-fx * back + rx * side);
+  const z = P.z + (-fz * back + rz * side);
+  const y = Math.max(lerp(hy + 1.7, wantY, 0.72), heightAt(x, z) + 1.1);
+  const buried = crownDepth(x, y, z, 0.28);
+  return { x, y, z, buried, depth: buried };
+}
+/** Shoulder the camera prefers. In the open it stays on the boom; in a crown it eases to a clear ring. */
+function desiredShoulder(hy, yaw, dist, side, wantY) {
+  const nominal = boomReach(P.x, P.z, hy, yaw, dist, side, wantY);
+  const spot = camOnBoom(yaw, dist, side, nominal, hy, wantY);
+  if (spot.buried <= 0.05 && nominal > 0.72) { cam.avoid = null; return { reach: nominal, yaw, side, spot, ring: false }; }
+  const prev = cam.avoid;
+  let best = null;
+  const yaws = [0, 0.7, -0.7, 1.4, -1.4, 2.2, -2.2];
+  const backs = [dist, dist + 2.4, dist + 4.8, dist + 7.2, dist + 9.6];
+  const sides = [side, side + 2.4, side - 2.4, side + 4.8, side - 4.8];
+  for (const ny of yaws) {
+    for (const back of backs) {
+      for (const s of sides) {
+        const syaw = yaw + ny;
+        const p = ringSpot(syaw, back, s, hy, wantY);
+        let cost = p.buried * 8 + Math.abs(ny) * 0.18 + Math.abs(back - dist) * 0.06 + Math.abs(s - side) * 0.05;
+        if (prev) cost += Math.abs(wrapPi(syaw - prev.yaw)) * 0.45 + Math.abs(back - prev.back) * 0.08 + Math.abs(s - prev.side) * 0.08;
+        if (!best || cost < best.cost) best = { cost, yaw: syaw, back, side: s, spot: p };
+      }
+    }
+  }
+  if (!best || best.spot.buried > 0.05) {
+    const lifted = { ...spot, y: crownClearY(spot.x, spot.y, spot.z, 0.28) };
+    lifted.depth = crownDepth(lifted.x, lifted.y, lifted.z, 0.28);
+    return { reach: Math.min(nominal, 0.45), yaw, side, spot: lifted, ring: false };
+  }
+  cam.avoid = { yaw: best.yaw, back: best.back, side: best.side };
+  const reach = clamp(best.back / dist, 0.34, 1);
+  return { reach, yaw: best.yaw, side: best.side, spot: best.spot, ring: true };
+}
+function updateViewLatch(dt, live) {
+  if (!live) return;
+  const d = Math.hypot(W.x - P.x, W.z - P.z);
+  const sequence = W.mode === "spot" || W.mode === "scare";
+  const nightish = G.isDark(S.minutes) || S.minutes > 17 * 60 + 25;
+  const timber = placeAt(P.x, P.z) === "timber" || trunksNear(P.x, P.z, 14).length > 2;
+  const band = fp.latched ? FP_EXIT : FP_ENTER;
+  const close = d > 8 && d < band;
+  const cooled = G.absMin(S) >= (W.nextSpotAbs || 0);
+  const threat = W.mode === "pace" && timber && nightish && !G.atFireNow(S, P.x, P.z) && close;
+  if (sequence || (threat && (cooled || fp.latched || window.__oldman?.freezeW))) {
+    if (!fp.latched) {
+      let ok = sequence || !!window.__oldman?.freezeW;
+      if (!ok) ok = startSpot(false);
+      if (ok) { fp.latched = true; fp.hold = 0; fp.sync = true; fp.target = 1; }
+    }
+    if (fp.latched || sequence) fp.target = 1;
+  } else if (fp.latched && fp.hold < FP_HOLD) {
+    fp.target = 1;
+  } else if (fp.latched) {
+    cam.yaw = fp.yaw;
+    P.yaw = fp.yaw;
+    lookIdleT = 0;
+    fp.latched = false;
+    fp.target = 0;
+    input.lookOnly = false;
+  } else fp.target = 0;
+  if (fp.latched) fp.hold += dt;
+  const step = dt / FP_EASE;
+  if (fp.k < fp.target) fp.k = Math.min(fp.target, fp.k + step);
+  else if (fp.k > fp.target) fp.k = Math.max(fp.target, fp.k - step);
+}
 let stepAcc = 0, heartKey = "", ambT = 0, crackleT = 0, saveT = 0, breathT = 0;
 // Real-time simulation (playtest): game time follows the wall clock even when the frame rate drops.
 // Each rendered frame advances by the real elapsed time (capped at 0.5 s, e.g. after a tab switch),
 // split into sub-steps of at most 50 ms so movement, AI and collisions stay stable; only the last
 // sub-step renders.
+let simHold = false;
 function frame(now) {
   requestAnimationFrame(frame);
+  if (simHold) { lastT = now; return; }
   const real = Math.min(0.5, Math.max(0, (now - lastT) / 1000));
   lastT = now;
   const warp = window.__warp || 1;
@@ -1300,32 +1418,38 @@ function tick(now, dt, last) {
   // ---- movement ----
   let speed = 0;
   const spotting = W.mode === "spot" || W.mode === "scare";
+  const fpLook = spotting || fp.target > 0.5 || fp.k > 0.04;
   if (spotArm > 0 && live) { spotArm -= dt; if (spotArm <= 0) startSpot(true); }
-  if (live && spotting) {
-    input.lookOnly = true;
-    const ax = auto ? { turn: 0, fwd: 0 } : input.axes();
-    fp.yaw = wrapPi(fp.yaw - input.lookDX * 0.008 - ax.turn * dt * 1.7);
-    fp.pitch = clamp(fp.pitch - input.lookDY * 0.0055, -0.95, 0.82);
+  if (!spotting) input.lookOnly = false;
+  if (live && fpLook) {
+    input.lookOnly = spotting;
+    const ax = spotting ? (auto ? { turn: 0, fwd: 0 } : input.axes()) : null;
+    const turn = ax ? ax.turn : 0;
+    fp.yaw = wrapPi(fp.yaw - input.lookDX * LOOK_X - turn * TURN_RATE * dt);
+    fp.pitch = clamp(fp.pitch - input.lookDY * LOOK_Y, -0.95, 0.82);
     input.lookDX = 0; input.lookDY = 0;
-  } else if (fp.k < 0.08) {
-    input.lookOnly = false;
-    fp.yaw = cam.yaw;
-    fp.pitch = 0.03;
+    if (!spotting && (fp.target < 0.5 || fp.k > 0.72)) cam.yaw = fp.yaw;
   }
-  fp.k = damp(fp.k, spotting ? 1 : 0, spotting ? 2.5 : 1.8, dt);
   if (live && W.mode !== "still" && !spotting) {
     const ax = auto ? autoAxes(dt) : input.axes();
     // tank steering (playtest): left/right turns Harlan in place at a steady rate, forward walks where he
     // faces, back steps backward. Heading never snaps toward the stick direction.
     let steer = ax.turn + (Math.abs(ax.strafe) > 0.12 ? (ax.strafe - Math.sign(ax.strafe) * 0.12) / 0.88 : 0);
     steer = clamp(steer, -1, 1);
-    P.yaw = wrapPi(P.yaw - steer * TURN_RATE * (ax.sneak && !ax.run ? 0.75 : 1) * dt);
-    cam.yaw -= input.lookDX * 0.0055;
-    cam.pitch = clamp(cam.pitch + input.lookDY * 0.003, -0.1, 0.55);
-    if (input.lookDX || input.lookDY) lookIdleT = 0; else lookIdleT += dt;
-    input.lookDX = 0; input.lookDY = 0;
+    const turnK = ax.sneak && !ax.run ? 0.75 : 1;
+    P.yaw = wrapPi(P.yaw - steer * TURN_RATE * turnK * dt);
+    if (fpLook && (fp.target < 0.5 || fp.k > 0.72)) {
+      fp.yaw = wrapPi(fp.yaw - steer * TURN_RATE * turnK * dt);
+      cam.yaw = fp.yaw;
+      lookIdleT = 0;
+    } else if (!fpLook) {
+      cam.yaw -= input.lookDX * LOOK_X;
+      cam.pitch = clamp(cam.pitch + input.lookDY * 0.003, -0.1, 0.55);
+      if (input.lookDX || input.lookDY) lookIdleT = 0; else lookIdleT += dt;
+      input.lookDX = 0; input.lookDY = 0;
+    }
     // the camera settles in behind Harlan unless the player is looking around
-    if (lookIdleT > 1.2) cam.yaw = dampAngle(cam.yaw, P.yaw, Math.abs(steer) > 0.05 ? 5 : 2.2, dt);
+    if (lookIdleT > 1.2 && !fpLook) cam.yaw = dampAngle(cam.yaw, P.yaw, Math.abs(steer) > 0.05 ? 5 : 2.2, dt);
     const mag = Math.min(1, Math.abs(ax.fwd));
     if (mag > 0.08) {
       const back = ax.fwd < 0;
@@ -1370,11 +1494,11 @@ function tick(now, dt, last) {
   }
   const place = placeAt(P.x, P.z);
   if (S.tut === 0 && place === "spur") { S.tut = 1; G.say(S, "The spur. Blazes on the spruce, old axe marks gone grey. Fresh tracks cut across the snow just past the post."); think("tracks"); }
-  if (place === "timber" && !S.flags.thoughtTimber) { S.flags.thoughtTimber = 1; think("timber"); }
-  if (G.isDark(S.minutes) && atCamp() && G.fireLit(S) && !S.flags.thoughtCamp) { S.flags.thoughtCamp = S.day; think("camp"); }
-  if (S.heart < 32 && !S.flags.thoughtNerve) { S.flags.thoughtNerve = 1; think("nerve"); }
+  if (place === "timber" && S.flags.thoughtTimber !== S.day) { if (think("timber")) S.flags.thoughtTimber = S.day; }
+  if (G.isDark(S.minutes) && atCamp() && G.fireLit(S) && S.flags.thoughtCamp !== S.day) { if (think("camp")) S.flags.thoughtCamp = S.day; }
+  if (S.heart < 32 && !S.flags.thoughtNerve) { if (think("nerve")) S.flags.thoughtNerve = 1; }
   if (S.heart > 55) S.flags.thoughtNerve = 0;
-  if (S.minutes < 6 * 60 + 30 && S.minutes > 5 * 60 + 20 && !S.flags.thoughtDawn) { S.flags.thoughtDawn = S.day; think("dawn"); }
+  if (S.minutes < 6 * 60 + 30 && S.minutes > 5 * 60 + 20 && S.flags.thoughtDawn !== S.day) { if (think("dawn")) S.flags.thoughtDawn = S.day; }
   if (S.minutes > 10 * 60) S.flags.thoughtDawn = 0;
 
   // ---- world ----
@@ -1400,6 +1524,7 @@ function tick(now, dt, last) {
   E.setSticks(S.sticks, S.day === 1 || dark > 0.5);
   updateBull(dt);
   updateWalker(dt);
+  updateViewLatch(dt, live);
 
   // Harlan
   const H = E.harlan;
@@ -1469,52 +1594,70 @@ function tick(now, dt, last) {
     H.root.visible = false;
     updateOpticInfo(dt);
   } else {
-    H.root.visible = true;
     const yaw = cam.yaw;
     // over-the-shoulder: Harlan sits lower-left, the trail ahead stays open
     const dist = cam.dist + (P.running ? 0.5 : 0) + (S.elk.packed ? 0.3 : 0);
     const fx = -Math.sin(yaw), fz = -Math.cos(yaw), rx = Math.cos(yaw), rz = -Math.sin(yaw);
     const side = 0.85;
-    // never put the lens inside a spruce: march out from Harlan's head and stop short of the first bough
-    // (playtest: the camera must not clip trees; pull in rather than fill the screen with needles)
     const wantY = hy + cam.height + cam.pitch * 3.2;
-    let k = 1;
-    for (let i = 1; i <= 12; i++) {
-      const f = i / 12;
-      const sx = P.x + (-fx * dist + rx * side) * f, sz = P.z + (-fz * dist + rz * side) * f;
-      const sy = lerp(hy + 1.6, wantY, f);
-      if (crownDepth(sx, sy, sz, 0.65) > 0) { k = Math.max(0.22, (i - 1) / 12); break; }
+    const want = desiredShoulder(hy, yaw, dist, side, wantY);
+    if (!want.ring) cam.avoid = null;
+    if (cam.boom == null) cam.boom = want.reach;
+    const pulling = want.ring || want.reach < cam.boom - 0.002;
+    cam.boom = damp(cam.boom, want.reach, pulling ? 4.4 : 2.3, dt);
+    const goal = (want.ring || want.spot.buried > 0.05) ? want.spot : camOnBoom(yaw, dist, side, cam.boom, hy, wantY);
+    if (!cam.ready) { cam.x = goal.x; cam.y = goal.y; cam.z = goal.z; cam.ready = true; }
+    else {
+      // ease into the clear spot; a hard snap is what made the shoulder feel finicky
+      const rate = want.ring ? 3.5 : 8;
+      cam.x = damp(cam.x, goal.x, rate, dt);
+      cam.y = damp(cam.y, goal.y, rate, dt);
+      cam.z = damp(cam.z, goal.z, rate, dt);
     }
-    cam.boom = damp(cam.boom ?? 1, k, k < (cam.boom ?? 1) ? 14 : 2.5, dt); // snap in fast, ease back out
-    const kb = cam.boom;
-    let cx = P.x + (-fx * dist + rx * side) * kb, cz = P.z + (-fz * dist + rz * side) * kb;
-    let cy = lerp(hy + 1.75, wantY, Math.max(kb, 0.6));
-    cy = Math.max(cy, heightAt(cx, cz) + 0.9);
-    cam.x = damp(cam.x || cx, cx, 12, dt); cam.z = damp(cam.z || cz, cz, 12, dt); cam.y = damp(cam.y || cy, cy, 9, dt);
-    // last guard after smoothing: if the lens still ends up in a bough, slide it straight toward Harlan
-    for (let g = 0; g < 8 && crownDepth(cam.x, cam.y, cam.z, 0.45) > 0; g++) { cam.x = lerp(cam.x, P.x, 0.34); cam.z = lerp(cam.z, P.z, 0.34); cam.y += 0.12; }
-    const blend = fp.k * fp.k * (3 - 2 * fp.k);
+    const floor = heightAt(cam.x, cam.z) + 1.05;
+    if (cam.y < floor) cam.y = damp(cam.y, floor, 6, dt);
+    const ahead = 7;
+    const ly = heightAt(P.x + fx * ahead, P.z + fz * ahead);
+    const ox = P.x + fx * ahead + rx * side * 0.6;
+    const oy = Math.max(ly, hy) + 1.15 - cam.pitch * 2 + (W.mode === "still" ? -0.2 : 0);
+    const oz = P.z + fz * ahead + rz * side * 0.6;
     const eyeY = hy + 1.62;
+    if (fp.sync || (!spotting && fp.target < 0.5 && fp.k < 0.02)) {
+      const dx = ox - cam.x, dy = oy - cam.y, dz = oz - cam.z;
+      fp.yaw = Math.atan2(-dx, -dz);
+      fp.pitch = Math.atan2(dy, Math.hypot(dx, dz) || 1);
+      fp.sync = false;
+    }
+    const blend = fp.k * fp.k * (3 - 2 * fp.k);
+    if (blend > 0.42) H.root.visible = false;
+    else if (blend < 0.18) H.root.visible = true;
     cam.shake = Math.max(0, cam.shake - dt * 1.5);
     const sh = cam.shake * 0.12;
     const px = lerp(cam.x, P.x, blend) + (Math.random() - 0.5) * sh;
     const py = lerp(cam.y, eyeY, blend) + (Math.random() - 0.5) * sh * 0.6;
     const pz = lerp(cam.z, P.z, blend) + (Math.random() - 0.5) * sh;
     camT.position.set(px, py, pz);
-    H.root.visible = blend < 0.42;
-    const ahead = 7;
-    const ly = heightAt(P.x + fx * ahead, P.z + fz * ahead);
-    const ox = P.x + fx * ahead + rx * side * 0.6;
-    const oy = Math.max(ly, hy) + 1.15 - cam.pitch * 2 + (W.mode === "still" ? -0.2 : 0);
-    const oz = P.z + fz * ahead + rz * side * 0.6;
-    const yawL = cam.yaw + wrapPi(fp.yaw - cam.yaw) * blend;
-    const pit = lerp(-cam.pitch * 0.25, fp.pitch, blend);
-    const lx = px - Math.sin(yawL) * Math.cos(pit) * 8;
-    const ly2 = py + Math.sin(pit) * 8;
-    const lz = pz - Math.cos(yawL) * Math.cos(pit) * 8;
-    camT.lookAt(lerp(ox, lx, blend), lerp(oy, ly2, blend), lerp(oz, lz, blend));
-    const bf = baseFov() * lerp(1, 0.82, blend);
-    if (Math.abs(camT.fov - bf) > 0.04) { camT.fov = bf; camT.updateProjectionMatrix(); }
+    const useFp = spotting || fp.target > 0.5 || fp.k > 0.04;
+    if (!useFp) {
+      camT.lookAt(ox, oy, oz);
+    } else {
+      const pit = fp.pitch;
+      _a.set(cam.x, cam.y, cam.z);
+      _b.set(ox, oy, oz);
+      _m4.lookAt(_a, _b, _up);
+      _qT.setFromRotationMatrix(_m4);
+      _a.set(P.x, eyeY, P.z);
+      _b.set(
+        P.x - Math.sin(fp.yaw) * Math.cos(pit) * 8,
+        eyeY + Math.sin(pit) * 8,
+        P.z - Math.cos(fp.yaw) * Math.cos(pit) * 8,
+      );
+      _m4.lookAt(_a, _b, _up);
+      _qF.setFromRotationMatrix(_m4);
+      camT.quaternion.slerpQuaternions(_qT, _qF, blend);
+    }
+    const bf = baseFov() * lerp(1, 0.84, blend);
+    if (Math.abs(camT.fov - bf) > 0.01) { camT.fov = bf; camT.updateProjectionMatrix(); }
   }
   occlusion.uCam.value.copy(camT.position);
   occlusion.uPlayer.value.set(P.x, hy + 1.1, P.z);
@@ -1626,7 +1769,8 @@ function updateHud(dark) {
   hud.setNerve(S.heart);
   hud.setLine(S.line, now);
   hud.tickThought(now);
-  document.body.classList.toggle("spotting", W.mode === "spot" || W.mode === "scare" || fp.k > 0.4);
+  document.body.classList.toggle("spotting", W.mode === "spot" || W.mode === "scare");
+  document.body.classList.toggle("eyeline", fp.k > 0.35);
   const ctx = { atCamp: atCamp(), px: P.x, pz: P.z };
   const ob = G.objective(S, ctx);
   const dist = ob && ob.target ? Math.hypot(ob.target.x - P.x, ob.target.z - P.z) : null;
@@ -1706,9 +1850,9 @@ function autoAxes(dt) {
 window.__oldman = {
   get S() { return S; }, P, W, bull, E, G,
   get mode() { return mode; },
-  teleport(x, z, yaw) { P.x = x; P.z = z; if (yaw != null) { P.yaw = yaw; cam.yaw = yaw; } cam.x = 0; cam.y = 0; cam.z = 0; },
+  teleport(x, z, yaw) { P.x = x; P.z = z; if (yaw != null) { P.yaw = yaw; cam.yaw = yaw; fp.yaw = yaw; } cam.x = 0; cam.y = 0; cam.z = 0; cam.ready = false; cam.boom = 1; },
   tp(place, back = 0) { const p = PLACES[place]; this.teleport(p.x, p.z + back, P.yaw); },
-  face(x, z) { const y = Math.atan2(-(x - P.x), -(z - P.z)); P.yaw = y; cam.yaw = y; cam.x = 0; cam.y = 0; cam.z = 0; if (optic) { optic.yaw = y; optic.pitch = Math.atan2(heightAt(x, z) + 1.2 - heightAt(P.x, P.z) - 1.65, Math.hypot(x - P.x, z - P.z)); } },
+  face(x, z) { const y = Math.atan2(-(x - P.x), -(z - P.z)); P.yaw = y; cam.yaw = y; fp.yaw = y; cam.ready = false; if (optic) { optic.yaw = y; optic.pitch = Math.atan2(heightAt(x, z) + 1.2 - heightAt(P.x, P.z) - 1.65, Math.hypot(x - P.x, z - P.z)); } },
   setTime(day, minutes) { S.day = day; S.minutes = minutes; },
   advance,
   start() { if (!S) freshGame(); startPlay(); },
@@ -1739,6 +1883,47 @@ window.__oldman = {
   get fpYaw() { return fp.yaw; },
   get spotting() { return W.mode; },
   set warpT(v) { window.__warp = v; },
+  fpBand: { enter: FP_ENTER, exit: FP_EXIT, hold: FP_HOLD, ease: FP_EASE },
+  placeWalker(dist, ang = 0) {
+    const x = P.x + Math.sin(ang) * dist;
+    const z = P.z + Math.cos(ang) * dist;
+    W.mode = "pace";
+    W.hideT = 0;
+    W.x = x; W.z = z;
+    this.freezeW = [x, z];
+    E.walker.root.visible = true;
+    E.walker.root.position.set(x, heightAt(x, z), z);
+  },
+  camState() {
+    const d = new THREE.Vector3();
+    E.camera.getWorldDirection(d);
+    return {
+      k: fp.k, target: fp.target, latched: fp.latched, hold: +fp.hold.toFixed(3),
+      yaw: fp.yaw, camYaw: cam.yaw, pyaw: P.yaw, fov: E.camera.fov, boom: cam.boom ?? 1,
+      pos: [E.camera.position.x, E.camera.position.y, E.camera.position.z],
+      dir: [d.x, d.y, d.z], mode: W.mode, lookOnly: !!input.lookOnly,
+      clip: crownDepth(E.camera.position.x, E.camera.position.y, E.camera.position.z, 0.2),
+      wd: Math.hypot(W.x - P.x, W.z - P.z),
+      ground: E.camera.position.y - heightAt(E.camera.position.x, E.camera.position.z),
+    };
+  },
+  relaxThought() { thinkAt = 0; armThought(); },
+  sayThought(id) { return think(id); },
+  holdSim(on) { simHold = !!on; lastT = performance.now(); },
+  pump(seconds = 0.05, present = false) {
+    const total = Math.max(0.001, seconds);
+    const n = Math.min(120, Math.max(1, Math.ceil(total / 0.05)));
+    const dt = total / n;
+    const now = performance.now();
+    for (let i = 0; i < n; i++) tick(now, dt, present && i === n - 1);
+  },
+  draw() { E.render(E.camera); },
+  thoughtText() {
+    const n = document.getElementById("thought");
+    return { text: n ? n.textContent : "", show: !!(n && n.classList.contains("show")) };
+  },
+  thoughtLines() { return LINES; },
+  voiceReady,
 };
 
 /* --------------------------------- go --------------------------------- */
