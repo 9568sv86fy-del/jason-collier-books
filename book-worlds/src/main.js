@@ -5,6 +5,7 @@ import { createSim } from "./sim.js";
 import { damp, dampAngle, clamp } from "./util.js";
 import { createNarration } from "./narration.js";
 import { buildWorld } from "./world.js";
+import { theBlank } from "../bosses/index.js";
 
 const canvas = document.getElementById("view");
 const app = document.getElementById("app");
@@ -44,6 +45,8 @@ let station = 0;
 let signalClosed = false;
 let transitioning = false;
 let pullTimer = 0;
+let blankTimer = 0;
+let blankVoiceTimer = 0;
 let ready = false;
 let camYaw = 0.25;
 let camPitch = 0.42;
@@ -95,6 +98,9 @@ const el = {
   stNum: document.getElementById("st-num"),
   tune: document.getElementById("tune-in"),
   knob: document.getElementById("dial-knob"),
+  blankShade: document.getElementById("blank-shade"),
+  blankFace: document.getElementById("blank-face"),
+  blankVoice: document.getElementById("blank-voice"),
 };
 
 const STATIONS = [
@@ -251,11 +257,41 @@ function setStation(index, fromUser) {
   pullTimer = window.setTimeout(() => el.screen.classList.remove("is-tuning"), reducedMotion() ? 0 : 460);
 }
 
+function hideBlankShade() {
+  el.blankShade.classList.remove("is-on");
+  el.blankShade.hidden = true;
+}
+
+function glimpseBlank() {
+  el.blankShade.hidden = false;
+  el.blankShade.classList.remove("is-on");
+  void el.blankShade.offsetWidth;
+  el.blankShade.classList.add("is-on");
+}
+
+function flickerBlank() {
+  el.blankVoice.textContent = theBlank.voice;
+  el.blankFace.hidden = false;
+  el.blankFace.classList.remove("is-on");
+  void el.blankFace.offsetWidth;
+  el.blankFace.classList.add("is-on");
+  clearTimeout(blankTimer);
+  clearTimeout(blankVoiceTimer);
+  blankTimer = window.setTimeout(() => {
+    el.blankFace.classList.remove("is-on");
+    el.blankFace.hidden = true;
+  }, 5400);
+  blankVoiceTimer = window.setTimeout(() => {
+    if (mode === "hub" && signalClosed && !transitioning) narrate.say("blank-next");
+  }, 4600);
+}
+
 function finishThrough() {
   el.hub.classList.remove("pull");
   el.hub.hidden = true;
   el.roll.classList.remove("in", "out");
   el.roll.hidden = true;
+  hideBlankShade();
   transitioning = false;
   sim.resetTrail();
   camYaw = 0.55;
@@ -268,8 +304,10 @@ function pullThrough() {
   transitioning = true;
   audio.unlock();
   audio.staticBurst();
+  glimpseBlank();
   if (reducedMotion()) {
-    finishThrough();
+    clearTimeout(pullTimer);
+    pullTimer = window.setTimeout(finishThrough, 720);
     return;
   }
   el.roll.hidden = false;
@@ -300,6 +338,7 @@ function pullBack() {
   el.card.hidden = true;
   document.body.classList.remove("playing");
   narrate.say("restored");
+  flickerBlank();
   if (reducedMotion()) {
     finishBack();
     return;

@@ -21,6 +21,7 @@ export function createNarration() {
   function kickerFor(id) {
     if (id.startsWith("page-")) return "Story page";
     if (id === "restored") return "Station 1";
+    if (id === "blank-next") return "Dead air";
     return "Special bulletin";
   }
 

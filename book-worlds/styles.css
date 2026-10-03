@@ -419,6 +419,29 @@ body.touch.playing #bulletin { bottom: calc(196px + env(safe-area-inset-bottom))
 #roll.hold { opacity: 1; }
 #roll.in { animation: bw-suck .95s linear forwards; }
 #roll.out { animation: bw-unsuck .95s linear forwards; }
+.blank-shade {
+  position: absolute; inset: 0; z-index: 11; pointer-events: none;
+  display: grid; place-items: end center;
+  background: radial-gradient(ellipse at 50% 42%, rgba(180, 180, 180, .18), rgba(8, 8, 8, .55) 70%);
+}
+.blank-shade[hidden] { display: none; }
+.blank-shade svg { width: min(78vh, 440px); height: 94%; }
+.blank-shade.is-on { animation: blank-glimpse 1.05s ease forwards; }
+.blank-face {
+  position: absolute; inset: 0; z-index: 1; pointer-events: none;
+  display: grid; place-items: center;
+  background: rgba(10, 10, 10, .45);
+}
+.blank-face[hidden] { display: none; }
+.blank-face svg { width: 78%; height: 78%; }
+.blank-face.is-on { animation: blank-flicker 5.2s linear forwards; }
+.blank-voice {
+  position: absolute; left: 6%; right: 6%; bottom: 38%;
+  margin: 0; text-align: center; color: #ececec;
+  font-family: var(--ui); letter-spacing: .12em; text-transform: uppercase;
+  font-size: clamp(.62rem, 1.5vw, .88rem);
+  text-shadow: 0 0 10px #000, 0 1px 0 #000;
+}
 @keyframes bw-snow { 50% { transform: translate(3%, -2%); } }
 @keyframes bw-roll { to { transform: translateY(18px); } }
 @keyframes bw-hold { 50% { transform: translateY(5%); } }
@@ -426,6 +449,11 @@ body.touch.playing #bulletin { bottom: calc(196px + env(safe-area-inset-bottom))
 @keyframes bw-suck { 0% { opacity: 0; } 35% { opacity: .28; } 100% { opacity: 1; } }
 @keyframes bw-unsuck { 0% { opacity: 1; } 55% { opacity: .35; } 100% { opacity: 0; } }
 @keyframes bw-shrink { from { transform: scale(2.55) translateY(-6%); } to { transform: none; } }
+@keyframes blank-glimpse { 0% { opacity: 0; } 30% { opacity: 1; } 68% { opacity: .8; } 100% { opacity: 0; } }
+@keyframes blank-flicker {
+  0% { opacity: 0; } 8% { opacity: .95; } 16% { opacity: .12; } 28% { opacity: .88; }
+  46% { opacity: .2; } 62% { opacity: .8; } 84% { opacity: .35; } 100% { opacity: 0; }
+}
 @media (max-width: 640px) {
   #hub { padding: 6px 8px 8px; }
   #hub .bw-show { font-size: 1.25rem; margin-bottom: .2rem; }

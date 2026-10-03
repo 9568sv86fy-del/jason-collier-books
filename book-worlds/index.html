@@ -168,6 +168,13 @@
                 </div>
                 <div class="bw-snow" aria-hidden="true"></div>
                 <div class="bw-bars" aria-hidden="true"></div>
+                <div id="blank-face" class="blank-face" hidden aria-hidden="true">
+                  <svg viewBox="0 0 240 280">
+                    <ellipse cx="120" cy="196" rx="108" ry="90" fill="#3a3a3a"/>
+                    <ellipse cx="120" cy="92" rx="52" ry="70" fill="#bdbdbd"/>
+                  </svg>
+                  <p class="blank-voice" id="blank-voice"></p>
+                </div>
                 <p class="bw-soon" id="st-soon" hidden>Coming soon</p>
                 <div class="bw-caption">
                   <p class="bw-freq" id="st-freq">54.7</p>
@@ -204,6 +211,19 @@
     </div>
   </div>
   <div id="roll" hidden aria-hidden="true"><div class="bw-snow"></div><div class="bw-bars"></div></div>
+  <div id="blank-shade" class="blank-shade" hidden aria-hidden="true">
+    <svg viewBox="0 0 240 420">
+      <defs>
+        <radialGradient id="blank-void" cx="50%" cy="46%" r="58%">
+          <stop offset="0" stop-color="#d2d2d2"/>
+          <stop offset=".5" stop-color="#5a5a5a"/>
+          <stop offset="1" stop-color="#0c0c0c" stop-opacity="0"/>
+        </radialGradient>
+      </defs>
+      <ellipse cx="120" cy="292" rx="112" ry="150" fill="url(#blank-void)"/>
+      <ellipse cx="120" cy="108" rx="48" ry="66" fill="#c8c8c8"/>
+    </svg>
+  </div>
 
   <div id="card" class="story" role="dialog" aria-modal="true" aria-labelledby="card-title" hidden>
     <div class="story-card">

@@ -4,11 +4,13 @@
 //   lines {jang, tom, lasso, win}, objective {waiting, fighting, thinning(left)},
 //   create() -> { root, update(dt, {moving, state, hit}) }
 import { boss as californiaTrail } from "./california-trail.js";
+export { theBlank } from "./the-blank.js";
 
 const bosses = {
   "california-trail": californiaTrail,
 };
 
+// theBlank is the final boss of the whole game, not a world boss. Do not add it here.
 export function bossFor(worldId) {
   const boss = bosses[worldId];
   if (!boss) throw new Error("No signature boss for " + worldId);
