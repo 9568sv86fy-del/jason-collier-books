@@ -250,7 +250,7 @@ body.touch #keys { display: none; }
   transition: transform .92s cubic-bezier(.45, 0, .2, 1);
 }
 #hub.pull .bw-cabinet { transform: scale(2.65) translateY(-4%); }
-#hub.return .bw-cabinet { transform: scale(2.65) translateY(-4%); transition: none; }
+#hub.settle .bw-cabinet { animation: bw-shrink .9s cubic-bezier(.2, .7, .2, 1) forwards; }
 #hub .bw-plaque {
   display: flex; align-items: center; justify-content: center; gap: .7rem; flex: none;
   color: #f0ddb4; font-family: var(--ui); letter-spacing: .28em; text-transform: uppercase; font-size: .66rem;
@@ -333,14 +333,11 @@ body.touch #keys { display: none; }
   transform: rotate(-8deg);
 }
 #hub .bw-dial {
-  flex: none; display: grid; grid-template-columns: 44px 64px 44px 1fr; grid-template-areas: "prev knob next num" "tune tune tune tune";
-  gap: 8px; align-items: center; justify-items: center;
+  flex: none; width: 100%;
+  display: flex; flex-direction: column; align-items: center; gap: 8px;
 }
-#dial-prev { grid-area: prev; }
-#dial-knob { grid-area: knob; }
-#dial-next { grid-area: next; }
-#st-num { grid-area: num; justify-self: start; }
-#tune-in { grid-area: tune; width: 100%; }
+#hub .bw-cluster { display: flex; align-items: center; justify-content: center; gap: 8px; }
+#tune-in { width: min(100%, 28rem); }
 #dial-prev, #dial-next, #tune-in {
   min-width: 44px; min-height: 44px; padding: 0 .7rem; cursor: pointer;
   border: 1px solid rgba(240, 221, 180, .55); background: rgba(36, 18, 8, .35); color: #f0ddb4;
@@ -399,6 +396,7 @@ body.touch #keys { display: none; }
 @keyframes bw-tube { 0%, 92%, 100% { opacity: .25; } 94% { opacity: .7; } 96% { opacity: .2; } }
 @keyframes bw-suck { 0% { opacity: 0; } 35% { opacity: .28; } 100% { opacity: 1; } }
 @keyframes bw-unsuck { 0% { opacity: 1; } 55% { opacity: .35; } 100% { opacity: 0; } }
+@keyframes bw-shrink { from { transform: scale(2.55) translateY(-6%); } to { transform: none; } }
 @media (max-width: 640px) {
   #hub { padding: 6px 8px 8px; }
   #hub .bw-show { font-size: 1.25rem; margin-bottom: .2rem; }

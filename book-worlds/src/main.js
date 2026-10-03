@@ -176,7 +176,7 @@ function showHub() {
   input.enabled = false;
   el.card.hidden = true;
   el.hub.hidden = false;
-  el.hub.classList.remove("pull", "return");
+  el.hub.classList.remove("pull", "return", "settle");
   paintStation();
 }
 
@@ -227,7 +227,7 @@ function pullThrough() {
 }
 
 function finishBack() {
-  el.hub.classList.remove("pull", "return");
+  el.hub.classList.remove("pull", "return", "settle");
   el.hub.hidden = false;
   el.roll.classList.remove("in", "out");
   el.roll.hidden = true;
@@ -249,20 +249,14 @@ function pullBack() {
     return;
   }
   el.roll.hidden = false;
-  el.roll.classList.remove("in", "out");
-  el.roll.classList.add("hold");
+  el.roll.classList.remove("in", "hold");
+  el.roll.classList.add("out");
   el.hub.hidden = false;
-  el.hub.classList.add("return");
+  el.hub.classList.remove("pull", "return");
+  el.hub.classList.add("settle");
   paintStation();
-  requestAnimationFrame(() => {
-    requestAnimationFrame(() => {
-      el.hub.classList.remove("return");
-      el.roll.classList.remove("hold", "in");
-      el.roll.classList.add("out");
-    });
-  });
   clearTimeout(pullTimer);
-  pullTimer = window.setTimeout(finishBack, 1000);
+  pullTimer = window.setTimeout(finishBack, 980);
 }
 
 function tryTune() {
