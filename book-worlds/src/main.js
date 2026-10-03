@@ -3,6 +3,7 @@ import { createAudio } from "./audio.js";
 import { createInput } from "./input.js";
 import { createSim } from "./sim.js";
 import { damp, dampAngle, clamp } from "./util.js";
+import { createNarration } from "./narration.js";
 import { buildWorld } from "./world.js";
 
 const canvas = document.getElementById("view");
@@ -23,6 +24,7 @@ const audio = createAudio();
 const world = buildWorld(scene, low);
 const sim = createSim(scene, world, audio);
 const input = createInput(app);
+const narrate = createNarration();
 
 const flashLight = new THREE.PointLight(0xffe6b8, 0, 16, 1.5);
 scene.add(flashLight);
@@ -133,27 +135,27 @@ const PAGES = {
   handbills: {
     script: "A torn page",
     title: "Flashy handbills",
-    body: "Philadelphia still had their debts, so the prairie got a new set of names. They printed flashy handbills — experienced navigators, reasonable rates, safe passage guaranteed — and families believed the ink. The guides had never taken a wagon anywhere but away from a creditor.",
+    body: "A torn page. Two debtors printed flashy handbills and hired themselves out as guides who had never guided a wagon.",
   },
   dentistry: {
     script: "A torn page",
     title: "Negotiated by dentistry",
-    body: "Pawnee warriors met the train already in the right. Jang negotiated anyway. What passed for a truce turned on dentistry: a promise of teeth standing in for a promise of sense.",
+    body: "A torn page. Pawnee warriors had the train surrounded. Jang bought the peace with dentistry.",
   },
   bear: {
     script: "A torn page",
     title: "The hunt turns around",
-    body: "They set out after a bear with the confidence of men who had heard of bears. The bear declined the role. Before the woods grew quiet, the hunters were the ones being followed home.",
+    body: "A torn page. The bear hunt turned inside out. The hunters became the hunted.",
   },
   pendulum: {
     script: "A torn page",
     title: "A human pendulum",
-    body: "Bandits had the wagons boxed in a narrow place. The way through was a rope, a bad idea, and Tom, who is built like a counterweight. He became the clumsiest human pendulum in the territory. The bandits left on the backswing.",
+    body: "A torn page. Bandits held the narrows until Tom, the clumsiest human pendulum in the West, cleared them on the backswing.",
   },
   circus: {
     script: "A torn page",
     title: "The floating circus",
-    body: "The river would not ford and would not negotiate. Jang announced a circus. The wagons went in as boats, the oxen as a reluctant audience, and the crossing floated because a lie, told with enough canvas, will sometimes hold water.",
+    body: "A torn page. The river would not ford, so the crossing became a floating circus of wagons.",
   },
 };
 
@@ -170,20 +172,25 @@ function showCard(id) {
   el.card.dataset.card = id;
   playing = false;
   input.enabled = false;
+  document.body.classList.remove("playing");
+  if (id === "title") narrate.say("intro");
 }
 function showPage(id, n) {
   const c = PAGES[id];
+  const spoken = narrate.line("page-" + id) || c.body;
   mode = "page";
   el.script.textContent = c.script;
   el.kicker.textContent = `Story page  ·  ${n} of 5`;
   el.title.textContent = c.title;
-  el.body.textContent = c.body;
+  el.body.textContent = spoken;
   el.btn.textContent = "Tuck it back";
   el.hint.hidden = true;
   el.card.hidden = false;
   el.card.dataset.card = "page";
   playing = false;
   input.enabled = false;
+  document.body.classList.remove("playing");
+  narrate.say("page-" + id);
 }
 
 function hideCard() {
@@ -192,6 +199,7 @@ function hideCard() {
   playing = true;
   input.enabled = true;
   mode = "play";
+  document.body.classList.add("playing");
 }
 
 function paintStation() {
@@ -222,6 +230,7 @@ function showHub() {
   el.card.hidden = true;
   el.hub.hidden = false;
   el.hub.classList.remove("pull", "return", "settle");
+  document.body.classList.remove("playing");
   paintStation();
 }
 
@@ -289,6 +298,8 @@ function pullBack() {
   mode = "hub";
   audio.staticBurst();
   el.card.hidden = true;
+  document.body.classList.remove("playing");
+  narrate.say("restored");
   if (reducedMotion()) {
     finishBack();
     return;
@@ -342,6 +353,7 @@ el.btn.addEventListener("click", () => {
     camPitch = 0.42;
     sim.begin();
     hideCard();
+    narrate.say("enter");
   } else if (mode === "dead") {
     sim.revive();
     hideCard();
@@ -495,6 +507,7 @@ function frame(now) {
     else if (ev.type === "outro") showCard("outro");
     else if (ev.type === "gate") pullBack();
     else if (ev.type === "page") showPage(ev.id, ev.n);
+    else if (ev.type === "bulletin") narrate.say(ev.id);
     else if (ev.type === "boss") shake = 0.2;
   }
 
@@ -572,6 +585,7 @@ window.__BOOKWORLDS = {
     return { x: p.x, y: p.y, z: p.z, hp: p.hp, yaw: p.yaw, hits: sim.hits() };
   },
   enemies: () => sim.enemies.map((e) => ({ id: e.id, kind: e.kind, hp: e.hp, alive: e.alive, x: e.x, z: e.z, pendulum: !!e.pendulum, routed: !!e.routed })),
+  bulletin: () => narrate.current(),
   pages: () => sim.pageCount(),
   circus: () => sim.circusDone(),
   floats: () => sim.floats(),

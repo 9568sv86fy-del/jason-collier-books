@@ -315,6 +315,7 @@ export function createSim(scene, world, audio) {
       audio.setTension(1);
       speak("jang", LINES.jang.boss);
       events.push({ type: "boss" });
+      events.push({ type: "bulletin", id: "boss" });
     }
     if (!boss.active) {
       bossRig.root.position.set(boss.x, heightAt(boss.x, boss.z), boss.z);
@@ -747,10 +748,12 @@ export function createSim(scene, world, audio) {
     if (!flags.ford && !circus && player.z > 92) {
       flags.ford = true;
       speak("jang", LINES.jang.ford);
+      events.push({ type: "bulletin", id: "scene-circus" });
     }
     if (!flags.rope && player.z > 72 && player.z < 90) {
       flags.rope = true;
       speak("jang", LINES.jang.rope);
+      events.push({ type: "bulletin", id: "scene-rope" });
     }
 
     const chest = tryChests();
@@ -944,6 +947,8 @@ export function createSim(scene, world, audio) {
       boss.active = true;
       boss.state = "intro";
       boss.t = 0;
+      pending.push({ type: "boss" });
+      pending.push({ type: "bulletin", id: "boss" });
     },
     revive() {
       player.hp = player.hpMax;
