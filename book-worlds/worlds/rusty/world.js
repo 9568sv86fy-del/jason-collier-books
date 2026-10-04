@@ -805,7 +805,7 @@ export function buildRustyWorld(scene, low) {
     placeChest(scene, 4.8, 3.6, wood, dark),
     placeChest(scene, -30.5, 6.5, wood, dark),
   ];
-  chests.forEach((c) => block(c.x, c.z, 0.5));
+  chests.forEach((c) => block(c.x, c.z, 0.42));
 
   const radio = buildRadio(scene);
   const gate = buildHornGate(scene, brass, dark);
@@ -874,7 +874,11 @@ export function buildRustyWorld(scene, low) {
       farShip.position.x = -55 + Math.sin(t * 0.15) * 6;
       farShip.position.y = 6 + Math.sin(t * 0.4) * 0.4;
       posePages(pages, t);
-      if (gate.open) gate.glow.material.opacity = 0.45 + Math.sin(t * 3) * 0.2;
+      const gateOn = gate.ready || gate.open;
+      const pulse = gateOn ? 0.42 + Math.sin(t * 3) * 0.18 : 0;
+      gate.glow.material.opacity = pulse;
+      if (gate.sheet) gate.sheet.material.opacity = gate.open ? 0.62 : pulse;
+      if (gate.lamp) gate.lamp.intensity = gateOn ? 2.1 + Math.sin(t * 3) * 0.5 : 0;
       if (radio.glow) radio.glow.material.opacity = 0.35 + Math.sin(t * 3.1) * 0.3;
       scene.fog.color.setHex(focus.z > 42 ? 0x6a6e78 : 0x9aa8b8);
     },
@@ -1025,17 +1029,26 @@ function buildHornGate(scene, brass, dark) {
   );
   glow.rotation.x = -Math.PI / 2;
   glow.position.y = 0.05;
-  root.add(post, bell, glow);
+  const sheet = new THREE.Mesh(
+    new THREE.PlaneGeometry(1.7, 2.5),
+    new THREE.MeshBasicMaterial({ color: 0xffe2a8, transparent: true, opacity: 0, side: THREE.DoubleSide, depthWrite: false }),
+  );
+  sheet.position.y = 1.4;
+  const lamp = new THREE.PointLight(0xffe2a8, 0, 8, 2);
+  lamp.position.y = 1.6;
+  root.add(post, bell, glow, sheet, lamp);
   root.position.set(0, 0, -15.2);
   scene.add(root);
   return {
     root,
     glow,
+    sheet,
+    lamp,
     open: false,
     x: 0,
     z: -15.2,
     ready: false,
     setReady(v) { this.ready = !!v; },
-    setOpen(v) { this.open = !!v; glow.material.opacity = this.open ? 0.7 : 0; },
+    setOpen(v) { this.open = !!v; },
   };
 }

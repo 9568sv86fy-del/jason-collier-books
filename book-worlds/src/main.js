@@ -1,14 +1,14 @@
 import * as THREE from "three";
 import { createAudio } from "./audio.js?v=2";
-import { createInput } from "./input.js";
-import { createSim } from "./sim.js?v=2";
+import { createInput } from "./input.js?v=3";
+import { createSim } from "./sim.js?v=3";
 import { damp, clamp, springAngle, angDelta } from "./util.js";
 import { createNarration } from "./narration.js";
 import { createDialogue } from "./dialogue.js?v=2";
 import { EffectComposer, RenderPass, UnrealBloomPass, OutputPass, GTAOPass, ShaderPass } from "three/addons";
-import { buildWorld } from "./world.js?v=2";
-import { buildRustyWorld } from "../worlds/rusty/world.js?v=3";
-import { createRustySim } from "../worlds/rusty/sim.js?v=3";
+import { buildWorld } from "./world.js?v=3";
+import { buildRustyWorld } from "../worlds/rusty/world.js?v=4";
+import { createRustySim } from "../worlds/rusty/sim.js?v=4";
 import { whenCastReady } from "./actors.js?v=3";
 import { theBlank } from "../bosses/index.js";
 
@@ -104,6 +104,10 @@ let mode = direct ? "play" : "hub";
 let playing = mode === "play";
 let station = 0;
 const restored = { trail: false, stack: false };
+try {
+  restored.trail = localStorage.getItem("book-worlds-world1-clear") === "1";
+  restored.stack = localStorage.getItem("book-worlds-world2-clear") === "1";
+} catch { /* private mode */ }
 let transitioning = false;
 let pullTimer = 0;
 let blankTimer = 0;
@@ -121,6 +125,7 @@ const lookAt = new THREE.Vector3();
 let flashI = 0;
 let shockK = 0;
 let shake = 0;
+let hurtFlash = 0;
 const floats = [];
 const v = new THREE.Vector3();
 
@@ -202,7 +207,7 @@ const CARDS = {
     kicker: "The trail keeps your boots",
     title: "Not yet",
     body: "The Keeper hits the dirt. Jang is already composing the handbill. Tom offers a hand the size of a skillet.",
-    btn: "Get up",
+    btn: "Retry",
     hint: false,
   },
 };
@@ -229,7 +234,7 @@ const STACK_CARDS = {
     kicker: "The deck keeps your boots",
     title: "Not yet",
     body: "The Keeper hits the iron. Spacey is already rewriting the story so this was the plan. Mira offers the long end of the wrench.",
-    btn: "Get up",
+    btn: "Retry",
     hint: false,
   },
 };
@@ -620,7 +625,7 @@ el.btn.addEventListener("click", () => {
       narrate.say("tutor-arrive");
     } else narrate.say("enter");
   } else if (mode === "dead") {
-    sim.revive();
+    if (!sim.continueFromSave()) sim.revive();
     hideCard();
   } else if (mode === "outro" || mode === "page") {
     hideCard();
@@ -832,7 +837,17 @@ function frame(now) {
   for (const ev of snap.events) {
     if (ev.type === "say") dialogue.say(ev.id);
     else if (ev.type === "dmg") addFloat(ev.x, ev.y, ev.z, ev.n, ev.coin);
-    else if (ev.type === "hurt") shake = Math.max(shake, 0.35);
+    else if (ev.type === "hurt") {
+      shake = Math.max(shake, 0.55);
+      hurtFlash = 0.36;
+      el.hurt.classList.add("on");
+      const ring = document.getElementById("hp-ring");
+      if (ring) {
+        ring.classList.add("is-hit");
+        clearTimeout(ring._hitTimer);
+        ring._hitTimer = setTimeout(() => ring.classList.remove("is-hit"), 420);
+      }
+    }
     else if (ev.type === "hit") shake = Math.max(shake, ev.heavy ? 0.55 : 0.26);
     else if (ev.type === "level") addFloat(ev.x, ev.y, ev.z, "Lv " + ev.n, true);
     else if (ev.type === "flash") { flashI = 1; shockK = 0.45; el.flash.classList.add("on"); setTimeout(() => el.flash.classList.remove("on"), 160); }
@@ -844,6 +859,10 @@ function frame(now) {
     else if (ev.type === "boss") shake = 0.2;
   }
 
+  if (hurtFlash > 0) {
+    hurtFlash = Math.max(0, hurtFlash - raw);
+    if (hurtFlash <= 0) el.hurt.classList.remove("on");
+  }
   paintHud(snap);
   paintTutor(snap);
   const drain = snap.drain || 0;
@@ -873,6 +892,8 @@ function paintHud(snap) {
   el.hpNum.textContent = String(Math.ceil(p.hp));
   el.lantern.style.width = `${clamp(p.flash, 0, 1) * 100}%`;
   el.coins.textContent = `${p.coins} coins`;
+  const mpNum = document.getElementById("mp-num");
+  if (mpNum) mpNum.textContent = String(Math.ceil(p.mp ?? 0));
   el.potions.textContent = p.potions > 0 ? `Tonic ${p.potions}` : "";
   const pageWord = /page/i.test(snap.objective || "");
   el.pages.hidden = pageWord;
@@ -909,13 +930,33 @@ function paintHud(snap) {
   if (showBoss) el.bossFill.style.width = `${clamp(snap.boss.hp / snap.boss.hpMax, 0, 1) * 100}%`;
   const react = snap.reaction;
   const shown = react || snap.prompt;
+  const interact = document.getElementById("interact");
   if (shown && mode === "play") {
     el.prompt.hidden = false;
     el.prompt.classList.toggle("is-react", !!react);
-    el.prompt.textContent = `${shown.label}  ·  ${react ? "F" : "E"}`;
+    el.prompt.textContent = react ? `${shown.label}  ·  F` : `${shown.label}  ·  E`;
   } else {
     el.prompt.hidden = true;
     el.prompt.classList.remove("is-react");
+  }
+  if (interact) {
+    const showAct = !!(snap.prompt && !react && mode === "play");
+    interact.hidden = !showAct;
+    if (showAct) interact.textContent = snap.prompt.label;
+  }
+  const magicBtn = document.querySelector("#actions button.magic");
+  if (magicBtn && mode === "play") {
+    const mp = Math.ceil(p.mp ?? 0);
+    const num = magicBtn.querySelector("b");
+    if (num) num.textContent = String(mp);
+    const ring = magicBtn.querySelector("circle");
+    if (ring) {
+      const circ = 2 * Math.PI * 15;
+      const ready = snap.player.spell == null ? 1 : snap.player.spell;
+      ring.style.strokeDasharray = String(circ);
+      ring.style.strokeDashoffset = String(circ * (1 - clamp(ready, 0, 1)));
+    }
+    magicBtn.classList.toggle("is-dry", mp < 25);
   }
   if (snap.lock && mode === "play") {
     const pt = project(snap.lock.x, snap.lock.y, snap.lock.z);
@@ -924,7 +965,7 @@ function paintHud(snap) {
       el.reticle.style.transform = `translate(${pt.x}px, ${pt.y}px)`;
     } else el.reticle.hidden = true;
   } else el.reticle.hidden = true;
-  el.hurt.style.opacity = String(Math.max(0, (p.hp < 35 ? 0.18 : 0) + (shake > 0 ? 0.25 : 0)));
+  el.hurt.style.opacity = hurtFlash > 0 ? "0.66" : (mode === "play" && p.hp > 0 && p.hp < 35 ? "0.22" : "0");
 
   const line = dialogue.active();
   if (line && el.tag && mode === "play") {
@@ -964,7 +1005,7 @@ window.__BOOKWORLDS = {
   worldId: () => (worldKey === "stack" ? "rusty-stack" : "california-trail"),
   player: () => {
     const p = sim.player;
-    return { x: p.x, y: p.y, z: p.z, hp: p.hp, yaw: p.yaw, hits: sim.hits() };
+    return { x: p.x, y: p.y, z: p.z, hp: p.hp, yaw: p.yaw, hits: sim.hits(), mp: p.mp, coins: p.coins, potions: p.potions };
   },
   enemies: () => sim.enemies.map((e) => ({ id: e.id, kind: e.kind, hp: e.hp, hpMax: e.hpMax, alive: e.alive, x: e.x, z: e.z, pendulum: !!e.pendulum, routed: !!e.routed })),
   bulletin: () => narrate.current(),
@@ -995,6 +1036,13 @@ window.__BOOKWORLDS = {
   keyOn: () => sim.keyOn(),
   skipLesson: () => sim.skipLesson(),
   tutorSave: () => sim.tutorSave(),
+  place: (x, z, yaw) => sim.place(x, z, yaw),
+  chests: () => sim.chests(),
+  exitReady: () => sim.exitReady(),
+  defeatBoss: () => sim.defeatForExit(),
+  debugStrike: (opts) => sim.debugStrike(opts || {}),
+  debugFoe: () => sim.debugFoe(),
+  foeHp: (id) => sim.foeHp(id),
 };
 
 function setRing(id, radius, pct) {
@@ -1027,6 +1075,12 @@ el.tutorSkip.addEventListener("pointerup", () => {
 });
 el.tutorAct.addEventListener("pointerup", () => {
   if (mode === "play") sim.tutorSave();
+});
+document.getElementById("interact").addEventListener("pointerup", (e) => {
+  e.preventDefault();
+  e.stopPropagation();
+  if (mode !== "play" || !playing) return;
+  input.press("use");
 });
 
 function paintParty(snap) {

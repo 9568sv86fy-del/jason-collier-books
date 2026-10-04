@@ -35,7 +35,7 @@
         <div class="track" aria-hidden="true"><b id="hp-fill"></b></div>
       </div>
       <div>
-        <div class="bar-label"><span>Lantern</span></div>
+        <div class="bar-label"><span>Lantern</span><span id="mp-num">100</span></div>
         <div class="track" aria-hidden="true"><b id="lantern-fill"></b></div>
       </div>
       <div class="pips" id="pips" aria-hidden="true"></div>
@@ -70,6 +70,7 @@
   </div>
 
   <p id="prompt" hidden></p>
+  <button type="button" id="interact" hidden>OPEN</button>
   <div id="tutor" class="ui" hidden>
     <p id="tutor-kicker">On the trail</p>
     <p id="tutor-text"></p>
@@ -95,7 +96,7 @@
   </div>
   <div id="help" class="ui" hidden>
     <p class="set-kicker">How to play</p>
-    <p>Move with WASD or the left stick. Attack swings the Trail Key. Space jumps. Shift dodges. G guards. F is the lantern, or the reaction when it flashes. 1 is a tonic. 2 dust devil. 3 trail mend. 4 wagon toss. Q locks on.</p>
+    <p>Move with WASD or the left stick. Attack swings the Trail Key. Space jumps. Shift dodges. G guards. Q casts magic. F is the lantern, or the reaction when it flashes. E or Enter uses what is in front of you. 1 is a tonic. 2 dust devil. 3 trail mend. 4 wagon toss. L locks on.</p>
     <button type="button" id="help-dismiss">Got it</button>
   </div>
   <div id="floats"></div>
@@ -105,6 +106,11 @@
     <button type="button" data-act="lock">Lock</button>
     <button type="button" data-act="flash">Flash</button>
     <button type="button" data-act="dodge">Dodge</button>
+    <button type="button" class="magic" data-act="magic" aria-label="Magic">
+      <svg viewBox="0 0 36 36" aria-hidden="true"><circle cx="18" cy="18" r="15"></circle></svg>
+      <span>Magic</span>
+      <b>100</b>
+    </button>
     <button type="button" class="big" data-act="attack">Attack</button>
     <button type="button" data-act="jump">Jump</button>
     <button type="button" data-act="guard">Guard</button>
@@ -112,7 +118,7 @@
     <button type="button" data-act="potion">Potion</button>
     <button type="button" data-act="use">Use</button>
   </div>
-  <p id="keys" hidden>WASD move · J attack · Space jump · Shift dodge · G guard · C camera behind · F lantern or reaction · 1 tonic · 2 dust devil · 3 trail mend · 4 wagon toss · Q lock · [ ] menu · M confirm</p>
+  <p id="keys" hidden>WASD move · J attack · Space jump · Shift dodge · G guard · C camera behind · Q magic · F lantern or reaction · E or Enter use · 1 tonic · 2 dust devil · 3 trail mend · 4 wagon toss · L lock · [ ] menu · M confirm</p>
 
   <div id="hub">
     <div class="bw-parlor" aria-hidden="true"></div>

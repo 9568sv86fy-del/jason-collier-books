@@ -99,7 +99,7 @@ export function buildWorld(scene, low) {
   const chests = [];
   chests.push(placeChest(scene, 4.2, 3.6, wood, dark));
   chests.push(placeChest(scene, -2.2, 61, wood, dark));
-  chests.forEach((c) => block(c.x, c.z, 0.55));
+  chests.forEach((c) => block(c.x, c.z, 0.42));
 
   sign(scene, -3.4, 6.2, "CALIFORNIA TRAIL", "Experienced navigators");
   sign(scene, 0.2, 26, "RIVER FORD", "Mind the fog");
@@ -192,8 +192,10 @@ export function buildWorld(scene, low) {
       const calm = focus.z < 7;
       scene.fog.color.setHex(calm ? 0xe7c09a : 0xc9a07a);
       scene.background.copy(scene.fog.color);
-      if (gate.open) {
-        gate.glow.material.opacity = 0.35 + Math.sin(t * 3) * 0.15;
+      if (gate.ready || gate.open) {
+        const pulse = 0.46 + Math.sin(t * 3) * 0.22;
+        gate.glow.material.opacity = pulse;
+        if (gate.lamp) gate.lamp.intensity = 2.2 + Math.sin(t * 3) * 0.9;
       }
       posePages(pages, t);
       poseRope(rope, t);
@@ -1051,13 +1053,30 @@ function buildGate() {
   arch.castShadow = true;
   root.add(arch);
   const glowMat = new THREE.MeshBasicMaterial({ color: 0xffe2a8, transparent: true, opacity: 0, side: THREE.DoubleSide });
-  const glow = new THREE.Mesh(new THREE.PlaneGeometry(1.8, 2.8), glowMat);
+  const glow = new THREE.Mesh(new THREE.PlaneGeometry(1.9, 2.9), glowMat);
   glow.position.y = 1.7;
-  root.add(glow);
+  const lamp = new THREE.PointLight(0xffe2a8, 0, 10, 1.5);
+  lamp.position.y = 1.8;
+  root.add(glow, lamp);
   const plaque = signPlane("THE SET", "Step back");
   plaque.position.set(0, 2.15, 0.18);
   root.add(plaque);
-  return { root, glow, open: false, setOpen(v) { this.open = v; glowMat.opacity = v ? 0.45 : 0; } };
+  return {
+    root, glow, lamp, open: false, ready: false,
+    setReady(v) {
+      this.ready = !!v;
+      if (!this.open) {
+        glowMat.opacity = this.ready ? 0.55 : 0;
+        lamp.intensity = this.ready ? 2.4 : 0;
+      }
+    },
+    setOpen(v) {
+      this.open = !!v;
+      if (v) this.ready = true;
+      glowMat.opacity = this.open ? 0.7 : (this.ready ? 0.55 : 0);
+      lamp.intensity = this.open || this.ready ? 3.1 : 0;
+    },
+  };
 }
 
 function signPlane(a, b) {

@@ -2,7 +2,7 @@
 export function createInput(root) {
   const keys = new Set();
   const pressed = {
-    attack: false, dodge: false, jump: false, flash: false, lock: false, use: false, potion: false,
+    attack: false, dodge: false, jump: false, flash: false, magic: false, lock: false, use: false, potion: false,
     guard: false, devil: false, mend: false, special: false, cycle: false, recenter: false,
   };
   let guardPointer = false;
@@ -101,11 +101,13 @@ export function createInput(root) {
   root.addEventListener("pointercancel", end);
 
   const mapKey = (k) => {
-    if (k === "j" || k === "enter") return "attack";
+    if (k === "j") return "attack";
     if (k === "shift") return "dodge";
     if (k === " ") return "jump";
     if (k === "f") return "flash";
-    if (k === "q") return "lock";
+    if (k === "q") return "magic";
+    if (k === "l") return "lock";
+    if (k === "enter") return "use";
     if (k === "tab") return "cycle";
     if (k === "e") return "use";
     if (k === "r" || k === "1") return "potion";
@@ -119,7 +121,7 @@ export function createInput(root) {
   window.addEventListener("keydown", (e) => {
     if (e.target && (e.target.tagName === "INPUT" || e.target.tagName === "TEXTAREA")) return;
     const k = e.key.toLowerCase();
-    if (["arrowup", "arrowdown", "arrowleft", "arrowright", " ", "tab"].includes(k)) e.preventDefault();
+    if (["arrowup", "arrowdown", "arrowleft", "arrowright", " ", "tab", "enter"].includes(k)) e.preventDefault();
     if (!st.enabled) return;
     if (!keys.has(k)) {
       const slot = mapKey(k);

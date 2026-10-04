@@ -1,12 +1,15 @@
 // Rusty Stack play. Same Keeper, Trail Key, and command combat as the wagon road.
 import * as THREE from "three";
 import { clamp, damp, dampAngle, hypot2 } from "../../src/util.js";
-import { heightAt } from "./world.js";
+import { heightAt } from "./world.js?v=4";
 import { createFog } from "../../src/rigs.js";
 import { createHuman } from "../../src/actors.js?v=3";
 import { boss as worldBoss } from "../../bosses/rusty-stack.js?v=3";
 
 const SAVE_KEY = "book-worlds-rusty-stack";
+const CLEAR_KEY = "book-worlds-world2-clear";
+const CHEST_REACH = 3.4;
+const GATE_REACH = 4.8;
 
 export function createRustySim(scene, world, audio) {
   const keeper = createHuman({
@@ -62,7 +65,10 @@ export function createRustySim(scene, world, audio) {
   let gustT = 0;
   let outroT = -1;
   let outroArmed = true;
-    let bossWall = false;
+  let bossWall = false;
+  let gateSeen = false;
+  let gateWasIn = false;
+  let gateUsed = false;
   let stormAt = 12;
   let lastPrompt = null;
   let lastObjective = "Pages 0/5";
@@ -113,9 +119,9 @@ export function createRustySim(scene, world, audio) {
     return Math.max(1, Math.round(amount * (1 + player.str * 0.06)));
   }
   function profileFor(kind) {
-    if (kind === "fog") return { hp: 42, radius: 0.55, speed: 2.5, reach: 1.45, dmg: 8, xp: 14, flash: 28 };
-    if (kind === "blanker") return { hp: 76, radius: 0.82, speed: 1.45, reach: 2.0, dmg: 14, xp: 22, flash: 22 };
-    return { hp: 58, radius: 0.48, speed: 2.15, reach: 1.65, dmg: 11, xp: 18, flash: 16 };
+    if (kind === "fog") return { hp: 42, radius: 0.55, speed: 2.5, tele: 0.42, lunge: 8.6, reach: 1.7, dmg: 8, xp: 14, flash: 28 };
+    if (kind === "blanker") return { hp: 76, radius: 0.82, speed: 1.45, tele: 0.55, lunge: 7.2, reach: 2.1, dmg: 14, xp: 22, flash: 22 };
+    return { hp: 58, radius: 0.48, speed: 2.15, tele: 0.48, lunge: 8, reach: 1.75, dmg: 11, xp: 18, flash: 16 };
   }
   function makeEnemy(kind, x, z, tag) {
     const fog = kind === "fog" || kind === "blanker";
@@ -195,9 +201,17 @@ export function createRustySim(scene, world, audio) {
     }
   }
 
-  function hurtAlly(a, amount) {
+  function hurtAlly(a, amount, sx, sz) {
+    if (!a || a.hp <= 0) return;
     a.hp = Math.max(0, a.hp - amount);
-    a.hurt = 1.2;
+    a.hurt = 2.4;
+    if (sx != null) {
+      const dx = a.x - sx;
+      const dz = a.z - sz;
+      const len = hypot2(dx, dz) || 1;
+      a.x += (dx / len) * 0.55;
+      a.z += (dz / len) * 0.55;
+    }
   }
   function hurtPlayer(amount, sx, sz, attacker) {
     if (player.iframes > 0 || player.hp <= 0) return;
@@ -231,8 +245,8 @@ export function createRustySim(scene, world, audio) {
     player.hp = Math.max(0, player.hp - amount);
     player.iframes = 0.55;
     player.hurt = 1;
-    player.vx += (dx / len) * 5;
-    player.vz += (dz / len) * 5;
+    player.vx += (dx / len) * 9;
+    player.vz += (dz / len) * 9;
     audio.hurt();
     events.push({ type: "hurt", amount });
     events.push({ type: "dmg", x: player.x, y: 1.7, z: player.z, n: Math.round(amount) });
@@ -268,58 +282,105 @@ export function createRustySim(scene, world, audio) {
     return best;
   }
 
+  function showTell(e) {
+    if (!e.tell) {
+      const mesh = new THREE.Mesh(
+        new THREE.RingGeometry(0.42, 0.62, 28),
+        new THREE.MeshBasicMaterial({ color: 0xff5a32, transparent: true, opacity: 0.8, side: THREE.DoubleSide, depthWrite: false }),
+      );
+      mesh.rotation.x = -Math.PI / 2;
+      mesh.renderOrder = 3;
+      scene.add(mesh);
+      e.tell = mesh;
+    }
+    const wind = e.state === "wind";
+    const k = wind ? Math.min(1, e.t / Math.max(0.2, e.prof.tele || 0.4)) : 1;
+    e.tell.visible = true;
+    e.tell.position.set(e.x, heightAt(e.x, e.z) + 0.08, e.z);
+    e.tell.scale.setScalar(wind ? 0.35 + k * 1.7 : 1.75);
+    e.tell.material.opacity = wind ? 0.28 + k * 0.62 : 0.9;
+    e.tell.material.color.setHex(wind && k < 0.72 ? 0xffc56a : 0xff2a1c);
+  }
+
   function updateEnemy(e, dt) {
     e.hit = Math.max(0, e.hit - dt * 2.4);
+    e._swing = false;
     if (!e.alive) {
       e.t += dt;
       e.y = heightAt(e.x, e.z);
       e.rig.root.position.set(e.x, e.y, e.z);
       e.rig.root.rotation.z = Math.min(1.1, e.t) * 0.8;
       e.rig.update(dt, { speed: 0, air: false, action: "death", actionT: Math.min(1, e.t), combo: 0, look: 0, hurt: 0, dodgeSide: 0, hit: 0, tele: false, strike: false });
+      if (e.tell) e.tell.visible = false;
       return;
     }
-    const dist = hypot2(player.x - e.x, player.z - e.z);
-    const face = Math.atan2(player.x - e.x, player.z - e.z);
-    e.t += dt;
+    const dx = player.x - e.x;
+    const dz = player.z - e.z;
+    const dist = hypot2(dx, dz);
+    const face = Math.atan2(dx, dz);
     e.speed = 0;
     if (e.state === "stun") {
+      e.t += dt;
       if (e.t > e.stunFor) { e.state = "chase"; e.t = 0; }
     } else if (e.state === "wind") {
-      e.yaw = dampAngle(e.yaw, face, 8, dt);
-      if (e.t > 0.32) { e.state = "strike"; e.t = 0; e.didHit = false; }
-    } else if (e.state === "strike") {
-      if (!e.didHit && e.t > 0.08 && dist < e.prof.reach + 0.35) {
-        e.didHit = true;
-        hurtPlayer(e.prof.dmg, e.x, e.z, e);
-      }
-      if (e.t > 0.42) { e.state = "chase"; e.t = 0; }
-    } else if (dist < 16) {
-      e.state = "chase";
-      e.yaw = dampAngle(e.yaw, face, 6, dt);
-      if (dist > e.prof.reach * 0.85) {
-        const sp = e.prof.speed * (e.kind === "fog" ? 1.15 : 1);
-        e.x += Math.sin(e.yaw) * sp * dt;
-        e.z += Math.cos(e.yaw) * sp * dt;
-        e.speed = sp;
-      } else if (e.t > 0.4) {
-        e.state = "wind";
-        e.t = 0;
-      }
-      if (e.kind !== "boarder" && e.t > 2.4 && dist > 2.2 && dist < 9) {
-        e.x += Math.sin(face) * 1.4;
-        e.z += Math.cos(face) * 1.4;
+      e.t += dt;
+      e.yaw = dampAngle(e.yaw, face, 10, dt);
+      if (e.t > Math.max(0.28, e.prof.tele || 0.42)) {
         e.state = "strike";
         e.t = 0;
         e.didHit = false;
+        e.allyHit = false;
+      }
+    } else if (e.state === "strike") {
+      const prev = e.t;
+      e.t += dt;
+      e.speed = prev < 0.36 ? Math.max(6.4, e.prof.lunge || 8) : 0;
+      e._swing = e.t > 0.05 && prev < 0.48;
+      if (e.t > 0.52) { e.state = "chase"; e.t = 0; }
+    } else if (dist < 16) {
+      e.state = "chase";
+      e.yaw = dampAngle(e.yaw, face, 6, dt);
+      if (dist > (e.prof.reach || 1.5) * 0.9) {
+        e.speed = e.prof.speed * (e.kind === "fog" ? 1.15 : 1);
+      } else {
+        e.state = "wind";
+        e.t = 0;
+        e.didHit = false;
+        e.allyHit = false;
+        e.speed = 0;
       }
     } else e.state = "idle";
+    if (e.speed > 0) {
+      e.x += Math.sin(e.yaw) * e.speed * dt;
+      e.z += Math.cos(e.yaw) * e.speed * dt;
+    }
     const c = world.resolve(e.x, e.z, e.radius * 0.6);
     e.x = c.x;
     e.z = c.z;
+    if (e._swing) {
+      const reach = (e.prof.reach || 1.5) + 1.15;
+      if (!e.didHit && hypot2(player.x - e.x, player.z - e.z) < reach) {
+        e.didHit = true;
+        hurtPlayer(e.prof.dmg, e.x, e.z, e);
+      }
+      if (!e.allyHit) {
+        for (const a of allies) {
+          if (a.hp <= 0) continue;
+          if (hypot2(a.x - e.x, a.z - e.z) < reach) {
+            e.allyHit = true;
+            hurtAlly(a, Math.max(4, Math.round(e.prof.dmg * 0.65)), e.x, e.z);
+            break;
+          }
+        }
+      }
+    }
+    if (e.state === "wind" || e._swing) showTell(e);
+    else if (e.tell) e.tell.visible = false;
     e.y = heightAt(e.x, e.z);
     e.rig.root.position.set(e.x, e.y, e.z);
     e.rig.root.rotation.y = e.yaw;
     e.rig.root.rotation.z = 0;
+    const telling = e.state === "wind" || e.state === "strike";
     e.rig.update(dt, {
       speed: e.speed,
       air: false,
@@ -328,9 +389,9 @@ export function createRustySim(scene, world, audio) {
       combo: 1,
       look: 0,
       hurt: e.hit,
-      tele: false,
+      tele: e.state === "wind",
       strike: e.state === "strike",
-      hit: e.hit,
+      hit: telling ? 1 : e.hit,
     });
   }
 
@@ -344,6 +405,7 @@ export function createRustySim(scene, world, audio) {
     boss.state = name + "Wind";
     boss.t = 0;
     boss.didHit = false;
+    boss.allyHit = false;
     if (name === "charge" || name === "monocle") boss.yaw = Math.atan2(player.x - boss.x, player.z - boss.z);
   }
   function showRing(radius, k, color) {
@@ -402,9 +464,19 @@ export function createRustySim(scene, world, audio) {
       boss.x += Math.sin(boss.yaw) * sp * dt;
       boss.z += Math.cos(boss.yaw) * sp * dt;
       showRing(3.1, 1, 0xe7c48a);
-      if (!boss.didHit && dist < boss.radius + 0.7) {
+      const chargeDist = hypot2(player.x - boss.x, player.z - boss.z);
+      if (!boss.didHit && chargeDist < boss.radius + 1.45) {
         boss.didHit = true;
-        hurtPlayer(18, boss.x, boss.z, boss);
+        hurtPlayer(32, boss.x, boss.z, boss);
+      }
+      if (!boss.allyHit) {
+        for (const a of allies) {
+          if (hypot2(a.x - boss.x, a.z - boss.z) < boss.radius + 1.45) {
+            boss.allyHit = true;
+            hurtAlly(a, 14, boss.x, boss.z);
+            break;
+          }
+        }
       }
       if (boss.t > 0.95) { boss.state = "recover"; boss.t = 0; }
     } else if (boss.state === "slam" || boss.state === "roar" || boss.state === "monocle") {
@@ -414,11 +486,12 @@ export function createRustySim(scene, world, audio) {
       const toZ = player.z - boss.z;
       const lateral = Math.abs(toX * Math.cos(boss.yaw) - toZ * Math.sin(boss.yaw));
       const missedBeam = boss.state === "monocle" && lateral > 0.9;
-      if (!boss.didHit && boss.t > 0.08 && dist < rad && !missedBeam) {
+      const slamDist = hypot2(player.x - boss.x, player.z - boss.z);
+      if (!boss.didHit && boss.t > 0.08 && slamDist < rad && !missedBeam) {
           boss.didHit = true;
-          hurtPlayer(boss.state === "roar" ? 14 : boss.state === "monocle" ? 16 : 17, boss.x, boss.z, boss);
+          hurtPlayer(boss.state === "roar" ? 24 : boss.state === "monocle" ? 22 : 28, boss.x, boss.z, boss);
           for (const a of allies) {
-            if (hypot2(a.x - boss.x, a.z - boss.z) < rad) hurtAlly(a, 8);
+            if (hypot2(a.x - boss.x, a.z - boss.z) < rad) hurtAlly(a, boss.state === "roar" ? 12 : 14, boss.x, boss.z);
           }
       } else if (boss.state === "monocle" && boss.t > 0.08) boss.didHit = true;
       if (boss.t > 0.38) { boss.state = "recover"; boss.t = 0; }
@@ -521,7 +594,7 @@ export function createRustySim(scene, world, audio) {
       a.cd = Math.max(0, a.cd - dt);
       a.hurt = Math.max(0, a.hurt - dt);
       if (a.hp <= 0 && a.hurt <= 0) a.hp = Math.round(a.hpMax * 0.4);
-      else if (a.hurt <= 0) a.hp = Math.min(a.hpMax, a.hp + dt * 4);
+      else if (a.hurt <= 0) a.hp = Math.min(a.hpMax, a.hp + dt * 1.6);
       if (a.anim !== "idle") {
         a.animT += dt / 0.4;
         if (a.animT >= 1) a.anim = "idle";
@@ -592,7 +665,7 @@ export function createRustySim(scene, world, audio) {
   }
   function tryChests() {
     for (const chest of world.chests) {
-      if (!chest.open && hypot2(chest.x - player.x, chest.z - player.z) < 1.6) return chest;
+      if (!chest.open && hypot2(chest.x - player.x, chest.z - player.z) < CHEST_REACH) return chest;
     }
     return null;
   }
@@ -845,25 +918,48 @@ export function createRustySim(scene, world, audio) {
     const mag = hypot2(wx, wz);
     player.dodgeYaw = mag > 0.2 ? Math.atan2(wx, wz) : camYaw + Math.PI;
     player.dodgeSide = Math.sin(player.dodgeYaw - camYaw);
-    player.iframes = 0.34;
+    player.iframes = 0.42;
     player.combo = 0;
   }
   function spend(cost) {
-    if (player.mp < cost || player.magicLock > 0 || player.hp <= 0) return false;
+    if (player.mp < cost || player.spellCd > 0 || player.magicLock > 0 || player.hp <= 0) return false;
     player.mp -= cost;
     player.magicLock = 0.34;
+    player.spellCd = player.spellMax;
     return true;
   }
+  function spellAim() {
+    let best = null;
+    let bestD = 13;
+    const fx = Math.sin(player.yaw);
+    const fz = Math.cos(player.yaw);
+    for (const e of living()) {
+      if (!e || e.kind === "dummy") continue;
+      const dx = e.x - player.x;
+      const dz = e.z - player.z;
+      const d = hypot2(dx, dz);
+      if (d > 13 || d < 0.08) continue;
+      const dot = (fx * dx + fz * dz) / d;
+      if (dot < 0.12) continue;
+      if (d < bestD) { bestD = d; best = e; }
+    }
+    if (best) player.yaw = Math.atan2(best.x - player.x, best.z - player.z);
+    return best;
+  }
   function startFlash() {
-    if (player.action === "dodge" || player.action === "team" || player.spellCd > 0 || !spend(25)) return;
-    player.spellCd = player.spellMax;
+    if (player.action === "dodge" || player.action === "team") return;
+    if (!spend(25)) return;
+    const aimed = spellAim();
     player.action = "flash";
     player.actionT = 0;
     player.actionDur = 0.42;
     audio.flash();
     events.push({ type: "flash" });
     for (const e of living()) {
-      if (hypot2(e.x - player.x, e.z - player.z) < (e.kind === "boss" ? 5.2 : 4.3)) {
+      const d = hypot2(e.x - player.x, e.z - player.z);
+      const aimedHit = aimed && e.id === aimed.id;
+      const rad = aimedHit ? 13 : (e.kind === "boss" ? 5.2 : 4.3);
+      if (d < rad) {
         damageEnemy(e, e.kind === "boss" ? 34 : (e.prof ? e.prof.flash : 16));
         if (e.alive && e.kind === "boss") { e.state = "stagger"; e.t = 0; e.stunFor = 0.8; }
         else if (e.alive) { e.state = "stun"; e.t = 0; e.stunFor = 1.2; }
@@ -872,7 +968,9 @@ export function createRustySim(scene, world, audio) {
     }
   }
   function startDevil() {
-    if (player.action === "dodge" || player.action === "team" || !spend(20)) return;
+    if (player.action === "dodge" || player.action === "team") return;
+    if (!spend(20)) return;
+    const aimed = spellAim();
     player.action = "flash";
     player.actionT = 0;
     player.actionDur = 0.38;
@@ -882,7 +980,7 @@ export function createRustySim(scene, world, audio) {
       const dx = e.x - player.x;
       const dz = e.z - player.z;
       const d = hypot2(dx, dz);
-      if (d > 5.4 || d < 0.05) continue;
+      if ((!(aimed && e.id === aimed.id) && d > 5.4) || d < 0.05) continue;
       damageEnemy(e, e.kind === "boss" ? 16 : 13);
       const push = e.kind === "boss" ? 0.4 : 2;
       e.x += (dx / d) * push;
@@ -953,11 +1051,8 @@ export function createRustySim(scene, world, audio) {
     return drain;
   }
 
-  function writeSave() {
-    player.hp = player.hpMax;
-    player.mp = player.mpMax;
-    for (const a of allies) a.hp = a.hpMax;
-    const data = {
+  function saveBody() {
+    return {
       v: 1,
       x: player.x, z: player.z, yaw: player.yaw,
       hpMax: player.hpMax, mpMax: player.mpMax,
@@ -965,11 +1060,55 @@ export function createRustySim(scene, world, audio) {
       level: player.level, xp: player.xp, xpNext: player.xpNext, str: player.str,
       pages: world.pages.filter((p) => p.got).map((p) => p.id),
       bossDead: !boss.alive,
+      complete: !!flags.cleared,
       scenes: { brawl: scenes.brawl.done, city: scenes.city.done, goats: scenes.goats.done, fort: scenes.fort.done },
       crystals: world.crystals.map((c) => c.seated),
       chests: world.chests.map((c) => !!c.open),
     };
+  }
+  function persist(complete) {
+    if (complete) flags.cleared = true;
+    const data = saveBody();
     try { localStorage.setItem(SAVE_KEY, JSON.stringify(data)); } catch { /* private mode */ }
+    if (data.complete) {
+      try { localStorage.setItem(CLEAR_KEY, "1"); } catch { /* private mode */ }
+    }
+  }
+  function armExit() {
+    bossWall = false;
+    outroArmed = false;
+    outroT = 0;
+    if (world.gate && world.gate.setReady) world.gate.setReady(true);
+  }
+  function gateEntered() {
+    if (boss.alive || !world.gate) {
+      gateSeen = false;
+      gateWasIn = false;
+      return false;
+    }
+    const inside = hypot2(player.x - world.gate.x, player.z - world.gate.z) < GATE_REACH;
+    if (!gateSeen) {
+      gateSeen = true;
+      gateWasIn = inside;
+      return false;
+    }
+    const entered = inside && !gateWasIn;
+    gateWasIn = inside;
+    return entered;
+  }
+  function stepThrough() {
+    if (gateUsed || boss.alive) return;
+    gateUsed = true;
+    if (world.gate) world.gate.setOpen(true);
+    persist(true);
+    events.push({ type: "gate" });
+    speak("spacey-gate");
+  }
+  function writeSave() {
+    player.hp = player.hpMax;
+    player.mp = player.mpMax;
+    for (const a of allies) a.hp = a.hpMax;
+    persist(false);
     audio.heal();
     events.push({ type: "dmg", x: player.x, y: 1.8, z: player.z, n: "Saved" });
     speak("spacey-save");
@@ -1027,10 +1166,9 @@ export function createRustySim(scene, world, audio) {
       boss.state = "dead";
       boss.t = 2;
       flags.won = true;
-      outroArmed = false;
-      outroT = 0;
-      bossWall = false;
+      armExit();
     }
+    if (data.complete) flags.cleared = true;
     flags.g1 = true;
     flags.g2 = true;
   }
@@ -1100,8 +1238,7 @@ export function createRustySim(scene, world, audio) {
   function objectiveFor() {
     const got = pageCount();
     if (boss.active && boss.alive) return "Break the baron";
-    if (!boss.alive && got < 5) return got === 4 ? "1 page left" : `${5 - got} pages left`;
-    if (!boss.alive && got >= 5) return "Step through";
+    if (!boss.alive) return "Step through";
     if (scenes.brawl.on && !scenes.brawl.done) return "Clear the deck";
     if (player.x > 23 && !scenes.city.done) return "Seat the crystals";
     if (player.x < -24 && !scenes.goats.done) return "Pen the goats";
@@ -1148,7 +1285,9 @@ export function createRustySim(scene, world, audio) {
     }
     const airChain = player.airCombo > 0 || !player.grounded;
     const chainMax = airChain ? 3 : 4;
-    if (edge.attack && player.action === "attack" && player.actionT > 0.2 && player.combo < chainMax) player.comboQueue = true;
+    const chestNow = tryChests();
+    if (edge.attack && chestNow) openChest(chestNow);
+    else if (edge.attack && player.action === "attack" && player.actionT > 0.2 && player.combo < chainMax) player.comboQueue = true;
     else if (edge.attack && (player.action === "idle" || player.action === "flash" || player.action === "guard")) startAttack(1);
     if (edge.dodge && player.action !== "dodge" && player.grounded) startDodge(wishX, wishZ, camYaw);
     if (edge.jump && player.action !== "dodge") {
@@ -1285,42 +1424,32 @@ export function createRustySim(scene, world, audio) {
       gust.material.opacity = gustT * 1.3;
     } else gust.material.opacity = 0;
     for (const chest of world.chests) {
-      chest.lid.rotation.x = damp(chest.lid.rotation.x, chest.open ? -1.15 : 0, 8, dt);
+      const open = !!chest.open;
+      chest.lid.rotation.x = damp(chest.lid.rotation.x, open ? -1.2 : 0, open ? 14 : 8, dt);
+      chest.lid.position.y = damp(chest.lid.position.y, open ? 0.56 : 0.46, open ? 10 : 8, dt);
     }
     const pageEv = collectPage();
     if (pageEv) events.push(pageEv);
 
     const chest = tryChests();
     let prompt = null;
-    if (chest) prompt = { id: "chest", label: "Open the crate" };
-    if (world.radio && hypot2(world.radio.x - player.x, world.radio.z - player.z) < 1.8) {
-      prompt = { id: "save", label: "Save at the set" };
+    if (chest) prompt = { id: "chest", label: "OPEN" };
+    if (world.radio && hypot2(world.radio.x - player.x, world.radio.z - player.z) < 2.4) {
+      prompt = { id: "save", label: "SAVE" };
     }
-    const storyWhole = pageCount() >= world.pages.length && !boss.alive;
-    if (world.gate.setReady) world.gate.setReady(storyWhole);
-    const gateNear = storyWhole && hypot2(player.x - world.gate.x, player.z - world.gate.z) < 2.3;
+    const gateNear = !boss.alive && world.gate && hypot2(player.x - world.gate.x, player.z - world.gate.z) < GATE_REACH;
     if (gateNear) {
-      prompt = { id: "gate", label: "Step through" };
+      prompt = { id: "gate", label: "STEP THROUGH" };
       if (!flags.gateLine) { flags.gateLine = true; speak("spacey-gate"); }
     }
-    if (storyWhole && hypot2(player.x - world.gate.x, player.z - world.gate.z) < 1.35 && !flags.gateUsed) {
-      flags.gateUsed = true;
-      world.gate.setOpen(true);
-      events.push({ type: "gate" });
-    }
     reaction = pickReaction();
-    if (edge.flash || edge.magic) {
+    if (edge.magic) startFlash();
+    if (edge.flash) {
       if (!fireReaction()) startFlash();
     }
-    if (edge.use && prompt) {
-      if (prompt.id === "chest") openChest(chest);
-      if (prompt.id === "save") writeSave();
-      if (prompt.id === "gate" && !flags.gateUsed) {
-        flags.gateUsed = true;
-        world.gate.setOpen(true);
-        events.push({ type: "gate" });
-      }
-    }
+    if (edge.use && chest) openChest(chest);
+    if (edge.use && prompt && prompt.id === "save") writeSave();
+    if ((edge.use && prompt && prompt.id === "gate") || gateEntered()) stepThrough();
     if (flags.won && outroArmed && outroT < 0) {
       outroT = 1.5;
       outroArmed = false;
@@ -1458,6 +1587,10 @@ export function createRustySim(scene, world, audio) {
     scenes.goats.done = false;
     scenes.fort.on = false;
     scenes.fort.done = false;
+    gateUsed = false;
+    gateSeen = false;
+    gateWasIn = false;
+    if (world.gate.setReady) world.gate.setReady(false);
     world.gate.setOpen(false);
     audio.setTension(0);
   }
@@ -1521,9 +1654,10 @@ export function createRustySim(scene, world, audio) {
       boss.state = "dead";
       boss.t = 2;
       flags.won = true;
-      outroArmed = false;
-      outroT = 0;
-      bossWall = false;
+      armExit();
+      gateSeen = false;
+      gateWasIn = false;
+      gateUsed = false;
       player.x = 0;
       player.z = -14.2;
       player.y = 0;
@@ -1555,10 +1689,7 @@ export function createRustySim(scene, world, audio) {
       boss.state = "dead";
       boss.t = 2;
       flags.won = true;
-      outroArmed = false;
-      outroT = 0;
-      bossWall = false;
-      if (world.gate.setReady) world.gate.setReady(pageCount() >= world.pages.length);
+      armExit();
     },
     debugStrike(opts = {}) {
       const dist = 1.15;
@@ -1569,9 +1700,10 @@ export function createRustySim(scene, world, audio) {
       e.state = "strike";
       e.t = 0.1;
       e.didHit = false;
+      e.allyHit = false;
       e.yaw = Math.atan2(player.x - x, player.z - z);
       const dmg = opts.dmg || e.prof.dmg;
-      e.prof = { ...e.prof, dmg, reach: 4.2 };
+      e.prof = { ...e.prof, dmg, reach: 4.2, lunge: 0 };
       return { id: e.id, dmg };
     },
     debugFoe() {
