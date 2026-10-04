@@ -3,7 +3,7 @@ export function createInput(root) {
   const keys = new Set();
   const pressed = {
     attack: false, dodge: false, jump: false, flash: false, lock: false, use: false, potion: false,
-    guard: false, devil: false, mend: false, special: false, cycle: false,
+    guard: false, devil: false, mend: false, special: false, cycle: false, recenter: false,
   };
   let guardPointer = false;
   const st = {
@@ -27,7 +27,7 @@ export function createInput(root) {
     const rect = root.getBoundingClientRect();
     const x = e.clientX - rect.left;
     const y = e.clientY - rect.top;
-    const stickZone = e.pointerType !== "mouse" && x < rect.width * 0.46 && y > rect.height * 0.42;
+    const stickZone = e.pointerType !== "mouse" && x < rect.width * 0.5;
     if (stickZone && stickId == null) {
       stickId = e.pointerId;
       stickCX = e.clientX;
@@ -94,6 +94,7 @@ export function createInput(root) {
     if (k === "3") return "mend";
     if (k === "4") return "special";
     if (k === "g") return "guard";
+    if (k === "c") return "recenter";
     return null;
   };
   window.addEventListener("keydown", (e) => {

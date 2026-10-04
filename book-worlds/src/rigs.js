@@ -6,7 +6,11 @@ const mats = new Map();
 function M(hex, opts = {}) {
   const key = `${hex}|${opts.side || ""}|${opts.emissive || ""}`;
   if (!opts.unique && mats.has(key)) return mats.get(key);
-  const m = new THREE.MeshLambertMaterial({ color: hex, emissive: opts.emissive || 0x000000, emissiveIntensity: opts.emissiveIntensity ?? 0.35, side: opts.side || THREE.FrontSide });
+  const m = new THREE.MeshStandardMaterial({
+    color: hex, roughness: 0.84, metalness: 0.03,
+    emissive: opts.emissive || 0x000000, emissiveIntensity: opts.emissiveIntensity ?? 0.12,
+    side: opts.side || THREE.FrontSide,
+  });
   if (!opts.unique) mats.set(key, m);
   return m;
 }
@@ -428,71 +432,128 @@ function billTexture() {
 export function handbillMesh() {
   const m = new THREE.Mesh(
     new THREE.PlaneGeometry(0.34, 0.22),
-    new THREE.MeshLambertMaterial({ map: billTexture(), side: THREE.DoubleSide }),
+    new THREE.MeshStandardMaterial({ map: billTexture(), roughness: 0.9, metalness: 0, side: THREE.DoubleSide }),
   );
   m.castShadow = true;
   return m;
 }
 
+const fogShader = {
+  uniforms: { uTime: { value: 0 }, uHit: { value: 0 }, uFade: { value: 1 } },
+  vertexShader: `
+    varying vec3 vN;
+    varying vec3 vLocal;
+    void main() {
+      vLocal = position;
+      vec4 mv = modelViewMatrix * vec4(position, 1.0);
+      vN = normalize(normalMatrix * normal);
+      gl_Position = projectionMatrix * mv;
+    }
+  `,
+  fragmentShader: `
+    uniform float uTime;
+    uniform float uHit;
+    uniform float uFade;
+    varying vec3 vN;
+    varying vec3 vLocal;
+    float hash(vec3 p) { return fract(sin(dot(p, vec3(127.1, 311.7, 74.7))) * 43758.5453); }
+    float noise(vec3 p) {
+      vec3 i = floor(p);
+      vec3 f = fract(p);
+      f = f * f * (3.0 - 2.0 * f);
+      float n000 = hash(i);
+      float n100 = hash(i + vec3(1.0, 0.0, 0.0));
+      float n010 = hash(i + vec3(0.0, 1.0, 0.0));
+      float n110 = hash(i + vec3(1.0, 1.0, 0.0));
+      float n001 = hash(i + vec3(0.0, 0.0, 1.0));
+      float n101 = hash(i + vec3(1.0, 0.0, 1.0));
+      float n011 = hash(i + vec3(0.0, 1.0, 1.0));
+      float n111 = hash(i + vec3(1.0, 1.0, 1.0));
+      return mix(mix(mix(n000, n100, f.x), mix(n010, n110, f.x), f.y),
+                 mix(mix(n001, n101, f.x), mix(n011, n111, f.x), f.y), f.z);
+    }
+    void main() {
+      float fres = pow(1.0 - abs(vN.z), 1.7);
+      float n = noise(vLocal * 2.4 + vec3(0.0, uTime * 0.35, uTime * 0.12));
+      float n2 = noise(vLocal * 5.5 - vec3(uTime * 0.45, 0.0, uTime * 0.2));
+      float alpha = (0.12 + n * 0.42 + n2 * 0.22) * (0.28 + fres * 0.95) * uFade;
+      vec3 col = mix(vec3(0.42, 0.43, 0.45), vec3(0.78, 0.79, 0.8), n);
+      col += vec3(0.55) * uHit;
+      gl_FragColor = vec4(col, clamp(alpha, 0.0, 0.78));
+    }
+  `,
+};
+
+function fogMat() {
+  return new THREE.ShaderMaterial({
+    uniforms: {
+      uTime: { value: 0 },
+      uHit: { value: 0 },
+      uFade: { value: 1 },
+    },
+    vertexShader: fogShader.vertexShader,
+    fragmentShader: fogShader.fragmentShader,
+    transparent: true,
+    depthWrite: false,
+    side: THREE.DoubleSide,
+  });
+}
+
 export function createFog(opts = {}) {
   const tall = !!opts.tall;
   const root = new THREE.Group();
-  const smearMat = new THREE.MeshLambertMaterial({ color: 0x8a8a8a, emissive: 0x4e4e4e, emissiveIntensity: 0.22 });
-  const paleMat = new THREE.MeshLambertMaterial({ color: 0xb7b7b7, emissive: 0x6a6a6a, emissiveIntensity: 0.16 });
-  const darkMat = new THREE.MeshLambertMaterial({ color: 0x5c5c5c, emissive: 0x2c2c2c, emissiveIntensity: 0.18 });
-  const faceMat = new THREE.MeshLambertMaterial({ color: 0xd0d0d0, emissive: 0x8e8e8e, emissiveIntensity: 0.12 });
-  const blobs = [
-    { mat: smearMat, r: 0.4, s: [1.25, 0.48, 0.72], p: [0, tall ? 0.95 : 0.7, 0] },
-    { mat: paleMat, r: 0.3, s: [0.85, 0.4, 1.15], p: [0.14, tall ? 1.35 : 1.02, 0.04] },
-    { mat: darkMat, r: 0.24, s: [1.4, 0.32, 0.58], p: [-0.18, tall ? 0.62 : 0.46, 0.06] },
-    { mat: paleMat, r: tall ? 0.28 : 0.18, s: [0.7, tall ? 1.15 : 0.72, 0.5], p: [0.02, tall ? 1.85 : 1.28, 0.02] },
-    { mat: darkMat, r: 0.16, s: [1.6, 0.28, 0.9], p: [0.08, tall ? 0.38 : 0.28, -0.04] },
+  const body = new THREE.Group();
+  root.add(body);
+  const shells = [];
+  const volumes = [
+    { p: [0, tall ? 1.05 : 0.78, 0], s: [0.42, tall ? 0.72 : 0.5, 0.34] },
+    { p: [0.05, tall ? 1.55 : 1.15, 0.02], s: [0.28, tall ? 0.42 : 0.3, 0.24] },
+    { p: [0, tall ? 0.45 : 0.32, 0], s: [0.5, 0.22, 0.36] },
   ];
-  const smears = blobs.map((b) => {
-    const m = new THREE.Mesh(new THREE.SphereGeometry(b.r, 10, 8), b.mat);
-    m.scale.set(b.s[0], b.s[1], b.s[2]);
-    m.position.set(b.p[0], b.p[1], b.p[2]);
-    m.castShadow = true;
-    root.add(m);
-    return m;
-  });
-  const face = new THREE.Mesh(new THREE.SphereGeometry(tall ? 0.2 : 0.15, 14, 12), faceMat);
-  face.scale.set(1.2, 1.45, 0.62);
-  face.position.set(0, tall ? 2.15 : 1.42, 0.14);
-  root.add(face);
-  const dust = makeDust(tall ? 56 : 34, 0xd4d4d4, tall ? 1.7 : 1.05);
-  dust.position.y = tall ? 1.3 : 0.9;
+  for (let shell = 0; shell < 3; shell++) {
+    for (const v of volumes) {
+      const mat = fogMat();
+      mat.uniforms.uFade.value = 0.55 + shell * 0.18;
+      const mesh = new THREE.Mesh(new THREE.SphereGeometry(1, 18, 14), mat);
+      mesh.position.set(v.p[0], v.p[1], v.p[2]);
+      const k = 1 + shell * 0.16;
+      mesh.scale.set(v.s[0] * k, v.s[1] * k, v.s[2] * k);
+      mesh.frustumCulled = false;
+      body.add(mesh);
+      shells.push(mesh);
+    }
+  }
+  const faceMat = new THREE.MeshBasicMaterial({ color: 0xd8d8d8, transparent: true, opacity: 0.9, depthWrite: false });
+  const face = new THREE.Mesh(new THREE.CircleGeometry(tall ? 0.16 : 0.11, 18), faceMat);
+  face.position.set(0, tall ? 1.62 : 1.22, tall ? 0.22 : 0.18);
+  body.add(face);
+  const dust = makeDust(tall ? 70 : 42, 0xdcdcdc, tall ? 1.8 : 1.15);
+  dust.position.y = tall ? 1.2 : 0.85;
   root.add(dust);
-  const staticP = makeDust(tall ? 26 : 16, 0xf4f4f4, tall ? 1.35 : 0.75);
-  staticP.position.y = tall ? 1.6 : 1.1;
-  root.add(staticP);
   const shadow = blobShadow();
-  shadow.scale.setScalar(tall ? 1.6 : 1.05);
+  shadow.scale.setScalar(tall ? 1.55 : 1.05);
   root.add(shadow);
   if (opts.scale) root.scale.setScalar(opts.scale);
   let phase = Math.random() * 6;
   return {
     root,
-    faceMat,
-    smearMat,
+    skinned: false,
     update(dt, a) {
-      phase += dt * (a.speed > 0.2 ? 2.8 : 1.25);
-      const bob = Math.sin(phase) * (tall ? 0.09 : 0.055);
-      const drift = Math.sin(phase * 0.7) * 0.06;
-      smears.forEach((m, i) => {
-        const b = blobs[i];
-        m.position.y = b.p[1] + bob + Math.sin(phase * 1.35 + i * 0.8) * 0.035 + (a.tele ? 0.1 : 0);
-        m.position.x = b.p[0] + drift * (i % 2 ? 1 : -0.6);
-        m.rotation.z = Math.sin(phase * 0.9 + i) * 0.18;
-        m.rotation.y += dt * (0.35 + i * 0.08);
-      });
-      face.position.y = (tall ? 2.15 : 1.42) + bob * 0.55;
-      face.position.x = drift * 0.4;
-      const pulse = 0.16 + Math.sin(phase * 2.2) * 0.08 + (a.tele ? 0.32 : 0) + (a.hit || 0) * 0.55;
-      smearMat.emissiveIntensity = pulse;
-      faceMat.emissiveIntensity = 0.1 + (a.hit || 0) * 0.7;
+      phase += dt * (a.speed > 0.2 ? 2.6 : 1.15);
+      const dead = a.action === "death" ? Math.min(1, a.actionT || 0) : 0;
+      const bob = Math.sin(phase) * (tall ? 0.08 : 0.05) * (1 - dead);
+      body.position.y = bob + (a.tele ? 0.12 : 0);
+      body.rotation.y = Math.sin(phase * 0.4) * 0.2;
+      const hit = a.hit || 0;
+      for (const mesh of shells) {
+        mesh.material.uniforms.uTime.value = phase;
+        mesh.material.uniforms.uHit.value = hit;
+        mesh.material.uniforms.uFade.value = (1 - dead) * (0.45 + (mesh.scale.x % 0.2));
+      }
+      face.position.y = (tall ? 1.62 : 1.22) + bob * 0.4;
+      face.material.opacity = 0.92 * (1 - dead);
       spinDust(dust, phase);
-      spinDust(staticP, phase * 1.9);
+      dust.material.opacity = 0.7 * (1 - dead);
       return { step: false };
     },
   };

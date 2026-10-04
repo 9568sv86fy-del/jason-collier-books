@@ -1,12 +1,27 @@
 // Original procedural wind, swings, and a quiet trail melody. No recorded music.
+const SILENT_WAV = "data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQAAAAA=";
+
 export function createAudio() {
   let ctx = null;
   let master = null;
+  let sfxGain = null;
+  let bedGain = null;
+  let voiceGain = null;
   let windGain = null;
   let musicGain = null;
   let started = false;
+  let primed = false;
+  let speaking = false;
+  let ducked = false;
   let stepAt = 0;
   let tension = 0;
+  let mediaEl = null;
+  let mediaNode = null;
+  let mediaGen = 0;
+  let voiceSrc = null;
+  const clipCache = new Map();
+  let unlockedP = null;
+  let markUnlocked = null;
 
   function context() {
     if (ctx) return ctx;
@@ -17,10 +32,42 @@ export function createAudio() {
       master = ctx.createGain();
       master.gain.value = 0.8;
       master.connect(ctx.destination);
+      sfxGain = ctx.createGain();
+      sfxGain.connect(master);
+      bedGain = ctx.createGain();
+      bedGain.connect(master);
+      voiceGain = ctx.createGain();
+      voiceGain.gain.value = 0.95;
+      voiceGain.connect(master);
     } catch {
       ctx = null;
     }
     return ctx;
+  }
+
+  function whenUnlocked() {
+    if (!unlockedP) unlockedP = new Promise((resolve) => { markUnlocked = resolve; });
+    return unlockedP;
+  }
+
+  function ramp(param, value, seconds) {
+    const audio = context();
+    if (!audio || !param) return;
+    const t = audio.currentTime;
+    const from = param.value;
+    param.cancelScheduledValues(t);
+    param.setValueAtTime(from, t);
+    param.linearRampToValueAtTime(value, t + seconds);
+  }
+
+  function setDuck(active) {
+    ducked = active;
+    const sfxTarget = active ? 0.12 : 1;
+    const bedTarget = active ? 0.38 : 1;
+    ramp(sfxGain && sfxGain.gain, sfxTarget, 0.1);
+    ramp(bedGain && bedGain.gain, bedTarget, 0.1);
+    if (sfxGain) sfxGain.gain.value = sfxTarget;
+    if (bedGain) bedGain.gain.value = bedTarget;
   }
 
   function noise(seconds) {
@@ -48,7 +95,7 @@ export function createAudio() {
     g.gain.exponentialRampToValueAtTime(0.001, t + dur);
     src.connect(filter);
     filter.connect(g);
-    g.connect(master);
+    g.connect(sfxGain || master);
     src.start(t);
     src.stop(t + dur + 0.02);
     if (from != null) {
@@ -60,7 +107,7 @@ export function createAudio() {
       og.gain.setValueAtTime(gain * 0.45, t);
       og.gain.exponentialRampToValueAtTime(0.001, t + dur);
       osc.connect(og);
-      og.connect(master);
+      og.connect(sfxGain || master);
       osc.start(t);
       osc.stop(t + dur + 0.02);
     }
@@ -79,7 +126,7 @@ export function createAudio() {
     windGain.gain.value = 0.045;
     src.connect(filter);
     filter.connect(windGain);
-    windGain.connect(master);
+    windGain.connect(bedGain || master);
     src.start();
   }
 
@@ -89,7 +136,7 @@ export function createAudio() {
     if (!audio || musicGain) return;
     musicGain = audio.createGain();
     musicGain.gain.value = 0.035;
-    musicGain.connect(master);
+    musicGain.connect(bedGain || master);
     const drone = audio.createOscillator();
     drone.type = "triangle";
     drone.frequency.value = 110;
@@ -121,19 +168,124 @@ export function createAudio() {
     tick();
   }
 
+  function playElement(url) {
+    return new Promise((resolve) => {
+      if (!mediaEl) { resolve(false); return; }
+      mediaGen += 1;
+      const audio = context();
+      if (audio && !mediaNode) {
+        try {
+          mediaNode = audio.createMediaElementSource(mediaEl);
+          mediaNode.connect(voiceGain || master);
+        } catch { mediaNode = null; }
+      }
+      speaking = true;
+      setDuck(true);
+      let settled = false;
+      const finish = (ok) => {
+        if (settled) return;
+        settled = true;
+        speaking = false;
+        setDuck(false);
+        resolve(ok);
+      };
+      mediaEl.onended = () => finish(true);
+      mediaEl.onerror = () => finish(false);
+      mediaEl.src = url;
+      const played = mediaEl.play();
+      if (played && played.catch) played.catch(() => finish(false));
+    });
+  }
+
   return {
     unlock() {
       const audio = context();
       if (!audio) return;
       started = true;
+      whenUnlocked();
+      if (!primed) {
+        primed = true;
+        try {
+          const blip = audio.createBufferSource();
+          blip.buffer = audio.createBuffer(1, 1, audio.sampleRate);
+          blip.connect(master);
+          blip.start();
+        } catch { /* a suspended context still accepts the gesture */ }
+        try {
+          mediaEl = new Audio();
+          mediaEl.playsInline = true;
+          mediaEl.setAttribute("playsinline", "");
+          mediaEl.preload = "auto";
+          mediaEl.src = SILENT_WAV;
+          const gen = ++mediaGen;
+          const played = mediaEl.play();
+          const pause = () => {
+            if (gen !== mediaGen) return;
+            try { mediaEl.pause(); } catch { /* ignore */ }
+          };
+          if (played && played.then) played.then(pause).catch(pause);
+          else pause();
+        } catch { /* element unlock is the fallback path */ }
+      }
       const go = () => {
         try {
           ensureWind();
           ensureMusic();
         } catch { /* headless audio can refuse a node; the picture still plays */ }
+        if (markUnlocked) {
+          const done = markUnlocked;
+          markUnlocked = null;
+          done();
+        }
       };
-      if (audio.state === "suspended") audio.resume().then(go).catch(() => {});
+      if (audio.state === "suspended") audio.resume().then(go).catch(go);
       else go();
+    },
+    speaking() { return speaking; },
+    levels() {
+      return {
+        sfx: sfxGain ? sfxGain.gain.value : null,
+        bed: bedGain ? bedGain.gain.value : null,
+        ducked,
+        speaking,
+      };
+    },
+    async playClip(url) {
+      await whenUnlocked();
+      const audio = context();
+      if (!audio || !started) return false;
+      try {
+        let decoded = clipCache.get(url);
+        if (!decoded) {
+          const res = await fetch(url);
+          if (!res.ok) return false;
+          const raw = await res.arrayBuffer();
+          decoded = await audio.decodeAudioData(raw.slice(0));
+          clipCache.set(url, decoded);
+        }
+        return await new Promise((resolve) => {
+          if (voiceSrc) {
+            try { voiceSrc.onended = null; voiceSrc.stop(); } catch { /* already ended */ }
+            voiceSrc = null;
+          }
+          const src = audio.createBufferSource();
+          src.buffer = decoded;
+          src.connect(voiceGain || master);
+          voiceSrc = src;
+          speaking = true;
+          setDuck(true);
+          const finish = (ok) => {
+            if (voiceSrc === src) voiceSrc = null;
+            speaking = false;
+            setDuck(false);
+            resolve(ok);
+          };
+          src.onended = () => finish(true);
+          try { src.start(); } catch { finish(false); }
+        });
+      } catch {
+        return playElement(url);
+      }
     },
     setTension(v) { tension = v; },
     swing() { burst({ dur: 0.09, freq: 900, type: "highpass", gain: 0.12, q: 0.6 }); },

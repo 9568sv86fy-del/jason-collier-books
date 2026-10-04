@@ -1,7 +1,8 @@
 import * as THREE from "three";
 import { clamp, damp, dampAngle, hypot2 } from "./util.js";
 import { halfWidth, heightAt } from "./world.js";
-import { createHuman, createFog, handbillMesh } from "./rigs.js";
+import { createFog, handbillMesh } from "./rigs.js";
+import { createHuman } from "./actors.js";
 import { bossFor } from "../bosses/index.js";
 
 const worldBoss = bossFor("california-trail");
@@ -49,13 +50,13 @@ export function createSim(scene, world, audio) {
   });
   const jang = createHuman({
     cloth: 0xe6d8c4, cloth2: 0x2c3338, pants: 0x3e4650, boots: 0x241c16,
-    hat: 0x2a2420, hatTilt: -0.22, hatPitch: 0.12, hatBand: 0x6a2430,
+    hat: 0x2a2420, hatTilt: -0.18, hatPitch: 0.04, hatBand: 0x6a2430, bowler: true, waistcoat: true,
     hair: 0x1c1612, skin: 0xc99570, mustache: true, sharp: true, neckerchief: 0x7a2430,
     bills: true, height: 0.9, bulk: 0.92, chest: 0.96, shoulder: 0.21,
   });
   const tom = createHuman({
     cloth: 0x6d7e8a, cloth2: 0x8a5a3c, pants: 0x5a4634, boots: 0x2a2018,
-    hat: 0x6a5340, hatTilt: 0.08, hair: 0x4a3428, skin: 0xd7a888,
+    hat: 0x6a5340, hatTilt: 0.06, wideHat: true, hair: 0x4a3428, skin: 0xd7a888,
     suspenders: true, scratch: true, roundFace: true, sleeves: 0xc4a888,
     height: 1.12, bulk: 1.18, chest: 1.28, shoulder: 0.28,
   });
@@ -345,8 +346,17 @@ export function createSim(scene, world, audio) {
   function updateEnemy(e, dt) {
     if (!e.alive) {
       e.t += dt;
-      e.rig.root.position.y = heightAt(e.x, e.z) - Math.min(1.2, e.t) * 0.8;
-      e.rig.root.rotation.x = Math.min(1.2, e.t);
+      e.rig.update(dt, {
+        speed: 0, air: false, action: "death", actionT: Math.min(1, e.t / 0.85),
+        combo: 0, look: 0, hurt: 0, dodgeSide: 0, hit: 0, tele: false, strike: false,
+      });
+      if (e.rig.skinned) {
+        e.rig.root.position.y = heightAt(e.x, e.z);
+        e.rig.root.rotation.x = 0;
+      } else {
+        e.rig.root.position.y = heightAt(e.x, e.z) - Math.min(1.2, e.t) * 0.8;
+        e.rig.root.rotation.x = Math.min(1.2, e.t);
+      }
       fadePatches(e, dt, 0);
       if (e.t > 1.3) e.rig.root.visible = false;
       if (e.portal) {
@@ -822,8 +832,9 @@ export function createSim(scene, world, audio) {
     if (mag > 0.05) {
       const nx = axes.strafe / mag;
       const nz = axes.fwd / mag;
-      wishX = Math.sin(camYaw) * nz + Math.cos(camYaw) * nx;
-      wishZ = Math.cos(camYaw) * nz - Math.sin(camYaw) * nx;
+      // Screen-right is (-cos(yaw), sin(yaw)) with this orbit. Positive strafe must use that, not its opposite.
+      wishX = Math.sin(camYaw) * nz - Math.cos(camYaw) * nx;
+      wishZ = Math.cos(camYaw) * nz + Math.sin(camYaw) * nx;
     }
     const airChain = player.airCombo > 0 || !player.grounded;
     const chainMax = airChain ? 3 : 4;
@@ -845,6 +856,7 @@ export function createSim(scene, world, audio) {
     }
     if (edge.potion) drink();
     if (edge.lock) toggleLock();
+    if (edge.recenter) events.push({ type: "recenter" });
     if (edge.cycle) cycleLock(1);
     if (edge.devil) startDevil();
     if (edge.mend) startMend();
@@ -1513,6 +1525,7 @@ export function createSim(scene, world, audio) {
         hits: playerHits,
         level: player.level, xp: player.xp, xpNext: player.xpNext, team: player.team,
         action: player.action, guarding: player.action === "guard",
+        speed: Math.hypot(player.vx, player.vz),
       },
       party: allies.map((a) => ({ id: a.id, name: a.name, hp: a.hp, hpMax: a.hpMax })),
       reaction: reaction ? { id: reaction.id, label: reaction.label } : null,

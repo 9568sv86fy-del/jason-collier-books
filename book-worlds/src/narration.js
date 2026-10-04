@@ -1,5 +1,6 @@
-// Announcer bulletins. Lines live in narration.json. A matching mp3 is optional.
-export function createNarration() {
+// Announcer bulletins. Lines live in narration.json. A matching mp3 plays when present.
+// One line at a time: a new say() waits its turn. Captions run even if sound is still locked.
+export function createNarration(audio) {
   const bar = document.getElementById("bulletin");
   const kickerEl = document.getElementById("bulletin-kicker");
   const lineEl = document.getElementById("bulletin-line");
@@ -12,50 +13,31 @@ export function createNarration() {
     })
     .catch(() => {});
 
+  const queue = [];
+  let busy = false;
   let token = 0;
   let typeTimer = 0;
-  let hideTimer = 0;
-  let clip = null;
   let current = null;
 
   function kickerFor(id) {
     if (id.startsWith("page-")) return "Story page";
     if (id === "restored") return "Station 1";
     if (id === "blank-next") return "Dead air";
+    if (id.startsWith("tutor-")) return "On the trail";
     return "Special bulletin";
   }
 
-  function silence() {
-    clearTimeout(typeTimer);
-    clearTimeout(hideTimer);
-    if (clip) {
-      clip.pause();
-      clip.removeAttribute("src");
-      clip.load();
-      clip = null;
-    }
-  }
-
   function conceal() {
-    if (clip && !clip.paused && !clip.ended) {
-      hideTimer = window.setTimeout(conceal, 400);
-      return;
-    }
     bar.hidden = true;
     current = null;
   }
 
-  function hold(ms) {
-    clearTimeout(hideTimer);
-    hideTimer = window.setTimeout(conceal, ms);
-  }
-
   function type(text, my) {
+    clearTimeout(typeTimer);
     const reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
     if (reduce) {
       lineEl.textContent = text;
       lineEl.classList.add("is-done");
-      hold(2800);
       return;
     }
     let i = 0;
@@ -66,28 +48,59 @@ export function createNarration() {
       i += 1;
       lineEl.textContent = text.slice(0, i);
       if (i < text.length) typeTimer = window.setTimeout(step, 26);
-      else {
-        lineEl.classList.add("is-done");
-        hold(2400);
-      }
+      else lineEl.classList.add("is-done");
     };
     step();
   }
 
-  async function tryClip(id, my) {
-    const url = new URL(`../audio/narration/${id}.mp3`, import.meta.url);
-    try {
-      const res = await fetch(url, { method: "HEAD" });
-      if (!res.ok || my !== token) return;
-      const audio = new Audio(url.href);
-      clip = audio;
-      audio.addEventListener("ended", () => {
-        if (my === token) hold(600);
-      });
-      await audio.play();
-    } catch {
-      /* No file yet, or the browser withheld sound. The caption still runs. */
+  function waitTyped(my) {
+    return new Promise((resolve) => {
+      const check = () => {
+        if (my !== token) { resolve(); return; }
+        if (lineEl.classList.contains("is-done")) { resolve(); return; }
+        typeTimer = window.setTimeout(check, 40);
+      };
+      check();
+    });
+  }
+
+  function delay(ms, my) {
+    return new Promise((resolve) => {
+      typeTimer = window.setTimeout(() => resolve(my === token), ms);
+    });
+  }
+
+  async function run(id, my) {
+    const text = lines.get(id);
+    current = { id, text };
+    kickerEl.textContent = kickerFor(id);
+    bar.hidden = false;
+    bar.dataset.id = id;
+    type(text, my);
+    const url = new URL(`../audio/narration/${id}.mp3`, import.meta.url).href;
+    let played = false;
+    const clip = audio && audio.playClip
+      ? audio.playClip(url).then((ok) => { played = !!ok; }).catch(() => { played = false; })
+      : Promise.resolve();
+    await Promise.all([clip, waitTyped(my)]);
+    if (my !== token) return;
+    await delay(played ? 450 : 1600, my);
+  }
+
+  async function pump() {
+    if (busy) return;
+    const next = queue.shift();
+    if (!next) {
+      conceal();
+      return;
     }
+    busy = true;
+    const my = ++token;
+    try { await run(next, my); } catch { /* caption already on screen */ }
+    busy = false;
+    if (my !== token) return;
+    if (queue.length) pump();
+    else conceal();
   }
 
   return {
@@ -96,16 +109,12 @@ export function createNarration() {
     },
     async say(id) {
       await ready;
-      const text = lines.get(id);
-      if (!text) return;
-      silence();
-      const my = ++token;
-      current = { id, text };
-      kickerEl.textContent = kickerFor(id);
-      bar.hidden = false;
-      bar.dataset.id = id;
-      type(text, my);
-      tryClip(id, my);
+      if (!lines.get(id)) return;
+      queue.push(id);
+      pump();
+    },
+    depth() {
+      return queue.length + (busy ? 1 : 0);
     },
     current() {
       return current ? { id: current.id, text: lineEl.textContent, full: current.text } : null;
