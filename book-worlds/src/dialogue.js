@@ -1,7 +1,9 @@
 // Character barks. Lines live in dialogue.json.
 // A matching mp3 at audio/voices/<speaker>/<id>.mp3 plays when present.
 // Subtitles stay off unless the player asks, except when the clip is missing.
+// A new bark replaces the one already playing. It waits if the announcer is mid-line.
 const NAMES = { jang: "Jang", tom: "Tom" };
+const VOICE_REV = "2";
 
 export function createDialogue(audio) {
   const rows = new Map();
@@ -10,14 +12,17 @@ export function createDialogue(audio) {
     .then((list) => {
       const rowsIn = Array.isArray(list) ? list : [];
       for (const row of rowsIn) if (row && row.id && row.text) rows.set(row.id, row);
+      if (audio && audio.warm) audio.warm([...rows.values()].map((row) => clipUrl(row)));
     })
     .catch(() => {});
 
-  const queue = [];
-  let busy = false;
   let token = 0;
   let active = null;
   let hideTimer = 0;
+
+  function clipUrl(row) {
+    return new URL(`../audio/voices/${row.speaker}/${row.id}.mp3?v=${VOICE_REV}`, import.meta.url).href;
+  }
 
   function subsOn() {
     return document.body.classList.contains("subs");
@@ -55,42 +60,31 @@ export function createDialogue(audio) {
     });
   }
 
-  async function run(id, my) {
-    const row = rows.get(id);
-    if (!row) return;
-    active = { id, speaker: row.speaker, text: row.text };
+  async function speak(row, my) {
+    active = { id: row.id, speaker: row.speaker, text: row.text };
     showTag(row.speaker, true);
     showSub(row.text, subsOn());
-    const url = new URL(`../audio/voices/${row.speaker}/${id}.mp3`, import.meta.url).href;
     let played = false;
     try {
-      played = !!(audio && audio.playClip && await audio.playClip(url));
+      const play = audio && (audio.playCompanion || audio.playClip);
+      played = !!(play && await play(clipUrl(row)));
     } catch {
       played = false;
     }
     if (my !== token) return;
     if (!played) {
       showSub(row.text, true);
-      await delay(Math.min(4600, 1400 + row.text.length * 32), my);
+      const still = await delay(Math.min(4600, 1400 + row.text.length * 32), my);
+      if (!still || my !== token) return;
     }
     if (my !== token) return;
     active = null;
     showTag(row.speaker, false);
     const el = subEl();
-    if (el && !subsOn()) el.hidden = true;
-  }
-
-  async function pump() {
-    if (busy) return;
-    const next = queue.shift();
-    if (!next) return;
-    busy = true;
-    const my = ++token;
-    try { await run(next, my); } catch { /* the name tag clears below */ }
-    busy = false;
-    if (my !== token) return;
-    if (queue.length) pump();
-    else if (!active) showTag("", false);
+    if (el && !subsOn()) {
+      el.hidden = true;
+      el.textContent = "";
+    }
   }
 
   return {
@@ -102,24 +96,25 @@ export function createDialogue(audio) {
       return [...rows.values()];
     },
     say(id) {
+      const my = ++token;
       ready.then(() => {
-        if (!rows.get(id)) return;
-        queue.push(id);
-        pump();
+        if (my !== token) return;
+        const row = rows.get(id);
+        if (!row) return;
+        speak(row, my);
       });
     },
     active() {
       return active;
     },
     depth() {
-      return queue.length + (busy ? 1 : 0);
+      return active ? 1 : 0;
     },
     stop() {
       token += 1;
-      queue.length = 0;
-      busy = false;
       active = null;
       clearTimeout(hideTimer);
+      if (audio && audio.cancelCompanion) audio.cancelCompanion();
       showTag("", false);
       const el = subEl();
       if (el && !subsOn()) el.hidden = true;

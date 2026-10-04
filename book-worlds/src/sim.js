@@ -1,8 +1,8 @@
 import * as THREE from "three";
 import { clamp, damp, dampAngle, hypot2 } from "./util.js";
-import { halfWidth, heightAt } from "./world.js";
+import { halfWidth, heightAt } from "./world.js?v=2";
 import { createFog, handbillMesh } from "./rigs.js";
-import { createHuman } from "./actors.js";
+import { createHuman } from "./actors.js?v=2";
 import { bossFor } from "../bosses/index.js";
 
 const worldBoss = bossFor("california-trail");
@@ -1102,7 +1102,7 @@ export function createSim(scene, world, audio) {
     const got = pageCount();
     updateTutorial(dt, camYaw, edge);
 
-    let objective = tutorialOn ? "Learn the road" : `Pages ${got}/5`;
+    let objective = tutorialOn ? "Learn the road" : "Follow the trail";
     if (!flags.rout && player.z > 70 && player.z < 92 && boss.alive) objective = "Rope the bandits";
     if (!circus && player.z > 90) objective = "Float the wagons";
     if (circus && boss.alive && !boss.active) objective = "Bear at the ford";
@@ -1110,7 +1110,7 @@ export function createSim(scene, world, audio) {
     if (!boss.alive && got < 5) objective = got === 4 ? "1 page left" : `${5 - got} pages left`;
     if (!boss.alive && got >= 5) objective = "Step through";
     const here = arenas.find((a) => a.active && !a.cleared);
-    if (here && objective.startsWith("Pages")) objective = "Clear the fog";
+    if (here && (objective === "Follow the trail" || objective.startsWith("Pages"))) objective = "Clear the fog";
 
     lastPrompt = reaction || prompt;
     lastObjective = objective;

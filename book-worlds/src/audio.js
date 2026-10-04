@@ -20,9 +20,14 @@ export function createAudio() {
   let mediaGen = 0;
   let voiceSrc = null;
   const clipCache = new Map();
-  let clipChain = Promise.resolve();
   let unlockedP = null;
   let markUnlocked = null;
+  let voiceOwner = null;
+  let companionGen = 0;
+  let companionCancel = null;
+  let mediaUnlocked = false;
+  let primeP = null;
+  let gate = Promise.resolve();
 
   function context() {
     if (ctx) return ctx;
@@ -169,17 +174,80 @@ export function createAudio() {
     tick();
   }
 
+  function lock() {
+    let release;
+    const held = new Promise((resolve) => { release = resolve; });
+    const ready = gate.then(() => release, () => release);
+    gate = gate.then(() => held, () => held);
+    return ready;
+  }
+
+  function sleep(ms) {
+    return new Promise((resolve) => { window.setTimeout(resolve, ms); });
+  }
+
+  function ensureMedia() {
+    if (mediaEl) return mediaEl;
+    mediaEl = new Audio();
+    mediaEl.playsInline = true;
+    mediaEl.setAttribute("playsinline", "");
+    mediaEl.setAttribute("webkit-playsinline", "true");
+    mediaEl.preload = "none";
+    mediaEl.setAttribute("aria-hidden", "true");
+    mediaEl.style.cssText = "position:absolute;width:0;height:0;opacity:0;pointer-events:none";
+    if (document.body) document.body.appendChild(mediaEl);
+    return mediaEl;
+  }
+
+  function hookMedia() {
+    const audio = context();
+    if (!audio || !mediaEl || mediaNode) return;
+    try {
+      mediaNode = audio.createMediaElementSource(mediaEl);
+      mediaNode.connect(voiceGain || master);
+    } catch { mediaNode = null; }
+  }
+
+  function voiceLevel() {
+    const v = voiceGain ? voiceGain.gain.value : 0.95;
+    const m = master ? master.gain.value : 0.8;
+    return Math.max(0, Math.min(1, v * m));
+  }
+
+  function primeMedia() {
+    if (mediaUnlocked) return Promise.resolve(true);
+    if (voiceOwner) return Promise.resolve(false);
+    if (primeP) return primeP;
+    const el = ensureMedia();
+    hookMedia();
+    el.src = SILENT_WAV;
+    const gen = ++mediaGen;
+    primeP = new Promise((resolve) => {
+      const finish = (ok) => {
+        if (gen !== mediaGen) { primeP = null; resolve(false); return; }
+        if (ok) {
+          mediaUnlocked = true;
+          try { el.pause(); } catch { /* the gesture already counted */ }
+        }
+        primeP = null;
+        resolve(!!ok);
+      };
+      try {
+        const played = el.play();
+        if (played && played.then) played.then(() => finish(true)).catch(() => finish(false));
+        else finish(true);
+      } catch { finish(false); }
+    });
+    return primeP;
+  }
+
   function playElement(url) {
     return new Promise((resolve) => {
-      if (!mediaEl) { resolve(false); return; }
+      const el = ensureMedia();
+      hookMedia();
       mediaGen += 1;
-      const audio = context();
-      if (audio && !mediaNode) {
-        try {
-          mediaNode = audio.createMediaElementSource(mediaEl);
-          mediaNode.connect(voiceGain || master);
-        } catch { mediaNode = null; }
-      }
+      if (!mediaNode) el.volume = voiceLevel();
+      else el.volume = 1;
       speaking = true;
       setDuck(true);
       let settled = false;
@@ -190,12 +258,100 @@ export function createAudio() {
         setDuck(false);
         resolve(ok);
       };
-      mediaEl.onended = () => finish(true);
-      mediaEl.onerror = () => finish(false);
-      mediaEl.src = url;
-      const played = mediaEl.play();
+      el.onended = () => finish(true);
+      el.onerror = () => finish(false);
+      el.src = url;
+      const played = el.play();
+      if (played && played.then) played.then(() => { mediaUnlocked = true; }).catch(() => {});
       if (played && played.catch) played.catch(() => finish(false));
     });
+  }
+
+  function playCompanionElement(url, gen) {
+    return new Promise((resolve) => {
+      const el = ensureMedia();
+      hookMedia();
+      if (!mediaNode) el.volume = voiceLevel();
+      else el.volume = 1;
+      let settled = false;
+      const finish = (result) => {
+        if (settled) return;
+        settled = true;
+        if (companionCancel === cancel) companionCancel = null;
+        if (gen === companionGen && voiceOwner === "companion") {
+          speaking = false;
+          setDuck(false);
+          voiceOwner = null;
+        }
+        resolve(result);
+      };
+      const cancel = () => {
+        try { el.pause(); } catch { /* already quiet */ }
+        el.onended = null;
+        el.onerror = null;
+        finish(false);
+      };
+      companionCancel = cancel;
+      el.onended = () => finish(gen === companionGen);
+      el.onerror = () => finish(false);
+      speaking = true;
+      voiceOwner = "companion";
+      setDuck(true);
+      mediaGen += 1;
+      try { el.pause(); } catch { /* ignore */ }
+      el.src = url;
+      let played = null;
+      try { played = el.play(); } catch (err) {
+        const blocked = err && err.name === "NotAllowedError";
+        finish(blocked ? "blocked" : false);
+        return;
+      }
+      if (played && played.then) {
+        played.then(() => { mediaUnlocked = true; }).catch((err) => {
+          const blocked = err && (err.name === "NotAllowedError" || err.name === "AbortError");
+          finish(blocked ? "blocked" : false);
+        });
+      }
+    });
+  }
+
+  async function playCompanion(url) {
+    const gen = ++companionGen;
+    if (companionCancel) companionCancel();
+    if (voiceOwner === "companion") {
+      voiceOwner = null;
+      speaking = false;
+      setDuck(false);
+    }
+    await whenUnlocked();
+    if (gen !== companionGen) return false;
+    let result = "blocked";
+    let tries = 0;
+    while (result === "blocked" && gen === companionGen && tries < 4) {
+      tries += 1;
+      if (primeP) await primeP;
+      if (!mediaUnlocked) {
+        await new Promise((resolve) => {
+          const timer = window.setInterval(() => {
+            if (mediaUnlocked || gen !== companionGen) {
+              window.clearInterval(timer);
+              resolve();
+            }
+          }, 40);
+        });
+      }
+      if (gen !== companionGen) return false;
+      const release = await lock();
+      try {
+        if (gen !== companionGen) return false;
+        voiceOwner = "companion";
+        result = await playCompanionElement(url, gen);
+      } finally {
+        if (voiceOwner === "companion") voiceOwner = null;
+        release();
+      }
+    }
+    return result === true;
   }
 
   async function playOne(url) {
@@ -250,22 +406,8 @@ export function createAudio() {
           blip.connect(master);
           blip.start();
         } catch { /* a suspended context still accepts the gesture */ }
-        try {
-          mediaEl = new Audio();
-          mediaEl.playsInline = true;
-          mediaEl.setAttribute("playsinline", "");
-          mediaEl.preload = "auto";
-          mediaEl.src = SILENT_WAV;
-          const gen = ++mediaGen;
-          const played = mediaEl.play();
-          const pause = () => {
-            if (gen !== mediaGen) return;
-            try { mediaEl.pause(); } catch { /* ignore */ }
-          };
-          if (played && played.then) played.then(pause).catch(pause);
-          else pause();
-        } catch { /* element unlock is the fallback path */ }
       }
+      primeMedia();
       const go = () => {
         try {
           ensureWind();
@@ -287,12 +429,44 @@ export function createAudio() {
         bed: bedGain ? bedGain.gain.value : null,
         ducked,
         speaking,
+        owner: voiceOwner,
       };
     },
     playClip(url) {
-      const job = clipChain.then(() => playOne(url), () => playOne(url));
-      clipChain = job.then(() => {}, () => {});
-      return job;
+      return (async () => {
+        const release = await lock();
+        voiceOwner = "narration";
+        try { return await playOne(url); }
+        finally {
+          if (voiceOwner === "narration") voiceOwner = null;
+          release();
+        }
+      })();
+    },
+    playCompanion,
+    cancelCompanion() {
+      companionGen += 1;
+      if (companionCancel) companionCancel();
+      if (voiceOwner === "companion") {
+        voiceOwner = null;
+        speaking = false;
+        setDuck(false);
+      }
+    },
+    warm(urls) {
+      const queue = (urls || []).filter(Boolean);
+      const run = () => {
+        const url = queue.shift();
+        if (!url) return;
+        fetch(url).catch(() => {}).finally(() => {
+          const ric = window.requestIdleCallback || ((fn) => window.setTimeout(fn, 70));
+          ric(run);
+        });
+      };
+      window.setTimeout(() => {
+        const ric = window.requestIdleCallback || ((fn) => window.setTimeout(fn, 0));
+        ric(run);
+      }, 1800);
     },
     setTension(v) { tension = v; },
     swing() { burst({ dur: 0.09, freq: 900, type: "highpass", gain: 0.12, q: 0.6 }); },
