@@ -7,6 +7,8 @@ import { createNarration } from "./narration.js";
 import { createDialogue } from "./dialogue.js?v=2";
 import { EffectComposer, RenderPass, UnrealBloomPass, OutputPass, GTAOPass, ShaderPass } from "three/addons";
 import { buildWorld } from "./world.js?v=2";
+import { buildRustyWorld } from "../worlds/rusty/world.js";
+import { createRustySim } from "../worlds/rusty/sim.js";
 import { whenCastReady } from "./actors.js?v=2";
 import { theBlank } from "../bosses/index.js";
 
@@ -22,12 +24,21 @@ renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = THREE.PCFShadowMap;
 renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, low ? 1.15 : 1.5));
 
-const scene = new THREE.Scene();
-const camera = new THREE.PerspectiveCamera(52, 1, 0.12, 400);
+let scene = new THREE.Scene();
+let camera = new THREE.PerspectiveCamera(52, 1, 0.12, 400);
 scene.add(camera);
 const audio = createAudio();
-const world = buildWorld(scene, low);
-const sim = createSim(scene, world, audio);
+const trailScene = scene;
+const trailCamera = camera;
+const trailWorld = buildWorld(scene, low);
+const trailSim = createSim(scene, trailWorld, audio);
+let world = trailWorld;
+let sim = trailSim;
+let worldKey = "trail";
+let stackScene = null;
+let stackCamera = null;
+let stackWorld = null;
+let stackSim = null;
 const input = createInput(app);
 const narrate = createNarration(audio);
 const dialogue = createDialogue(audio);
@@ -92,7 +103,7 @@ const direct = ["ford", "play", "gate", "almost", "rope", "bank"].includes(start
 let mode = direct ? "play" : "hub";
 let playing = mode === "play";
 let station = 0;
-let signalClosed = false;
+const restored = { trail: false, stack: false };
 let transitioning = false;
 let pullTimer = 0;
 let blankTimer = 0;
@@ -164,7 +175,7 @@ const el = {
 
 const STATIONS = [
   { id: "trail", freq: "54.7", script: "On the air", title: "The California Trail", sub: "Jang & Tom · Wagon Masters", live: true },
-  { id: "stack", freq: "67.2", script: "No signal", title: "The Rusty Stack", sub: "An airship in another sky", live: false },
+  { id: "stack", freq: "67.2", script: "On the air", title: "The Rusty Stack", sub: "Spacey & Mira · Sky Freight", live: true, note: "Recommended after the Trail" },
   { id: "oldman", freq: "81.4", script: "No signal", title: "Old Man on the Mountain", sub: "A ridge with its own weather", live: false },
   { id: "pulse", freq: "103.0", script: "No signal", title: "The First Pulse", sub: "Space, and the Hum beneath it", live: false },
 ];
@@ -196,6 +207,61 @@ const CARDS = {
   },
 };
 
+const STACK_CARDS = {
+  title: {
+    script: "Please stand by",
+    kicker: "Book Worlds  ·  Station 2",
+    title: "The Rusty Stack",
+    body: "Nonimaginaires — brain fogs born where imagination dies — are leaking through the broadcast and eating this story. Five pages are going gray above the clouds. The Keeper has to gather those pages, put the deck, the city, and the goats back the way the book remembers, and restore the imagination on this channel. Baron von Smash has fused with the fog and waits in the hangar. This channel is a rusty freight airship. Spacey and Mira are pretending the smoke means everything is fine. The weapon in the Keeper's hand is the same brass skeleton key — the Trail Key. Recommended after the Trail.",
+    btn: "Step onto the deck",
+    hint: true,
+  },
+  outro: {
+    script: "End of the bulletin",
+    kicker: "World II",
+    title: "The stack keeps its color",
+    body: "The Blank Baron comes apart, fog first and then the shape of an axe the book still remembers. Sunset crawls back into the rivets. Spacey does not light the cigar. Mira checks a gauge that was gray a minute ago and nods once. The screen home stays shut until every torn page is back in the book.",
+    btn: "Back to the deck",
+    hint: false,
+  },
+  dead: {
+    script: "Steam settles",
+    kicker: "The deck keeps your boots",
+    title: "Not yet",
+    body: "The Keeper hits the iron. Spacey is already rewriting the story so this was the plan. Mira offers the long end of the wrench.",
+    btn: "Get up",
+    hint: false,
+  },
+};
+
+const STACK_PAGES = {
+  "half-left": {
+    script: "A torn page",
+    title: "Still got half left",
+    body: "A torn page. The freight hauler looked half dead. Her captain said the funny thing about half dead is you still got half left.",
+  },
+  "crate-hums": {
+    script: "A torn page",
+    title: "The crate that hums",
+    body: "A torn page. One crate in the hold, stenciled like instruments, humming like a cat or a bomb. On this ship, humming means alive.",
+  },
+  "forgot-float": {
+    script: "A torn page",
+    title: "A city that forgot how to float",
+    body: "A torn page. A garden city forgot how to float. Its lift crystals cracked, and every small ship in the sky took a rope and pulled.",
+  },
+  "balloon-goats": {
+    script: "A torn page",
+    title: "Goats with balloons",
+    body: "A torn page. Cloud-farm goats on patched balloons, and a war that never ended because nobody could agree which sky was theirs.",
+  },
+  "duke-day": {
+    script: "A torn page",
+    title: "The Duke's bad day",
+    body: "A torn page. A short round warlord met a void slime. The slime ate the crown, then the cape clasps, and left the warlord in his long johns.",
+  },
+};
+
 const PAGES = {
   handbills: {
     script: "A torn page",
@@ -224,8 +290,16 @@ const PAGES = {
   },
 };
 
+function cardsFor() {
+  return worldKey === "stack" ? STACK_CARDS : CARDS;
+}
+
+function pagesFor() {
+  return worldKey === "stack" ? STACK_PAGES : PAGES;
+}
+
 function showCard(id) {
-  const c = CARDS[id];
+  const c = cardsFor()[id];
   mode = id;
   el.script.textContent = c.script;
   el.kicker.textContent = c.kicker;
@@ -243,7 +317,7 @@ function showCard(id) {
   if (id === "title") narrate.say("intro");
 }
 function showPage(id, n) {
-  const c = PAGES[id];
+  const c = pagesFor()[id];
   mode = "page";
   el.script.textContent = c.script;
   el.kicker.textContent = `Story page  ·  ${n} of 5`;
@@ -272,23 +346,29 @@ function hideCard() {
 
 function paintStation() {
   const st = STATIONS[station];
+  const closed = !!restored[st.id];
   el.screen.classList.remove("is-tuning");
   el.screen.dataset.station = st.id;
   el.screen.classList.toggle("is-static", !st.live);
   el.freq.textContent = st.freq;
-  el.stScript.textContent = st.live && signalClosed ? "Story restored" : st.script;
+  el.stScript.textContent = st.live && closed ? "Story restored" : st.script;
   el.stTitle.textContent = st.title;
   el.stSub.textContent = st.sub;
   el.stNum.textContent = `Station ${station + 1}`;
   el.stSoon.hidden = st.live;
   el.stBadge.textContent = "Story restored";
-  el.stBadge.hidden = !(st.live && signalClosed);
+  el.stBadge.hidden = !(st.live && closed);
   el.tune.disabled = !st.live;
-  el.tune.textContent = !st.live ? "Coming soon" : signalClosed ? "Tune in again" : "Tune in";
+  el.tune.textContent = !st.live ? "Coming soon" : closed ? "Tune in again" : "Tune in";
+  const note = document.getElementById("st-note");
+  if (note) {
+    note.hidden = !st.note;
+    note.textContent = st.note || "";
+  }
   el.knob.style.transform = `rotate(${station * 78 - 36}deg)`;
   for (const pic of el.screen.querySelectorAll(".bw-pic")) pic.hidden = pic.dataset.pic !== st.id;
   el.hub.dataset.station = st.id;
-  el.hub.dataset.closed = signalClosed ? "1" : "0";
+  el.hub.dataset.closed = closed ? "1" : "0";
 }
 
 function showHub() {
@@ -331,8 +411,9 @@ function glimpseBlank() {
   el.blankShade.classList.add("is-on");
 }
 
-function flickerBlank() {
-  el.blankVoice.textContent = theBlank.voice;
+function flickerBlank(exitKey) {
+  const stack = exitKey === "stack";
+  el.blankVoice.textContent = stack ? "The next sky is already forgetting its name." : theBlank.voice;
   el.blankFace.hidden = false;
   el.blankFace.classList.remove("is-on");
   void el.blankFace.offsetWidth;
@@ -344,8 +425,68 @@ function flickerBlank() {
     el.blankFace.hidden = true;
   }, 5400);
   blankVoiceTimer = window.setTimeout(() => {
-    if (mode === "hub" && signalClosed && !transitioning) narrate.say("blank-next");
+    if (mode === "hub" && restored[exitKey] && !transitioning) {
+      narrate.sayFrom(stack ? "stack" : "trail", "blank-next");
+    }
   }, 4600);
+}
+
+function ensureStack() {
+  if (stackScene) return;
+  stackScene = new THREE.Scene();
+  stackCamera = new THREE.PerspectiveCamera(52, 1, 0.12, 700);
+  stackScene.add(stackCamera);
+  installEnvironment(renderer, stackScene, low, "stack");
+  stackWorld = buildRustyWorld(stackScene, low);
+  stackSim = createRustySim(stackScene, stackWorld, audio);
+}
+
+function retargetComposer(nextScene, nextCam) {
+  if (low) {
+    composer = null;
+    return;
+  }
+  if (composer) {
+    try { composer.dispose(); } catch { /* an old pass can already be gone */ }
+    composer = null;
+  }
+  composer = makeComposer(renderer, nextScene, nextCam);
+}
+
+function enterWorld(key) {
+  dialogue.stop();
+  narrate.stop();
+  if (key === "stack") {
+    ensureStack();
+    scene = stackScene;
+    camera = stackCamera;
+    world = stackWorld;
+    sim = stackSim;
+    worldKey = "stack";
+    dialogue.setWorld("rusty-stack");
+    narrate.use("stack");
+    audio.setBed("stack");
+    const kicker = document.getElementById("tutor-kicker");
+    if (kicker) kicker.textContent = "On the deck";
+  } else {
+    scene = trailScene;
+    camera = trailCamera;
+    world = trailWorld;
+    sim = trailSim;
+    worldKey = "trail";
+    dialogue.setWorld("california-trail");
+    narrate.use("trail");
+    audio.setBed("trail");
+    const kicker = document.getElementById("tutor-kicker");
+    if (kicker) kicker.textContent = "On the trail";
+  }
+  scene.add(camera);
+  scene.add(flashLight);
+  scene.add(shock);
+  retargetComposer(scene, camera);
+  camera.aspect = window.innerWidth / Math.max(1, window.innerHeight);
+  camera.updateProjectionMatrix();
+  if (composer) composer.setSize(window.innerWidth, window.innerHeight);
 }
 
 function finishThrough() {
@@ -355,8 +496,19 @@ function finishThrough() {
   el.roll.hidden = true;
   hideBlankShade();
   transitioning = false;
+  const key = STATIONS[station].id;
+  if (key !== worldKey) enterWorld(key === "stack" ? "stack" : "trail");
+  else if (key === "stack") {
+    dialogue.setWorld("rusty-stack");
+    narrate.use("stack");
+    audio.setBed("stack");
+  } else {
+    dialogue.setWorld("california-trail");
+    narrate.use("trail");
+    audio.setBed("trail");
+  }
   sim.resetTrail();
-  camYaw = 0.55;
+  camYaw = key === "stack" ? 0.2 : 0.55;
   camPitch = 0.4;
   showCard("title");
 }
@@ -392,15 +544,17 @@ function finishBack() {
 function pullBack() {
   if (transitioning) return;
   transitioning = true;
-  signalClosed = true;
+  const exitKey = worldKey;
+  restored[exitKey] = true;
   playing = false;
   input.enabled = false;
   mode = "hub";
   audio.staticBurst();
   el.card.hidden = true;
   document.body.classList.remove("playing");
+  audio.setBed("trail");
   narrate.say("restored");
-  flickerBlank();
+  flickerBlank(exitKey);
   if (reducedMotion()) {
     finishBack();
     return;
@@ -472,7 +626,24 @@ el.btn.addEventListener("click", () => {
   }
 });
 
-if (start === "ford") {
+const worldParam = params.get("world");
+const wantStack = worldParam === "stack" || worldParam === "rusty";
+const stackStarts = ["play", "deck", "boss", "city", "goats", "brawl", "fort"];
+if (wantStack) station = 1;
+if (wantStack && stackStarts.includes(start)) {
+  enterWorld("stack");
+  if (start === "boss") {
+    sim.place(0, 58, Math.PI);
+    sim.wakeBoss();
+  } else if (start === "city") sim.place(32, 2, 0);
+  else if (start === "goats") sim.place(-34, 2, 0);
+  else if (start === "brawl") sim.place(0, 18, 0);
+  else if (start === "fort") sim.place(0, 48, 0);
+  hideCard();
+  audio.unlock();
+} else if (wantStack) {
+  showHub();
+} else if (start === "ford") {
   camYaw = 0;
   camPitch = 0.36;
   sim.place(0, 104, 0);
@@ -784,7 +955,12 @@ window.__BOOKWORLDS = {
   mode: () => mode,
   station: () => station,
   stationId: () => STATIONS[station].id,
-  signalClosed: () => signalClosed,
+  signalClosed: () => {
+    const key = mode === "hub" ? STATIONS[station].id : worldKey;
+    return !!restored[key];
+  },
+  worldKey: () => worldKey,
+  worldId: () => (worldKey === "stack" ? "rusty-stack" : "california-trail"),
   player: () => {
     const p = sim.player;
     return { x: p.x, y: p.y, z: p.z, hp: p.hp, yaw: p.yaw, hits: sim.hits() };
@@ -854,10 +1030,19 @@ el.tutorAct.addEventListener("pointerup", () => {
 
 function paintParty(snap) {
   const rows = snap.party || [];
-  for (const row of rows) {
-    const bar = document.getElementById(row.id + "-hp");
+  const slots = document.querySelectorAll("#party .ally");
+  slots.forEach((slot, i) => {
+    const row = rows[i];
+    const name = slot.querySelector("span");
+    const bar = slot.querySelector("b");
+    if (!row) {
+      slot.hidden = true;
+      return;
+    }
+    slot.hidden = false;
+    if (name && row.name) name.textContent = row.name;
     if (bar) bar.style.width = `${clamp(row.hp / row.hpMax, 0, 1) * 100}%`;
-  }
+  });
   const team = document.getElementById("team-fill");
   if (team) team.style.width = `${clamp((snap.player.team || 0) / 100, 0, 1) * 100}%`;
 }
@@ -1037,16 +1222,23 @@ function wireSettings() {
   });
 }
 
-function installEnvironment(gl, rootScene, lowQ) {
+function installEnvironment(gl, rootScene, lowQ, kind) {
   const c = document.createElement("canvas");
   c.width = 64;
   c.height = 32;
   const g = c.getContext("2d");
   const grd = g.createLinearGradient(0, 0, 0, 32);
-  grd.addColorStop(0, "#1a2744");
-  grd.addColorStop(0.42, "#c45a3a");
-  grd.addColorStop(0.68, "#f0b67a");
-  grd.addColorStop(1, "#8a5a38");
+  if (kind === "stack") {
+    grd.addColorStop(0, "#1a1830");
+    grd.addColorStop(0.38, "#c45a48");
+    grd.addColorStop(0.62, "#e8a06a");
+    grd.addColorStop(1, "#6a4030");
+  } else {
+    grd.addColorStop(0, "#1a2744");
+    grd.addColorStop(0.42, "#c45a3a");
+    grd.addColorStop(0.68, "#f0b67a");
+    grd.addColorStop(1, "#8a5a38");
+  }
   g.fillStyle = grd;
   g.fillRect(0, 0, 64, 32);
   const tex = new THREE.CanvasTexture(c);

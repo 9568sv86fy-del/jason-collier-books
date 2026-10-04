@@ -391,7 +391,133 @@ function sleeveGeo(len) {
   }
   geo.computeVertexNormals();
   return geo;
+function metalMat(hex, rough = 0.34) {
+  const mat = clothMat(hex, rough, "leather");
+  mat.metalness = 0.72;
+  mat.roughness = rough;
+  return mat;
 }
+
+// Extra costume pieces for the airship crew. Trail outfits never set these flags.
+function dressAirship(model, B, spec, crown, faceZ) {
+  const air = spec.goggles || spec.cigar || spec.newsboy || spec.stubble || spec.messy
+    || spec.crossBelts || spec.gloves || spec.soot || spec.toolbelt || spec.wrench;
+  if (!air) return;
+
+  if (spec.newsboy) {
+    const hat = new THREE.Group();
+    const hatM = clothMat(spec.hat || 0x3d4a32, 0.7, "leather");
+    const brim = new THREE.Mesh(new THREE.BoxGeometry(0.22, 0.012, 0.18), hatM);
+    brim.position.set(0, 0, 0.05);
+    const crownMesh = new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.07, 0.16), hatM);
+    crownMesh.position.y = 0.04;
+    const band = new THREE.Mesh(new THREE.BoxGeometry(0.168, 0.016, 0.168), clothMat(0x2a2418, 0.5, "leather"));
+    band.position.y = 0.014;
+    hat.add(brim, crownMesh, band);
+    put(model, B("Head"), hat, 0, crown + 0.01, 0.02, spec.hatPitch || 0.1, 0, spec.hatTilt || -0.05);
+  }
+
+  if (spec.goggles) {
+    const g = new THREE.Group();
+    const brass = metalMat(0xc6a15a, 0.3);
+    const glass = new THREE.MeshStandardMaterial({
+      color: 0x8aa0a8, roughness: 0.12, metalness: 0.25, transparent: true, opacity: 0.55,
+    });
+    for (const s of [-1, 1]) {
+      const rim = new THREE.Mesh(new THREE.TorusGeometry(0.032, 0.006, 6, 12), brass);
+      rim.position.set(s * 0.04, 0, 0);
+      const lens = new THREE.Mesh(new THREE.CircleGeometry(0.026, 10), glass);
+      lens.position.set(s * 0.04, 0, 0.004);
+      g.add(rim, lens);
+    }
+    const bridge = new THREE.Mesh(new THREE.BoxGeometry(0.022, 0.008, 0.008), brass);
+    const strap = new THREE.Mesh(new THREE.BoxGeometry(0.18, 0.012, 0.012), clothMat(0x3a2a22, 0.7, "leather"));
+    strap.position.y = 0.028;
+    g.add(bridge, strap);
+    put(model, B("Head"), g, 0, crown - 0.04, faceZ * 0.25, -1.05, 0, 0);
+  }
+
+  if (spec.stubble) {
+    const patch = new THREE.Mesh(new THREE.BoxGeometry(0.07, 0.045, 0.012), clothMat(0x3a2c22, 0.95));
+    put(model, B("Head"), patch, 0, crown - 0.195, faceZ + 0.004);
+  }
+
+  if (spec.cigar) {
+    const group = new THREE.Group();
+    const cigar = new THREE.Mesh(new THREE.CylinderGeometry(0.008, 0.01, 0.09, 6), clothMat(0x6a4030, 0.72, "leather"));
+    cigar.rotation.z = Math.PI / 2;
+    const ash = new THREE.Mesh(new THREE.SphereGeometry(0.009, 6, 5), clothMat(0x9a9088, 0.92));
+    ash.position.x = 0.046;
+    group.add(cigar, ash);
+    put(model, B("Head"), group, 0.028, crown - 0.175, faceZ + 0.028, 0.15, 0.35, 1.15);
+  }
+
+  if (spec.messy) {
+    const tuftM = clothMat(spec.hair || 0x3a2416, 1);
+    for (let i = 0; i < 5; i++) {
+      const tuft = new THREE.Mesh(new THREE.ConeGeometry(0.016, 0.07, 4), tuftM);
+      const a = (i - 2) * 0.32;
+      put(model, B("Head"), tuft, Math.sin(a) * 0.055, crown + 0.02, -0.02, 0.35, a, 0.25);
+    }
+  }
+
+  if (spec.soot) {
+    const soot = clothMat(0x2a2420, 0.96);
+    for (const s of [-1, 1]) {
+      const spot = new THREE.Mesh(new THREE.SphereGeometry(0.012, 6, 5), soot);
+      put(model, B("Head"), spot, s * 0.048, crown - 0.11, faceZ * 0.85);
+    }
+    const cheek = new THREE.Mesh(new THREE.SphereGeometry(0.015, 6, 5), soot);
+    put(model, B("Head"), cheek, 0.038, crown - 0.15, faceZ * 0.9);
+  }
+
+  if (spec.crossBelts) {
+    const belt = clothMat(0x4a3424, 0.62, "leather");
+    for (const s of [-1, 1]) {
+      const strap = new THREE.Mesh(new THREE.BoxGeometry(0.034, 0.52, 0.018), belt);
+      put(model, B("spine_02"), strap, s * 0.01, 1.16, 0.11, 0.12, 0, s * 0.72);
+    }
+    const buck = new THREE.Mesh(new THREE.BoxGeometry(0.04, 0.028, 0.016), metalMat(0xc6a15a, 0.32));
+    put(model, B("spine_02"), buck, 0, 1.02, 0.16);
+  }
+
+  if (spec.toolbelt) {
+    const strap = new THREE.Mesh(new THREE.BoxGeometry(0.32, 0.04, 0.12), clothMat(0x3a3028, 0.6, "leather"));
+    put(model, B("spine_01"), strap, 0, 0.95, 0.06);
+    const pouchM = clothMat(0x5a4030, 0.75, "leather");
+    for (const s of [-1, 1]) {
+      const pouch = new THREE.Mesh(new THREE.BoxGeometry(0.055, 0.07, 0.04), pouchM);
+      put(model, B("spine_01"), pouch, s * 0.1, 0.9, 0.12);
+    }
+  }
+
+  model.updateMatrixWorld(true);
+  const grip = new THREE.Vector3();
+  if (spec.gloves) {
+    const glove = clothMat(0x2a2420, 0.7, "leather");
+    for (const name of ["hand_r", "hand_l"]) {
+      const bone = B(name);
+      if (!bone) continue;
+      bone.getWorldPosition(grip);
+      const mitt = new THREE.Mesh(new THREE.BoxGeometry(0.055, 0.035, 0.065), glove);
+      put(model, bone, mitt, grip.x, grip.y, grip.z);
+    }
+  }
+  if (spec.wrench) {
+    const bone = B("hand_r");
+    if (bone) {
+      bone.getWorldPosition(grip);
+      const wrench = new THREE.Group();
+      const brass = metalMat(0xc6a15a, 0.28);
+      const handle = new THREE.Mesh(new THREE.CylinderGeometry(0.012, 0.014, 0.46, 6), brass);
+      const head = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.038, 0.024), brass);
+      head.position.y = 0.23;
+      const jaw = new THREE.Mesh(new THREE.BoxGeometry(0.028, 0.02, 0.02), brass);
+      jaw.position.set(0.045, 0.23, 0);
+      wrench.add(handle, head, jaw);
+      put(model, bone, wrench, grip.x, grip.y + 0.1, grip.z, 0.45, 0.1, 0.2);
+    }
+  }
 
 export function createHuman(spec) {
   const root = new THREE.Group();
@@ -483,7 +609,7 @@ function dress(api, assets) {
   }
 
   const hatHex = spec.hat == null ? null : spec.hat;
-  if (hatHex != null) {
+  if (hatHex != null && !spec.newsboy) {
     const hat = new THREE.Group();
     const hatM = clothMat(hatHex, 0.72, "leather");
     const bandM = clothMat(spec.hatBand || 0x3a2418, 0.55, "leather");
@@ -532,6 +658,7 @@ function dress(api, assets) {
     const ban = new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.05, 0.04), clothMat(0x6a2420, 0.8));
     put(model, B("Head"), ban, 0, crown - 0.14, faceZ + 0.01);
   }
+  dressAirship(model, B, spec, crown, faceZ);
   if (spec.coat) {
     const coatMat = clothMat(spec.coat, 0.62, "leather");
     coatMat.side = THREE.DoubleSide;

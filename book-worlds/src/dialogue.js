@@ -2,11 +2,13 @@
 // A matching mp3 at audio/voices/<speaker>/<id>.mp3 plays when present.
 // Subtitles stay off unless the player asks, except when the clip is missing.
 // A new bark replaces the one already playing. It waits if the announcer is mid-line.
-const NAMES = { jang: "Jang", tom: "Tom" };
+const NAMES = { jang: "Jang", tom: "Tom", spacey: "Spacey", mira: "Mira" };
 const VOICE_REV = "2";
 
 export function createDialogue(audio) {
   const rows = new Map();
+  let scope = "california-trail";
+  let epoch = 0;
   const ready = fetch(new URL("../dialogue.json", import.meta.url))
     .then((res) => (res.ok ? res.json() : []))
     .then((list) => {
@@ -95,12 +97,17 @@ export function createDialogue(audio) {
     lines() {
       return [...rows.values()];
     },
+    setWorld(id) {
+      scope = id || "california-trail";
+    },
     say(id) {
       const my = ++token;
+      const scopeAt = scope;
       ready.then(() => {
         if (my !== token) return;
         const row = rows.get(id);
         if (!row) return;
+        if ((row.world || "california-trail") !== scopeAt) return;
         speak(row, my);
       });
     },
@@ -111,6 +118,7 @@ export function createDialogue(audio) {
       return active ? 1 : 0;
     },
     stop() {
+      epoch += 1;
       token += 1;
       active = null;
       clearTimeout(hideTimer);

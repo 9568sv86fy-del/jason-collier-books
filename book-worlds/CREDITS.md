@@ -28,3 +28,7 @@ CC0, from Poly Haven, resized JPG already used by the Old Man game and copied in
 - `brown_leather` → `leather_*` (https://polyhaven.com/a/brown_leather), albedo, normal, and roughness on the duster, hats, and boots
 
 Total vendored texture set is well under 10 MB.
+
+## The Rusty Stack
+
+World II reuses the same Quaternius rigs and Poly Haven textures. The airship, balloon patches, brass, cloud sea, garden city, fortress, fog crew, and the Blank Baron are original procedural geometry. There is no music on this station: the deck bed is synthesized steam, wind, hull creak, and ship noise. Companion lines live in `dialogue.json` (`world`: `rusty-stack`). Announcer lines live in `worlds/rusty/announcer_script.json` and play from `audio/announcer/rusty/<id>.mp3` when a take is present.

@@ -83,7 +83,8 @@ button { font: inherit; color: inherit; }
   width: min(420px, 70vw); text-align: center;
 }
 #bossbar span {
-  font-family: var(--ui); letter-spacing: .2em; font-size: 12px; text-transform: uppercase; color: var(--paper);
+  font-family: var(--ui); letter-spacing: .12em; font-size: 15px; text-transform: uppercase; color: var(--paper);
+  text-shadow: 0 1px 2px #000;
 }
 #bossbar .track { margin-top: 4px; }
 #boss-fill { background: linear-gradient(90deg, #3a2848, #d7c4a0); }
@@ -382,6 +383,11 @@ body.touch.playing #subtitle { bottom: calc(168px + env(safe-area-inset-bottom))
   font-size: clamp(1rem, 2.5vw, 1.55rem); color: #fbf6ee;
 }
 #hub .bw-sub { font-style: italic; color: var(--paper); font-size: .95rem; }
+#hub .bw-note {
+  margin: .2rem 0 0; font-family: var(--ui); font-size: 15px; letter-spacing: .04em;
+  color: var(--paper); text-shadow: 0 1px 2px #000;
+}
+#hub .bw-note[hidden] { display: none; }
 #hub .bw-badge {
   display: inline-block; margin-top: .25rem; padding: .12rem .45rem;
   border: 1px solid var(--brass); color: var(--brass);
@@ -518,10 +524,10 @@ body.playing #party, body.playing #cmd, body.playing #gauges { display: block; }
   position: absolute; top: calc(8px + env(safe-area-inset-top)); right: 10px; z-index: 6;
   width: min(200px, 46vw); pointer-events: none;
 }
-#party p { display: grid; grid-template-columns: 58px 1fr; gap: 6px; align-items: center; margin-top: 4px; }
+#party p { display: grid; grid-template-columns: 6.2rem 1fr; gap: 6px; align-items: center; margin-top: 4px; }
 #party span {
-  font-family: var(--ui); font-size: 16px; letter-spacing: .06em; text-transform: uppercase; color: var(--paper);
-  text-shadow: 0 1px 2px #000;
+  font-family: var(--ui); font-size: 16px; letter-spacing: .04em; text-transform: uppercase; color: var(--paper);
+  text-shadow: 0 1px 2px #000; white-space: nowrap;
 }
 #party i { display: block; height: 8px; background: rgba(16, 12, 8, .45); border: 1px solid rgba(228, 208, 164, .4); }
 #party b { display: block; height: 100%; width: 100%; background: linear-gradient(90deg, #6a4328, #e7c48a); }
@@ -621,7 +627,11 @@ body.playing .meta {
   white-space: nowrap;
 }
 body.playing #obj { max-width: none; margin-top: 4px; }
-body.playing #bossbar { top: var(--hud-clear, 168px); }
+body.playing #bossbar {
+  top: auto;
+  bottom: calc(108px + env(safe-area-inset-bottom));
+  width: min(420px, 78vw);
+}
 body.touch .meta { font-size: 16px; letter-spacing: .03em; }
 @media (max-height: 520px) {
   body.playing #gauges { width: 96px; height: 96px; }
