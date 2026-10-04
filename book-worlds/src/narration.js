@@ -70,21 +70,40 @@ export function createNarration(audio) {
     });
   }
 
+  function subsOn() {
+    return document.body.classList.contains("subs");
+  }
+
   async function run(id, my) {
     const text = lines.get(id);
     current = { id, text };
     kickerEl.textContent = kickerFor(id);
-    bar.hidden = false;
+    const subs = subsOn();
+    bar.hidden = !subs;
     bar.dataset.id = id;
-    type(text, my);
+    bar.dataset.force = "0";
+    if (subs) type(text, my);
+    else {
+      lineEl.textContent = text;
+      lineEl.classList.add("is-done");
+    }
     const url = new URL(`../audio/narration/${id}.mp3`, import.meta.url).href;
     let played = false;
     const clip = audio && audio.playClip
       ? audio.playClip(url).then((ok) => { played = !!ok; }).catch(() => { played = false; })
       : Promise.resolve();
-    await Promise.all([clip, waitTyped(my)]);
+    if (subs) await waitTyped(my);
+    await clip;
     if (my !== token) return;
-    await delay(played ? 450 : 1600, my);
+    if (!played) {
+      bar.hidden = false;
+      bar.dataset.force = "1";
+      lineEl.textContent = text;
+      lineEl.classList.add("is-done");
+      await delay(Math.min(5200, 1600 + text.length * 28), my);
+    } else if (subsOn()) {
+      await delay(450, my);
+    }
   }
 
   async function pump() {

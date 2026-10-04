@@ -22,6 +22,25 @@ export function createInput(root) {
 
   const isUI = (el) => el && el.closest && el.closest("button, a, .ui, .story");
 
+  const swallow = (el) => {
+    if (!el) return;
+    const block = (e) => { if (e.cancelable) e.preventDefault(); };
+    el.addEventListener("touchstart", block, { passive: false });
+    el.addEventListener("touchmove", block, { passive: false });
+    el.addEventListener("contextmenu", block);
+  };
+  swallow(document.getElementById("view"));
+  swallow(document.getElementById("actions"));
+  swallow(document.getElementById("cmd"));
+  swallow(document.getElementById("stick"));
+  swallow(document.getElementById("settings"));
+  swallow(document.getElementById("settings-btn"));
+  swallow(document.getElementById("tutor"));
+  swallow(document.getElementById("rotate-hint"));
+  root.addEventListener("selectstart", (e) => e.preventDefault());
+  root.addEventListener("gesturestart", (e) => { if (e.cancelable) e.preventDefault(); }, { passive: false });
+  root.addEventListener("gesturechange", (e) => { if (e.cancelable) e.preventDefault(); }, { passive: false });
+
   root.addEventListener("pointerdown", (e) => {
     if (!st.enabled || isUI(e.target)) return;
     const rect = root.getBoundingClientRect();

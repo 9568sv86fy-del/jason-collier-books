@@ -20,6 +20,7 @@ export function createAudio() {
   let mediaGen = 0;
   let voiceSrc = null;
   const clipCache = new Map();
+  let clipChain = Promise.resolve();
   let unlockedP = null;
   let markUnlocked = null;
 
@@ -197,6 +198,44 @@ export function createAudio() {
     });
   }
 
+  async function playOne(url) {
+    await whenUnlocked();
+    const audio = context();
+    if (!audio || !started) return false;
+    try {
+      let decoded = clipCache.get(url);
+      if (!decoded) {
+        const res = await fetch(url);
+        if (!res.ok) return false;
+        const raw = await res.arrayBuffer();
+        decoded = await audio.decodeAudioData(raw.slice(0));
+        clipCache.set(url, decoded);
+      }
+      return await new Promise((resolve) => {
+        if (voiceSrc) {
+          try { voiceSrc.onended = null; voiceSrc.stop(); } catch { /* already ended */ }
+          voiceSrc = null;
+        }
+        const src = audio.createBufferSource();
+        src.buffer = decoded;
+        src.connect(voiceGain || master);
+        voiceSrc = src;
+        speaking = true;
+        setDuck(true);
+        const finish = (ok) => {
+          if (voiceSrc === src) voiceSrc = null;
+          speaking = false;
+          setDuck(false);
+          resolve(ok);
+        };
+        src.onended = () => finish(true);
+        try { src.start(); } catch { finish(false); }
+      });
+    } catch {
+      return playElement(url);
+    }
+  }
+
   return {
     unlock() {
       const audio = context();
@@ -250,42 +289,10 @@ export function createAudio() {
         speaking,
       };
     },
-    async playClip(url) {
-      await whenUnlocked();
-      const audio = context();
-      if (!audio || !started) return false;
-      try {
-        let decoded = clipCache.get(url);
-        if (!decoded) {
-          const res = await fetch(url);
-          if (!res.ok) return false;
-          const raw = await res.arrayBuffer();
-          decoded = await audio.decodeAudioData(raw.slice(0));
-          clipCache.set(url, decoded);
-        }
-        return await new Promise((resolve) => {
-          if (voiceSrc) {
-            try { voiceSrc.onended = null; voiceSrc.stop(); } catch { /* already ended */ }
-            voiceSrc = null;
-          }
-          const src = audio.createBufferSource();
-          src.buffer = decoded;
-          src.connect(voiceGain || master);
-          voiceSrc = src;
-          speaking = true;
-          setDuck(true);
-          const finish = (ok) => {
-            if (voiceSrc === src) voiceSrc = null;
-            speaking = false;
-            setDuck(false);
-            resolve(ok);
-          };
-          src.onended = () => finish(true);
-          try { src.start(); } catch { finish(false); }
-        });
-      } catch {
-        return playElement(url);
-      }
+    playClip(url) {
+      const job = clipChain.then(() => playOne(url), () => playOne(url));
+      clipChain = job.then(() => {}, () => {});
+      return job;
     },
     setTension(v) { tension = v; },
     swing() { burst({ dur: 0.09, freq: 900, type: "highpass", gain: 0.12, q: 0.6 }); },

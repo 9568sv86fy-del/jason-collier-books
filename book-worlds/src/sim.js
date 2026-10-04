@@ -7,39 +7,6 @@ import { bossFor } from "../bosses/index.js";
 
 const worldBoss = bossFor("california-trail");
 
-const LINES = {
-  jang: {
-    greet: "Experienced navigators. The experience is mostly running from Philadelphia.",
-    fight: "No face, no invoice. Bill it as weather.",
-    bill: "Handbill to the face. Surprisingly binding.",
-    chest: "A chest. Honest men would walk away. We are saving them the trip.",
-    boss: worldBoss.lines.jang,
-    low: "Keeper, if you fall I will write a very moving handbill.",
-    win: worldBoss.lines.win,
-    gate: "The picture is rolling. That is the way back to the set.",
-    circus: "A floating circus. I invented it just now, which is the same as planning.",
-    ford: "The river forgot how a crossing works. Wagons in. We will call it a circus.",
-    rope: "Those bandits want the trail. The rope wants a weight. Introduce them.",
-    ropeHint: "The key is not the punchline, Keeper. The rope is.",
-    rout: "The clumsiest pendulum in the West. Do not examine why it worked.",
-    lasso: worldBoss.lines.lasso,
-    save: "The set remembers. That is more than the map ever did.",
-    level: "The trail just got longer in the legs. Try to look like you meant that.",
-  },
-  tom: {
-    greet: "Neck's itching. That usually means the map was a suggestion.",
-    fight: "I can shove it. Shoving is the whole of my education.",
-    boss: worldBoss.lines.tom,
-    hurt: "Still here. Still broad. Neck saw it coming.",
-    win: "River's a river again. I'll take that.",
-    gate: "I can see the knobs from here. I don't trust knobs.",
-    circus: "The wagon is a boat. My neck has filed a complaint.",
-    rout: "I was the weight on that rope. I did not apply for the job.",
-    half: "It's leaning, Jang. So am I. Different reasons.",
-    toss: "Up. The key does the rest.",
-  },
-};
-
 const SAVE_KEY = "book-worlds-california-trail";
 
 export function createSim(scene, world, audio) {
@@ -78,7 +45,10 @@ export function createSim(scene, world, audio) {
   const swingHit = new Set();
   let playerHits = 0;
   let allyHold = 8;
-  let sayLock = 0;
+  const sayQ = [];
+  let sayGap = 0;
+  let sayLast = "";
+  let sayLastT = -10;
   let bossWall = true;
   const flags = {};
   const events = [];
@@ -167,7 +137,7 @@ export function createSim(scene, world, audio) {
   let reaction = null;
   let lassoCd = 0;
   let lastPrompt = null;
-  let lastObjective = "Brain fogs are eating the pages.";
+  let lastObjective = "Pages 0/5";
   const orbGeo = new THREE.SphereGeometry(0.14, 8, 6);
 
   function profileFor(kind) {
@@ -229,10 +199,20 @@ export function createSim(scene, world, audio) {
   }
 
   const pending = [];
-  function speak(who, text) {
-    if (sayLock > 0) return;
-    sayLock = 3.5;
-    pending.push({ type: "say", who, text });
+  function speak(id) {
+    if (!id) return;
+    if (id === sayLast && playTime - sayLastT < 5) return;
+    if (sayQ.includes(id) || sayQ.length >= 4) return;
+    sayLast = id;
+    sayLastT = playTime;
+    sayQ.push(id);
+  }
+  function flushSpeak(dt) {
+    sayGap = Math.max(0, sayGap - dt);
+    if (sayGap > 0 || !sayQ.length) return;
+    const id = sayQ.shift();
+    sayGap = 0.45;
+    pending.push({ type: "say", id });
   }
 
   function scaled(amount) {
@@ -252,7 +232,7 @@ export function createSim(scene, world, audio) {
       audio.hit();
       if (!flags.ropeHint) {
         flags.ropeHint = true;
-        speak("jang", LINES.jang.ropeHint);
+        speak("jang-rope-hint");
       }
       return;
     }
@@ -291,7 +271,8 @@ export function createSim(scene, world, audio) {
         flags.won = true;
         bossWall = false;
         events.push({ type: "bossDead" });
-        speak("jang", LINES.jang.win);
+        speak("jang-win");
+        speak("tom-win");
       }
     }
   }
@@ -343,7 +324,8 @@ export function createSim(scene, world, audio) {
     events.push({ type: "dmg", x: player.x, y: 1.7, z: player.z, n: Math.round(amount) });
     if (!flags.low && player.hp < 40 && player.hp > 0) {
       flags.low = true;
-      speak("tom", LINES.tom.hurt);
+      speak("tom-hurt");
+      speak("jang-low");
     }
     if (player.hp <= 0) events.push({ type: "dead" });
   }
@@ -417,7 +399,7 @@ export function createSim(scene, world, audio) {
       const leash = e.pendulum && (player.z > 94 || player.z < 68);
       if (dist < 11 && player.hp > 0 && !leash) {
         e.state = "chase";
-        if (!flags.fight) { flags.fight = true; speak("jang", LINES.jang.fight); }
+        if (!flags.fight) { flags.fight = true; speak("jang-fight"); }
       }
     } else if (e.state === "chase" && e.pendulum && (player.z > 94 || player.z < 68 || hypot2(e.x - e.homeX, e.z - e.homeZ) > 14)) {
       e.state = "idle";
@@ -501,7 +483,8 @@ export function createSim(scene, world, audio) {
       boss.t = 0;
       audio.roar();
       audio.setTension(1);
-      speak("jang", LINES.jang.boss);
+      speak("jang-boss");
+      speak("tom-boss");
       events.push({ type: "boss" });
       events.push({ type: "bulletin", id: "boss" });
     }
@@ -569,7 +552,7 @@ export function createSim(scene, world, audio) {
         boss.pattern++;
         if (name === "slam" && boss.hp < boss.hpMax * 0.5 && !flags.half) {
           flags.half = true;
-          speak("tom", LINES.tom.half);
+          speak("tom-half");
         }
         beginBoss(name);
       }
@@ -684,7 +667,7 @@ export function createSim(scene, world, audio) {
           a.animT = 0;
           damageEnemy(foe, 15, a);
           if (foe.alive && foe.kind !== "boss") { foe.state = "stun"; foe.stunFor = 0.45; foe.t = 0; }
-          if (!flags.tomFight) { flags.tomFight = true; speak("tom", LINES.tom.fight); }
+          if (!flags.tomFight) { flags.tomFight = true; speak("tom-fight"); }
         } else if (a.id === "jang" && fd < 11 && a.cd <= 0) {
           a.cd = 4;
           a.anim = "throw";
@@ -733,7 +716,7 @@ export function createSim(scene, world, audio) {
         } else {
           target.hit = 1;
         }
-        if (!flags.bill) { flags.bill = true; speak("jang", LINES.jang.bill); }
+        if (!flags.bill) { flags.bill = true; speak("jang-bill"); }
         scene.remove(b.mesh);
         bills.splice(i, 1);
       } else if (b.life > 1.6) {
@@ -758,7 +741,7 @@ export function createSim(scene, world, audio) {
     player.coins += 12;
     audio.chest();
     events.push({ type: "dmg", x: chest.x, y: 1.2, z: chest.z, n: 12, coin: true });
-    speak("jang", LINES.jang.chest);
+    speak("jang-chest");
   }
 
   function pageCount() {
@@ -774,7 +757,7 @@ export function createSim(scene, world, audio) {
         audio.chest();
         if (!flags.paged) {
           flags.paged = true;
-          speak("jang", "A torn page. The book wants it back more than the dust does.");
+          speak("jang-page");
         }
         return { type: "page", id: p.id, n: pageCount() };
       }
@@ -815,7 +798,8 @@ export function createSim(scene, world, audio) {
     }
     if (!circus && world.floats.every((w) => w.floated)) {
       circus = true;
-      speak("jang", LINES.jang.circus);
+      speak("jang-circus");
+      speak("tom-circus");
       events.push({ type: "circus" });
     }
   }
@@ -842,7 +826,8 @@ export function createSim(scene, world, audio) {
       audio.hit();
       if (!flags.rout) {
         flags.rout = true;
-        speak("tom", LINES.tom.rout);
+        speak("tom-rout");
+        speak("jang-rout");
         events.push({ type: "rout" });
       }
     }
@@ -867,7 +852,7 @@ export function createSim(scene, world, audio) {
       events.length = 0;
       while (pending.length) events.push(pending.shift());
     }
-    sayLock = Math.max(0, sayLock - dt);
+    flushSpeak(dt);
     if (!play) {
       idlePresentation(dt);
       return snapshot(camYaw, null);
@@ -879,8 +864,8 @@ export function createSim(scene, world, audio) {
     const edge = input.pull();
     const axes = input.axes();
     playTime += dt;
-    if (!flags.g1 && partyJoined && !tutorialOn) { flags.g1 = true; speak("jang", LINES.jang.greet); }
-    if (!flags.g2 && partyJoined && !tutorialOn && playTime > 3.8) { flags.g2 = true; speak("tom", LINES.tom.greet); }
+    if (!flags.g1 && partyJoined && !tutorialOn) { flags.g1 = true; speak("jang-greet"); }
+    if (!flags.g2 && partyJoined && !tutorialOn && playTime > 3.8) { flags.g2 = true; speak("tom-greet"); }
     player.flashCd = Math.max(0, player.flashCd - dt);
     player.magicLock = Math.max(0, player.magicLock - dt);
     player.iframes = Math.max(0, player.iframes - dt);
@@ -990,9 +975,9 @@ export function createSim(scene, world, audio) {
     if (player.action === "attack" || player.action === "flash" || player.action === "team") {
       /* yaw snapped at the start */
     } else if (lockTarget && lockTarget.alive) {
-      player.yaw = dampAngle(player.yaw, Math.atan2(lockTarget.x - player.x, lockTarget.z - player.z), 14, dt);
+      player.yaw = dampAngle(player.yaw, Math.atan2(lockTarget.x - player.x, lockTarget.z - player.z), 5, dt);
     } else if (moving && player.action !== "guard") {
-      player.yaw = dampAngle(player.yaw, Math.atan2(player.vx, player.vz), 12, dt);
+      player.yaw = dampAngle(player.yaw, Math.atan2(player.vx, player.vz), 5, dt);
     }
 
     if (player.action !== "idle" && player.action !== "guard") {
@@ -1051,12 +1036,12 @@ export function createSim(scene, world, audio) {
     if (pageEv) events.push(pageEv);
     if (!flags.ford && !circus && player.z > 92) {
       flags.ford = true;
-      speak("jang", LINES.jang.ford);
+      speak("jang-ford");
       events.push({ type: "bulletin", id: "scene-circus" });
     }
     if (!flags.rope && player.z > 72 && player.z < 90) {
       flags.rope = true;
-      speak("jang", LINES.jang.rope);
+      speak("jang-rope");
       events.push({ type: "bulletin", id: "scene-rope" });
     }
 
@@ -1068,7 +1053,10 @@ export function createSim(scene, world, audio) {
     }
     const gateD = hypot2(player.x, player.z - 126);
     const storyWhole = pageCount() >= world.pages.length;
-    if (!boss.alive && storyWhole && gateD < 2.4) prompt = { id: "gate", label: "Step back through the screen" };
+    if (!boss.alive && storyWhole && gateD < 2.4) {
+      prompt = { id: "gate", label: "Step through" };
+      if (!flags.gateLine) { flags.gateLine = true; speak("jang-gate"); }
+    }
     reaction = pickReaction();
     if (edge.flash) {
       if (!fireReaction()) startFlash();
@@ -1079,7 +1067,7 @@ export function createSim(scene, world, audio) {
       if (prompt.id === "gate") {
         world.gate.setOpen(true);
         events.push({ type: "gate" });
-        speak("tom", LINES.tom.gate);
+        speak("tom-gate");
       }
     }
 
@@ -1114,17 +1102,15 @@ export function createSim(scene, world, audio) {
     const got = pageCount();
     updateTutorial(dt, camYaw, edge);
 
-    let objective = tutorialOn
-      ? "Dawn at the edge of the book. Learn the road before the gray arrives."
-      : `Brain fogs are eating the pages. Gather them. ${got}/5`;
-    if (!flags.rout && player.z > 70 && player.z < 92 && boss.alive) objective = "Lure the bandits under the swinging rope.";
-    if (!circus && player.z > 90) objective = "Push both wagons into the river. Stage the floating circus.";
-    if (circus && boss.alive && !boss.active) objective = worldBoss.objective.waiting;
-    if (boss.active && boss.alive) objective = worldBoss.objective.fighting;
-    if (!boss.alive && got < 5) objective = worldBoss.objective.thinning(5 - got);
-    if (!boss.alive && got >= 5) objective = "The story is restored. Step back through the screen.";
+    let objective = tutorialOn ? "Learn the road" : `Pages ${got}/5`;
+    if (!flags.rout && player.z > 70 && player.z < 92 && boss.alive) objective = "Rope the bandits";
+    if (!circus && player.z > 90) objective = "Float the wagons";
+    if (circus && boss.alive && !boss.active) objective = "Bear at the ford";
+    if (boss.active && boss.alive) objective = "Break the bear";
+    if (!boss.alive && got < 5) objective = got === 4 ? "1 page left" : `${5 - got} pages left`;
+    if (!boss.alive && got >= 5) objective = "Step through";
     const here = arenas.find((a) => a.active && !a.cleared);
-    if (here && objective.startsWith("Brain fogs")) objective = "Gray is eating this stretch. Clear the fog.";
+    if (here && objective.startsWith("Pages")) objective = "Clear the fog";
 
     lastPrompt = reaction || prompt;
     lastObjective = objective;
@@ -1288,7 +1274,7 @@ export function createSim(scene, world, audio) {
     player.grounded = false;
     player.jumps = 2;
     audio.swing();
-    speak("tom", LINES.tom.toss);
+    speak("tom-toss");
     const tgt = aimTarget();
     if (tgt) player.yaw = Math.atan2(tgt.x - player.x, tgt.z - player.z);
     for (let i = 0; i < 5; i++) {
@@ -1342,7 +1328,7 @@ export function createSim(scene, world, audio) {
       playerHits++;
       audio.parry();
       events.push({ type: "hit", heavy: true });
-      speak("jang", LINES.jang.lasso);
+      speak("jang-lasso");
       reaction = null;
       return true;
     }
@@ -1351,7 +1337,7 @@ export function createSim(scene, world, audio) {
         if (!w.floated && hypot2(w.x - player.x, w.z - player.z) < 2.4) w.z = Math.min(106.5, w.z + 1.6);
       }
       audio.swing();
-      speak("jang", LINES.jang.ford);
+      speak("jang-ford");
       return true;
     }
     return false;
@@ -1374,7 +1360,7 @@ export function createSim(scene, world, audio) {
     if (ups) {
       audio.level();
       events.push({ type: "level", n: player.level, x: player.x, y: 2.1, z: player.z });
-      if (!flags.levelTalk) { flags.levelTalk = true; speak("jang", LINES.jang.level); }
+      if (!flags.levelTalk) { flags.levelTalk = true; speak("jang-level"); }
     }
   }
 
@@ -1518,7 +1504,7 @@ export function createSim(scene, world, audio) {
     tutorSaved = true;
     events.push({ type: "save" });
     events.push({ type: "dmg", x: player.x, y: 1.8, z: player.z, n: "Saved" });
-    speak("jang", LINES.jang.save);
+    speak("jang-save");
   }
 
   function applySave(data) {
@@ -1610,86 +1596,92 @@ export function createSim(scene, world, audio) {
     move: {
       line: "tutor-move",
       text: "The road is quiet. Walk it, look around, then put the view back behind you.",
-      hintKey: "WASD move · drag the mouse to look · C behind you",
-      hintTouch: "Left thumb moves · drag the right side to look · Cam",
+      hintKey: "Move · look · C",
+      hintTouch: "Move · look · Cam",
     },
     obstacles: {
       line: "tutor-obstacles",
       text: "Jump the logs. Dodge is the step around a rock that will not move.",
       hintKey: "Space jump · Shift dodge",
-      hintTouch: "Jump · Dodge",
+      hintTouch: "Tap JUMP · DODGE",
     },
     party: {
       line: "tutor-party",
       text: "Two men by the wagons have a story and no guide. Walk over.",
-      hintKey: "Walk up to Jang and Tom",
-      hintTouch: "Walk up to Jang and Tom",
+      hintKey: "Walk to Jang and Tom",
+      hintTouch: "Walk to Jang and Tom",
     },
     key: {
       line: "tutor-key",
       text: "The trail key is on the crate. It is a saber if you pick it up.",
-      hintKey: "Walk up to the key",
-      hintTouch: "Walk up to the key",
+      hintKey: "Take the key",
+      hintTouch: "Take the key",
     },
     combo: {
       line: "tutor-combo",
       text: "The hay is a patient opponent. Land a three-hit combo.",
-      hintKey: "J, J, J",
-      hintTouch: "Attack, Attack, Attack",
+      hintKey: "J J J",
+      hintTouch: "Tap ATTACK",
     },
     lock: {
       line: "tutor-lock",
       text: "Choose one bale and keep it. Lock on, then look away. It stays chosen.",
       hintKey: "Q lock",
-      hintTouch: "Lock",
+      hintTouch: "Tap LOCK",
     },
     guard: {
       line: "tutor-guard",
       text: "Tom swings like a lesson. Guard it. A quick guard is a parry.",
       hintKey: "Hold G",
-      hintTouch: "Hold Guard",
+      hintTouch: "Hold GUARD",
     },
     magic: {
       line: "tutor-magic",
       text: "The barn is dark. Open Commands, then Magic, then Lantern Flash.",
-      hintKey: "F near the barn, or the command menu",
-      hintTouch: "Commands → Magic → Lantern Flash",
+      hintKey: "Open Commands",
+      hintTouch: "Tap COMMANDS",
     },
     save: {
       line: "tutor-save",
       text: "The radio at the edge of camp remembers the set.",
       hintKey: "E at the radio",
-      hintTouch: "Stand at the radio and save",
+      hintTouch: "Tap SAVE",
     },
     fog: {
       line: "tutor-fog",
       text: "Three small fogs at the edge of town. The canyon stays shut until they go.",
       hintKey: "J attack",
-      hintTouch: "Attack",
+      hintTouch: "Tap ATTACK",
     },
   };
 
   function tutorBanner() {
     if (!tutorialOn || tutorStep === "done" || !LESSONS[tutorStep]) return null;
     const lesson = LESSONS[tutorStep];
-    let text = lesson.text;
+    let hintKey = lesson.hintKey;
+    let hintTouch = lesson.hintTouch;
     if (tutorStep === "move") {
       const bits = [];
-      if (tutorMoved < 3) bits.push("walk");
-      if (!tutorLooked) bits.push("look");
-      if (!tutorRecenter) bits.push("recenter");
-      if (bits.length && bits.length < 3) text = "Still to do: " + bits.join(", ") + ".";
+      if (tutorMoved < 3) bits.push("Move");
+      if (!tutorLooked) bits.push("Look");
+      if (!tutorRecenter) bits.push("Cam");
+      if (bits.length && bits.length < 3) {
+        hintKey = bits.join(" · ");
+        hintTouch = bits.join(" · ");
+      }
     } else if (tutorStep === "magic" && tutorMagic === 1) {
-      text = "Someone is a little short on color. Trail Mend, from the Magic list.";
+      hintKey = "3 · Trail Mend";
+      hintTouch = "Tap TRAIL MEND";
     } else if (tutorStep === "magic" && tutorMagic === 2) {
-      text = "A tonic finishes the job. Items, then Tonic.";
+      hintKey = "1 · Tonic";
+      hintTouch = "Tap TONIC";
     }
     return {
       step: tutorStep,
-      text,
-      hintKey: tutorMagic === 1 ? "3, or Commands → Magic → Trail Mend" : tutorMagic === 2 ? "1, or Commands → Items → Tonic" : lesson.hintKey,
-      hintTouch: tutorMagic === 1 ? "Commands → Magic → Trail Mend" : tutorMagic === 2 ? "Commands → Items → Tonic" : lesson.hintTouch,
-      act: tutorStep === "save" && world.radio && hypot2(world.radio.x - player.x, world.radio.z - player.z) < 2.2 ? "Save the set" : null,
+      text: "",
+      hintKey,
+      hintTouch,
+      act: tutorStep === "save" && world.radio && hypot2(world.radio.x - player.x, world.radio.z - player.z) < 2.2 ? "Save" : null,
     };
   }
 
@@ -1807,14 +1799,14 @@ export function createSim(scene, world, audio) {
     partyJoined = true;
     flags.g1 = true;
     flags.g2 = true;
-    events.push({ type: "say", who: "jang", text: "You walked in during a true story. We can pencil you in. I am Jang." });
+    speak("jang-meet");
     partyTomT = 3.4;
   }
 
   function updateTutorial(dt, camYaw, edge) {
     if (partyTomT > 0) {
       partyTomT -= dt;
-      if (partyTomT <= 0) events.push({ type: "say", who: "tom", text: "Tom. My neck itched, then you arrived. That was the audition." });
+      if (partyTomT <= 0) speak("tom-meet");
     }
     if (!tutorialOn) return;
     if (player.hp < 28 && tutorStep !== "fog") player.hp = 60;
@@ -2010,7 +2002,7 @@ export function createSim(scene, world, audio) {
       prompt,
       pages: pageCount(),
       circus,
-      objective: objective || "Brain fogs are eating the pages.",
+      objective: objective || "Pages 0/5",
       tutor: tutorBanner(),
       drain: colorDrain(),
       events,
@@ -2072,7 +2064,10 @@ export function createSim(scene, world, audio) {
       outroArmed = true;
       playTime = 0;
       allyHold = 8;
-      sayLock = 0;
+      sayQ.length = 0;
+      sayGap = 0;
+      sayLast = "";
+      sayLastT = -10;
       playerHits = 0;
       bossWall = true;
       lockTarget = null;

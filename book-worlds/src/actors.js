@@ -95,7 +95,8 @@ function addEuler(bone, x, y, z) {
   bone.quaternion.multiply(_q);
 }
 
-function gradeMesh(root, test, hex, rough = 0.86) {
+function gradeMesh(root, test, hex, rough = 0.86, kind = "cloth") {
+  const pack = surfLib()[kind] || surfLib().cloth;
   root.traverse((o) => {
     if (!o.isMesh || !test(o.name || "")) return;
     const list = Array.isArray(o.material) ? o.material : [o.material];
@@ -103,8 +104,12 @@ function gradeMesh(root, test, hex, rough = 0.86) {
       if (!m || !m.color) continue;
       m.color.setHex(hex);
       if (m.roughness != null) m.roughness = rough;
-      if (m.metalness != null) m.metalness = 0.04;
+      if (m.metalness != null) m.metalness = kind === "leather" ? 0.12 : 0.03;
+      m.map = pack.map;
+      m.normalMap = pack.nrm;
+      m.normalScale = new THREE.Vector2(0.5, 0.5);
       m.flatShading = false;
+      m.needsUpdate = true;
     }
   });
 }
@@ -145,8 +150,103 @@ function weldToBone(model, bone, source) {
   return added;
 }
 
-function clothMat(hex, rough = 0.88) {
-  return new THREE.MeshStandardMaterial({ color: hex, roughness: rough, metalness: 0.02 });
+function paintTex(size, draw, srgb) {
+  const c = document.createElement("canvas");
+  c.width = c.height = size;
+  draw(c.getContext("2d"), size);
+  const tex = new THREE.CanvasTexture(c);
+  tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
+  tex.colorSpace = srgb ? THREE.SRGBColorSpace : THREE.NoColorSpace;
+  tex.anisotropy = 4;
+  return tex;
+}
+
+function heightNormal(size, draw, strength) {
+  const c = document.createElement("canvas");
+  c.width = c.height = size;
+  draw(c.getContext("2d"), size);
+  const src = c.getContext("2d").getImageData(0, 0, size, size).data;
+  const h = new Float32Array(size * size);
+  for (let i = 0; i < h.length; i++) h[i] = src[i * 4] / 255;
+  const out = c.getContext("2d").createImageData(size, size);
+  for (let y = 0; y < size; y++) {
+    for (let x = 0; x < size; x++) {
+      const l = h[y * size + ((x - 1 + size) % size)];
+      const r = h[y * size + ((x + 1) % size)];
+      const u = h[((y - 1 + size) % size) * size + x];
+      const d = h[((y + 1) % size) * size + x];
+      const dx = (l - r) * strength;
+      const dy = (u - d) * strength;
+      const i = (y * size + x) * 4;
+      out.data[i] = (dx * 0.5 + 0.5) * 255;
+      out.data[i + 1] = (dy * 0.5 + 0.5) * 255;
+      out.data[i + 2] = 255;
+      out.data[i + 3] = 255;
+    }
+  }
+  c.getContext("2d").putImageData(out, 0, 0);
+  const tex = new THREE.CanvasTexture(c);
+  tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
+  tex.colorSpace = THREE.NoColorSpace;
+  return tex;
+}
+
+function surfLib() {
+  if (surfLib.cache) return surfLib.cache;
+  const skinDraw = (g, n) => {
+    g.fillStyle = "#d7d0c8";
+    g.fillRect(0, 0, n, n);
+    for (let i = 0; i < 420; i++) {
+      g.fillStyle = `rgba(90,70,60,${0.04 + (i % 5) * 0.015})`;
+      g.fillRect((i * 37) % n, (i * 19) % n, 1, 1);
+    }
+  };
+  const clothDraw = (g, n) => {
+    g.fillStyle = "#e4e0d8";
+    g.fillRect(0, 0, n, n);
+    g.strokeStyle = "rgba(70,60,50,0.18)";
+    for (let y = 0; y < n; y += 4) {
+      g.beginPath();
+      g.moveTo(0, y);
+      g.lineTo(n, y);
+      g.stroke();
+    }
+    for (let x = 0; x < n; x += 4) {
+      g.beginPath();
+      g.moveTo(x, 0);
+      g.lineTo(x, n);
+      g.stroke();
+    }
+  };
+  const leatherDraw = (g, n) => {
+    g.fillStyle = "#c8b49a";
+    g.fillRect(0, 0, n, n);
+    for (let i = 0; i < 80; i++) {
+      g.strokeStyle = `rgba(70,48,30,${0.08 + (i % 4) * 0.03})`;
+      g.beginPath();
+      g.moveTo((i * 13) % n, 0);
+      g.bezierCurveTo(n * 0.3, (i * 17) % n, n * 0.7, (i * 29) % n, n, (i * 11) % n);
+      g.stroke();
+    }
+  };
+  const pack = (draw, rough) => ({
+    map: paintTex(128, draw, true),
+    nrm: heightNormal(128, draw, rough),
+  });
+  surfLib.cache = { skin: pack(skinDraw, 2.2), cloth: pack(clothDraw, 3.4), leather: pack(leatherDraw, 2.8) };
+  return surfLib.cache;
+}
+
+function clothMat(hex, rough = 0.88, kind = "cloth") {
+  const pack = surfLib()[kind] || surfLib().cloth;
+  return new THREE.MeshStandardMaterial({
+    color: hex,
+    roughness: rough,
+    metalness: kind === "leather" ? 0.12 : 0.02,
+    map: pack.map,
+    normalMap: pack.nrm,
+    normalScale: new THREE.Vector2(kind === "skin" ? 0.35 : 0.55, kind === "skin" ? 0.35 : 0.55),
+  });
 }
 
 export function createHuman(spec) {
@@ -203,15 +303,23 @@ function dress(api, assets) {
   model.traverse((o) => { if (o.isBone) bones[o.name] = o; });
   const B = (n) => bones[n];
 
-  gradeMesh(model, (n) => /Arms/.test(n), spec.sleeves || spec.coat || spec.cloth || 0xc4a574);
-  gradeMesh(model, (n) => /Body/.test(n), spec.cloth || 0xc4a574, 0.9);
-  gradeMesh(model, (n) => /Legs/.test(n), spec.pants || 0x4a453c, 0.92);
-  gradeMesh(model, (n) => /Feet/.test(n), spec.boots || 0x2c2118, 0.78);
+  gradeMesh(model, (n) => /Arms/.test(n), spec.sleeves || spec.coat || spec.cloth || 0xc4a574, 0.84, "cloth");
+  gradeMesh(model, (n) => /Body/.test(n), spec.cloth || 0xc4a574, 0.88, "cloth");
+  gradeMesh(model, (n) => /Legs/.test(n), spec.pants || 0x4a453c, 0.9, "cloth");
+  gradeMesh(model, (n) => /Feet/.test(n), spec.boots || 0x2c2118, 0.62, "leather");
 
   const headMeshes = weldToBone(model, B("Head"), assets.head.clone(true));
   for (const mesh of headMeshes) {
     if (!mesh.material) continue;
-    if (mesh.material.color && /head|brows/i.test(mesh.name)) mesh.material.color.setHex(spec.skin || 0xd2a07c);
+    if (mesh.material.color && /head|brows/i.test(mesh.name)) {
+      const skin = surfLib().skin;
+      mesh.material.color.setHex(spec.skin || 0xd2a07c);
+      mesh.material.map = skin.map;
+      mesh.material.normalMap = skin.nrm;
+      mesh.material.normalScale = new THREE.Vector2(0.28, 0.28);
+      mesh.material.roughness = 0.62;
+      mesh.material.needsUpdate = true;
+    }
     if (/eyes/i.test(mesh.name)) {
       mesh.material.roughness = 0.25;
       mesh.material.metalness = 0.04;
@@ -233,17 +341,23 @@ function dress(api, assets) {
   const hatHex = spec.hat == null ? null : spec.hat;
   if (hatHex != null) {
     const hat = new THREE.Group();
-    const hatM = clothMat(hatHex, 0.9);
-    const bandM = clothMat(spec.hatBand || 0x3a2418, 0.7);
+    const hatM = clothMat(hatHex, 0.72, "leather");
+    const bandM = clothMat(spec.hatBand || 0x3a2418, 0.55, "leather");
     const bowler = !!spec.bowler;
     const brimR = bowler ? 0.16 : (spec.wideHat ? 0.26 : 0.2);
     const brim = new THREE.Mesh(new THREE.CylinderGeometry(brimR, brimR + 0.006, 0.014, 22), hatM);
     brim.scale.z = bowler ? 1 : 1.15;
     hat.add(brim);
+    const stitch = new THREE.Mesh(new THREE.TorusGeometry(brimR * 0.92, 0.004, 4, 18), bandM);
+    stitch.rotation.x = Math.PI / 2;
+    stitch.position.y = 0.01;
+    hat.add(stitch);
     if (bowler) {
       const crownMesh = new THREE.Mesh(new THREE.SphereGeometry(0.11, 18, 14, 0, Math.PI * 2, 0, Math.PI * 0.55), hatM);
       crownMesh.position.y = 0.03;
-      hat.add(crownMesh);
+      const bowBand = new THREE.Mesh(new THREE.CylinderGeometry(0.105, 0.108, 0.02, 14), bandM);
+      bowBand.position.y = 0.012;
+      hat.add(crownMesh, bowBand);
     } else {
       const crownMesh = new THREE.Mesh(new THREE.CylinderGeometry(spec.wideHat ? 0.12 : 0.1, 0.125, spec.wideHat ? 0.12 : 0.14, 16), hatM);
       crownMesh.position.y = 0.07;
@@ -256,6 +370,15 @@ function dress(api, assets) {
     put(model, B("Head"), hat, 0, crown + 0.01, 0.01, spec.hatPitch || 0.06, 0, spec.hatTilt || 0);
   }
 
+  if (!spec.bandana) {
+    const browM = clothMat(spec.hair || 0x3a2a22, 0.9);
+    for (const s of [-1, 1]) {
+      const brow = new THREE.Mesh(new THREE.BoxGeometry(0.046, 0.01, 0.012), browM);
+      put(model, B("Head"), brow, s * 0.038, crown - 0.09, faceZ + 0.012, 0, 0, s * -0.18);
+    }
+    const lip = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.012, 0.012), clothMat(0xb56a62, 0.55, "skin"));
+    put(model, B("Head"), lip, 0, crown - 0.2, faceZ + 0.012);
+  }
   if (spec.mustache) {
     const m = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.018, 0.028), clothMat(spec.hair || 0x1c1612, 1));
     put(model, B("Head"), m, 0, crown - 0.16, faceZ + 0.02);
@@ -265,11 +388,24 @@ function dress(api, assets) {
     put(model, B("Head"), ban, 0, crown - 0.14, faceZ + 0.01);
   }
   if (spec.coat) {
+    const coatMat = clothMat(spec.coat, 0.78, "leather");
+    coatMat.side = THREE.DoubleSide;
     const coat = new THREE.Mesh(
-      new THREE.CylinderGeometry(0.22, 0.4, 0.92, 18, 1, true, 0.55, Math.PI * 1.55),
-      new THREE.MeshStandardMaterial({ color: spec.coat, roughness: 0.9, metalness: 0.02, side: THREE.DoubleSide }),
+      new THREE.CylinderGeometry(0.22, 0.42, 0.96, 20, 3, true, 0.45, Math.PI * 1.65),
+      coatMat,
     );
+    const pos = coat.geometry.attributes.position;
+    for (let i = 0; i < pos.count; i++) {
+      const y = pos.getY(i);
+      pos.setX(i, pos.getX(i) + Math.sin(y * 14) * 0.012);
+    }
+    coat.geometry.computeVertexNormals();
     put(model, B("pelvis"), coat, 0, 1.02, -0.04);
+    const button = clothMat(0xd7c08a, 0.35, "leather");
+    for (let i = 0; i < 3; i++) {
+      const b = new THREE.Mesh(new THREE.SphereGeometry(0.016, 8, 6), button);
+      put(model, B("spine_02"), b, 0.02, 1.22 - i * 0.14, 0.2);
+    }
   }
   if (spec.waistcoat) {
     const vest = new THREE.Mesh(new THREE.BoxGeometry(0.28, 0.36, 0.1), clothMat(spec.cloth2 || 0x2c3338, 0.72));
@@ -372,7 +508,7 @@ function dress(api, assets) {
       set("Jog_Fwd_Loop", jog * (1 - sprint));
       set("Sprint_Loop", sprint);
     }
-    const rate = 1 - Math.exp(-8 * dt);
+    const rate = 1 - Math.exp(-3.2 * dt);
     let sum = 0;
     for (const n of Object.keys(acts)) {
       weight[n] += ((tgt[n] || 0) - weight[n]) * rate;
