@@ -31,4 +31,4 @@ Total vendored texture set is well under 10 MB.
 
 ## The Rusty Stack
 
-World II reuses the same Quaternius rigs and Poly Haven textures. The airship, balloon patches, brass, cloud sea, garden city, fortress, fog crew, and the Blank Baron are original procedural geometry. There is no music on this station: the deck bed is synthesized steam, wind, hull creak, and ship noise. Companion lines live in `dialogue.json` (`world`: `rusty-stack`). Announcer lines live in `worlds/rusty/announcer_script.json` and play from `audio/announcer/rusty/<id>.mp3` when a take is present.
+World II reuses the same Quaternius rigs and Poly Haven textures. The airship, balloon patches, brass, cloud sea, garden city, fortress, fog crew, and the Blank Baron are original procedural geometry. There is no music on this station: the deck bed is synthesized steam, wind, hull creak, and ship noise. Companion lines live in `dialogue.json` (`world`: `rusty-stack`). Spacey and Mira speak them from `audio/voices/spacey/<id>.mp3` and `audio/voices/mira/<id>.mp3`. Announcer lines live in `worlds/rusty/announcer_script.json` and play from `audio/announcer/rusty/<id>.mp3`.
