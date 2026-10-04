@@ -1,31 +1,59 @@
-// Announcer bulletins. Lines live in narration.json. A matching mp3 plays when present.
-// One line at a time: a new say() waits its turn. Captions run even if sound is still locked.
+// Announcer bulletins. Trail lines live in narration.json.
+// The Rusty Stack pack lives in worlds/rusty/announcer_script.json.
+// A matching mp3 plays when present. One line at a time.
+// Captions run even if sound is still locked. The pack is snapshotted
+// when say() is called so a station change cannot rewrite a line in flight.
 export function createNarration(audio) {
   const bar = document.getElementById("bulletin");
   const kickerEl = document.getElementById("bulletin-kicker");
   const lineEl = document.getElementById("bulletin-line");
-  const lines = new Map();
-  const ready = fetch(new URL("../narration.json", import.meta.url))
-    .then((res) => (res.ok ? res.json() : []))
-    .then((rows) => {
-      const list = Array.isArray(rows) ? rows : [];
-      for (const row of list) if (row && row.id && row.text) lines.set(row.id, row.text);
-    })
-    .catch(() => {});
 
-  const queue = [];
-  let busy = false;
-  let token = 0;
-  let typeTimer = 0;
-  let current = null;
-
-  function kickerFor(id) {
+  function kickerTrail(id) {
     if (id.startsWith("page-")) return "Story page";
     if (id === "restored") return "Station 1";
     if (id === "blank-next") return "Dead air";
     if (id.startsWith("tutor-")) return "On the trail";
     return "Special bulletin";
   }
+
+  function kickerStack(id) {
+    if (id.startsWith("page-")) return "Story page";
+    if (id === "restored") return "Station 2";
+    if (id === "blank-next") return "Dead air";
+    return "Special bulletin";
+  }
+
+  function loadPack(url) {
+    const lines = new Map();
+    const ready = fetch(new URL(url, import.meta.url))
+      .then((res) => (res.ok ? res.json() : []))
+      .then((rows) => {
+        const list = Array.isArray(rows) ? rows : [];
+        for (const row of list) if (row && row.id && row.text) lines.set(row.id, row.text);
+      })
+      .catch(() => {});
+    return { lines, ready };
+  }
+
+  const packs = {
+    trail: {
+      ...loadPack("../narration.json"),
+      clip(id) { return `../audio/narration/${id}.mp3`; },
+      kicker: kickerTrail,
+    },
+    stack: {
+      ...loadPack("../worlds/rusty/announcer_script.json"),
+      clip(id) { return `../audio/announcer/rusty/${id}.mp3`; },
+      kicker: kickerStack,
+    },
+  };
+
+  let pack = packs.trail;
+  const queue = [];
+  let busy = false;
+  let token = 0;
+  let typeTimer = 0;
+  let current = null;
 
   function conceal() {
     bar.hidden = true;
@@ -74,10 +102,10 @@ export function createNarration(audio) {
     return document.body.classList.contains("subs");
   }
 
-  async function run(id, my) {
-    const text = lines.get(id);
+  async function run(item, my) {
+    const { id, text, clip, kicker } = item;
     current = { id, text };
-    kickerEl.textContent = kickerFor(id);
+    kickerEl.textContent = kicker;
     const subs = subsOn();
     bar.hidden = !subs;
     bar.dataset.id = id;
@@ -87,13 +115,12 @@ export function createNarration(audio) {
       lineEl.textContent = text;
       lineEl.classList.add("is-done");
     }
-    const url = new URL(`../audio/narration/${id}.mp3`, import.meta.url).href;
     let played = false;
-    const clip = audio && audio.playClip
-      ? audio.playClip(url).then((ok) => { played = !!ok; }).catch(() => { played = false; })
+    const clipJob = audio && audio.playClip
+      ? audio.playClip(clip).then((ok) => { played = !!ok; }).catch(() => { played = false; })
       : Promise.resolve();
     if (subs) await waitTyped(my);
-    await clip;
+    await clipJob;
     if (my !== token) return;
     if (!played) {
       bar.hidden = false;
@@ -122,21 +149,47 @@ export function createNarration(audio) {
     else conceal();
   }
 
+  function enqueue(source, id) {
+    return source.ready.then(() => {
+      const text = source.lines.get(id);
+      if (!text) return;
+      queue.push({
+        id,
+        text,
+        clip: new URL(source.clip(id), import.meta.url).href,
+        kicker: source.kicker(id),
+      });
+      pump();
+    });
+  }
+
   return {
     line(id) {
-      return lines.get(id) || "";
+      return pack.lines.get(id) || "";
+    },
+    use(name) {
+      pack = packs[name] || packs.trail;
     },
     async say(id) {
-      await ready;
-      if (!lines.get(id)) return;
-      queue.push(id);
-      pump();
+      const source = pack;
+      await enqueue(source, id);
+    },
+    async sayFrom(name, id) {
+      const source = packs[name] || packs.trail;
+      await enqueue(source, id);
     },
     depth() {
       return queue.length + (busy ? 1 : 0);
     },
     current() {
       return current ? { id: current.id, text: lineEl.textContent, full: current.text } : null;
+    },
+    stop() {
+      token += 1;
+      queue.length = 0;
+      busy = false;
+      clearTimeout(typeTimer);
+      conceal();
     },
   };
 }

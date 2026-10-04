@@ -4,10 +4,12 @@
 //   lines {jang, tom, lasso, win}, objective {waiting, fighting, thinning(left)},
 //   create() -> { root, update(dt, {moving, state, hit}) }
 import { boss as californiaTrail } from "./california-trail.js";
+import { boss as rustyStack } from "./rusty-stack.js";
 export { theBlank } from "./the-blank.js";
 
 const bosses = {
   "california-trail": californiaTrail,
+  "rusty-stack": rustyStack,
 };
 
 // theBlank is the final boss of the whole game, not a world boss. Do not add it here.

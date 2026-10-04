@@ -4,20 +4,20 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
 <meta name="theme-color" content="#100e0c">
-<title>Book Worlds: The California Trail | Jason Collier</title>
-<meta name="description" content="Book Worlds. Nonimaginaires are leaking through the broadcast. Tune the parlor cabinet to the California Trail and walk it with Jang and Tom.">
+<title>Book Worlds | Jason Collier</title>
+<meta name="description" content="Book Worlds. Nonimaginaires are leaking through the broadcast. Tune the parlor cabinet to the California Trail or the Rusty Stack.">
 <link rel="canonical" href="https://jasoncollierbooks.github.io/jason-collier-books/book-worlds/">
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="Jason Collier Books">
-<meta property="og:title" content="Book Worlds: The California Trail | Jason Collier">
-<meta property="og:description" content="Tune the cabinet. Brain fogs are eating the stories. World I is the California Trail.">
+<meta property="og:title" content="Book Worlds | Jason Collier">
+<meta property="og:description" content="Tune the cabinet. Brain fogs are eating the stories. The California Trail and the Rusty Stack are on the air.">
 <meta property="og:url" content="https://jasoncollierbooks.github.io/jason-collier-books/book-worlds/">
 <meta property="og:image" content="https://jasoncollierbooks.github.io/jason-collier-books/assets/broadcast-theme/og-broadcast.jpg">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Crect width='16' height='16' fill='%23100e0c'/%3E%3Ccircle cx='8' cy='8' r='3.2' fill='none' stroke='%23e4d0a4' stroke-width='1.2'/%3E%3C/svg%3E">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,500;0,600;1,500&family=Josefin+Sans:wght@400;600&family=Pinyon+Script&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="./styles.css?v=2">
+<link rel="stylesheet" href="./styles.css?v=3">
 <script type="importmap">{ "imports": { "three": "../old-man-game/vendor/three.min.js", "three/addons": "../old-man-game/vendor/three-addons.min.js" } }</script>
 </head>
 <body>
@@ -50,8 +50,8 @@
   </header>
 
   <div id="party" aria-label="Party">
-    <p><span>Jang</span><i><b id="jang-hp"></b></i></p>
-    <p><span>Tom</span><i><b id="tom-hp"></b></i></p>
+    <p class="ally"><span>Jang</span><i><b></b></i></p>
+    <p class="ally"><span>Tom</span><i><b></b></i></p>
     <p class="team"><span>Team</span><i><b id="team-fill"></b></i></p>
   </div>
 
@@ -91,6 +91,12 @@
       <button type="button" data-speed="fast">Fast</button>
     </div>
     <label class="set-sub"><input type="checkbox" id="sub-toggle"> Subtitles</label>
+    <button type="button" id="help-reopen">Controls</button>
+  </div>
+  <div id="help" class="ui" hidden>
+    <p class="set-kicker">How to play</p>
+    <p>Move with WASD or the left stick. Attack swings the Trail Key. Space jumps. Shift dodges. G guards. F is the lantern, or the reaction when it flashes. 1 is a tonic. 2 dust devil. 3 trail mend. 4 wagon toss. Q locks on.</p>
+    <button type="button" id="help-dismiss">Got it</button>
   </div>
   <div id="floats"></div>
 
@@ -106,7 +112,7 @@
     <button type="button" data-act="potion">Potion</button>
     <button type="button" data-act="use">Use</button>
   </div>
-  <p id="keys">WASD move · J attack · Space jump · Shift dodge · G guard · C camera behind · F lantern or reaction · 1 tonic · 2 dust devil · 3 trail mend · 4 wagon toss · Q lock · [ ] menu · M confirm</p>
+  <p id="keys" hidden>WASD move · J attack · Space jump · Shift dodge · G guard · C camera behind · F lantern or reaction · 1 tonic · 2 dust devil · 3 trail mend · 4 wagon toss · Q lock · [ ] menu · M confirm</p>
 
   <div id="hub">
     <div class="bw-parlor" aria-hidden="true"></div>
@@ -152,16 +158,32 @@
                   <svg viewBox="0 0 640 360" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
                     <defs>
                       <linearGradient id="stack-sky" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="0" stop-color="#2a2428"/>
-                        <stop offset="1" stop-color="#c4896a"/>
+                        <stop offset="0" stop-color="#2a2438"/>
+                        <stop offset=".55" stop-color="#c45a3a"/>
+                        <stop offset="1" stop-color="#e7a06a"/>
                       </linearGradient>
                     </defs>
                     <rect width="640" height="360" fill="url(#stack-sky)"/>
-                    <ellipse cx="330" cy="150" rx="168" ry="46" fill="#a89078"/>
-                    <ellipse cx="330" cy="150" rx="168" ry="46" fill="none" stroke="#5a4034" stroke-width="4"/>
-                    <rect x="250" y="186" width="150" height="28" rx="3" fill="#6a5348"/>
-                    <path d="M400 196 H470 L452 214 H400 Z" fill="#4a342c"/>
-                    <rect x="300" y="168" width="8" height="22" fill="#3a2a24"/>
+                    <ellipse cx="320" cy="300" rx="280" ry="48" fill="#f0c49a" opacity=".85"/>
+                    <ellipse cx="140" cy="286" rx="90" ry="18" fill="#f6d7b4" opacity=".7"/>
+                    <ellipse cx="500" cy="292" rx="110" ry="20" fill="#f3c9a4" opacity=".75"/>
+                    <g fill="#8a6848" stroke="#5a4030" stroke-width="3">
+                      <path d="M150 118 C190 78 450 78 490 118 C450 148 190 148 150 118 Z"/>
+                      <path d="M210 112 h36 v18 h-36z" fill="#c4a15a"/>
+                      <path d="M280 108 h48 v22 h-48z" fill="#6a3030"/>
+                      <path d="M360 110 h40 v16 h-40z" fill="#3d5a58"/>
+                      <path d="M420 114 h28 v14 h-28z" fill="#6a5430"/>
+                    </g>
+                    <g stroke="#c6a15a" stroke-width="2" fill="none">
+                      <path d="M190 118 L250 176 M450 118 L390 176 M320 108 L320 168"/>
+                    </g>
+                    <rect x="248" y="168" width="150" height="34" rx="3" fill="#6a4034" stroke="#3a241c" stroke-width="3"/>
+                    <rect x="300" y="158" width="10" height="16" fill="#2a2018"/>
+                    <path d="M398 176 H500 L470 202 H398 Z" fill="#4a3428"/>
+                    <circle cx="470" cy="188" r="16" fill="none" stroke="#c6a15a" stroke-width="4"/>
+                    <circle cx="180" cy="188" r="14" fill="none" stroke="#c6a15a" stroke-width="4"/>
+                    <rect x="70" y="210" width="90" height="16" fill="#5a4034"/>
+                    <path d="M520 150 L560 90 L590 150 Z" fill="#8a9098" opacity=".55"/>
                   </svg>
                 </div>
                 <div class="bw-pic" data-pic="oldman" hidden>
@@ -203,6 +225,7 @@
                   <p class="bw-script" id="st-script">On the air</p>
                   <h2 id="st-title">The California Trail</h2>
                   <p class="bw-sub" id="st-sub">Jang &amp; Tom · Wagon Masters</p>
+                  <p class="bw-note" id="st-note" hidden></p>
                   <p class="bw-badge" id="st-badge" hidden>Signal closed</p>
                 </div>
               </div>
@@ -263,6 +286,6 @@
   </div>
   <div id="boot">Warming the tubes…</div>
 </div>
-<script type="module" src="./src/main.js?v=2"></script>
+<script type="module" src="./src/main.js?v=3"></script>
 </body>
 </html>
