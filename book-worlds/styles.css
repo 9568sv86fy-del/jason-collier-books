@@ -162,17 +162,17 @@ body.touch #actions { display: block; }
 }
 body.touch #keys { display: none; }
 #rotate-hint {
-  position: absolute; left: 50%; top: calc(52px + env(safe-area-inset-top)); transform: translateX(-50%);
-  z-index: 7; margin: 0; padding: 4px 8px 4px 12px;
+  position: relative; z-index: 7; width: fit-content; max-width: 100%; pointer-events: auto;
+  margin: 8px 0 0; padding: 6px 8px 6px 12px;
   display: flex; align-items: center; gap: 8px;
-  font-family: var(--ui); font-size: 10px; letter-spacing: .12em; text-transform: uppercase; color: var(--paper);
+  font-family: var(--ui); font-size: 16px; letter-spacing: .06em; text-transform: uppercase; color: var(--paper);
   background: rgba(16, 12, 8, .45); border: 1px solid rgba(228, 208, 164, .4); border-radius: 999px;
 }
 #rotate-hint[hidden] { display: none; }
 #rotate-dismiss {
-  min-height: 28px; padding: 0 8px; border-radius: 999px; cursor: pointer;
+  min-height: 36px; padding: 0 10px; border-radius: 999px; cursor: pointer;
   border: 1px solid rgba(228, 208, 164, .55); background: rgba(243, 230, 200, .75); color: #24180f;
-  font-family: var(--ui); font-size: 9px; letter-spacing: .12em; text-transform: uppercase;
+  font-family: var(--ui); font-size: 16px; letter-spacing: .06em; text-transform: uppercase;
 }
 
 .story {

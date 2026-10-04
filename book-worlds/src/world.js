@@ -6,14 +6,14 @@ const windU = { uTime: { value: 0 } };
 
 export function heightAt(x, z) {
   const ax = Math.abs(x);
-  let h = Math.sin(x * 0.07 + 0.4) * 0.9
-    + Math.cos(z * 0.032) * 0.62
-    + Math.sin(x * 0.15 - z * 0.038) * 0.38;
-  const berm = Math.exp(-((ax - 6.8) * (ax - 6.8)) / 9);
-  h += berm * (0.7 + 0.4 * Math.sin(z * 0.11 + ax));
-  const path = Math.exp(-(x * x) / 11);
-  h *= 1 - path * 0.93;
-  h += Math.sin(z * 0.085) * 0.055 * path;
+  let h = Math.sin(x * 0.065 + 0.4) * 1.45
+    + Math.cos(z * 0.028) * 1.05
+    + Math.sin(x * 0.14 - z * 0.034) * 0.62;
+  const berm = Math.exp(-((ax - 7.2) * (ax - 7.2)) / 10);
+  h += berm * (1.55 + 0.6 * Math.sin(z * 0.1 + ax));
+  const path = Math.exp(-(x * x) / 7.5);
+  h *= 1 - path * 0.96;
+  h += Math.sin(z * 0.07) * 0.08 * path;
   const river = Math.exp(-((z - 115) * (z - 115)) / 22);
   h -= river * 0.5;
   return h;
@@ -106,7 +106,7 @@ export function buildWorld(scene, low) {
 
   scatterRocks(scene, low, camSphere);
   scatterPlants(scene, low);
-  mesas(scene, camSphere);
+  mesas(scene, camSphere, low);
 
   const ox = createCritter("ox");
   ox.root.position.set(-8.2, heightAt(-8.2, -1), -1);
@@ -303,7 +303,10 @@ function buildGround(low) {
     const canyonK = z > 24 && z < 98 ? 0.45 : 0;
     tmp.copy(base).lerp(path, pathK * 0.65).lerp(camp, campK * 0.35).lerp(rock, canyonK * (1 - pathK)).lerp(wet, riverK * 0.7).lerp(dawn, dawnK);
     const n = (hash(i + Math.floor(x * 3) * 13) - 0.5) * 0.08;
-    const crease = canyonK * (1 - pathK) * 0.16 + riverK * 0.1;
+    const track = Math.abs(Math.abs(x) - 0.52);
+    const rutK = Math.exp(-(track * track) * 28) * pathK;
+    tmp.lerp(new THREE.Color(0.42, 0.3, 0.2), rutK * 0.62);
+    const crease = canyonK * (1 - pathK) * 0.16 + riverK * 0.1 + rutK * 0.08;
     const ao = 1 - crease;
     colors[i * 3] = clamp((tmp.r + n) * ao, 0, 1.2);
     colors[i * 3 + 1] = clamp((tmp.g + n * 0.7) * ao, 0, 1.2);
@@ -607,6 +610,24 @@ function mergeParts(parts) {
   return geo;
 }
 
+function boulderGeo(seed) {
+  const geo = new THREE.BoxGeometry(1.55, 0.9, 1.2, 4, 3, 4);
+  const pos = geo.attributes.position;
+  for (let i = 0; i < pos.count; i++) {
+    let x = pos.getX(i);
+    let y = pos.getY(i);
+    let z = pos.getZ(i);
+    x *= 0.72 + hash(seed + i * 0.17) * 0.55;
+    z *= 0.68 + hash(seed + i * 1.3) * 0.6;
+    y *= 0.42 + hash(seed + i * 2.1) * 0.45;
+    if (y < 0) y *= 0.22;
+    y = Math.round(y * 7) / 7;
+    pos.setXYZ(i, x, y + 0.12, z);
+  }
+  geo.computeVertexNormals();
+  return geo;
+}
+
 function displaceRock(geo, seed) {
   const pos = geo.attributes.position;
   const v = new THREE.Vector3();
@@ -628,7 +649,7 @@ function displaceRock(geo, seed) {
 
 function wagonRuts(scene) {
   const mat = new THREE.MeshStandardMaterial({
-    color: 0x6a5038,
+    color: 0x4e3828,
     roughness: 1,
     metalness: 0,
     polygonOffset: true,
@@ -642,7 +663,7 @@ function wagonRuts(scene) {
     const positions = [];
     const uvs = [];
     const indices = [];
-    const half = 0.14;
+    const half = 0.22;
     for (let i = 0; i <= steps; i++) {
       const z = z0 + ((z1 - z0) * i) / steps;
       const x = side * (0.48 + Math.sin(z * 0.16 + side) * 0.11 + Math.sin(z * 0.047) * 0.05);
@@ -668,7 +689,11 @@ function wagonRuts(scene) {
 
 function scatterRocks(scene, low, camSphere) {
   const detail = low ? 1 : 2;
-  const archetypes = [0.4, 1.8, 3.3].map((seed) => displaceRock(new THREE.IcosahedronGeometry(1, detail), seed));
+  const archetypes = [
+    boulderGeo(0.4),
+    displaceRock(new THREE.IcosahedronGeometry(1, detail), 1.8),
+    boulderGeo(3.3),
+  ];
   const mat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.9, metalness: 0.04 });
   dressRock(mat, low);
   const buckets = [[], [], []];
@@ -800,7 +825,7 @@ function mesaGeo(r, h, seg, seed) {
   return geo;
 }
 
-function mesas(scene, camSphere) {
+function mesas(scene, camSphere, low) {
   const stone = new THREE.MeshStandardMaterial({ color: 0xd2a078, roughness: 0.9, metalness: 0.03 });
   dressRock(stone, true);
   const spots = [[-28, 30, 11, 7], [30, 55, 13, 8], [-32, 80, 10, 6.2], [26, 100, 12, 7], [-24, 120, 8.5, 5.2]];
@@ -825,7 +850,7 @@ function mesas(scene, camSphere) {
   for (const [x, z, h, r] of spots) {
     const m = new THREE.Mesh(mesaGeo(r, h, 16, x + z), stone);
     m.position.set(x, h * 0.22, z);
-    m.castShadow = true;
+    m.castShadow = !low;
     m.receiveShadow = true;
     scene.add(m);
     if (camSphere) camSphere(x, h * 0.45, z, r * 0.85);
@@ -1125,7 +1150,7 @@ function skyMaterial() {
       }
       float fbm(vec2 p){
         float v = 0.0; float a = 0.5;
-        for (int i = 0; i < 5; i++) { v += a * noise(p); p *= 2.05; a *= 0.5; }
+        for (int i = 0; i < 4; i++) { v += a * noise(p); p *= 2.05; a *= 0.5; }
         return v;
       }
       void main() {

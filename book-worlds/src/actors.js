@@ -288,6 +288,9 @@ function leatherTextures() {
       grain.anisotropy = 4;
       grain.needsUpdate = true;
     }
+    for (const tex of [col, grain, nrm, rgh]) {
+      if (tex) tex.repeat.set(2, 2);
+    }
     return { col, grain, nrm, rgh };
   });
   return leatherPromise;
@@ -341,21 +344,19 @@ function creasedCrown(radius, height) {
 }
 
 function dusterShell() {
-  const geo = new THREE.CylinderGeometry(0.2, 0.36, 0.78, 20, 8, true, 0.42, Math.PI * 1.62);
+  const height = 0.5;
+  const geo = new THREE.CylinderGeometry(0.3, 0.22, height, 22, 6, true, 0.85, Math.PI * 1.4);
   const pos = geo.attributes.position;
   for (let i = 0; i < pos.count; i++) {
     let x = pos.getX(i);
     let y = pos.getY(i);
     let z = pos.getZ(i);
-    const t = (y + 0.39) / 0.78;
-    const waist = Math.exp(-((t - 0.38) * 3.1) ** 2);
-    const flare = t < 0.22 ? 1 + (0.22 - t) * 0.9 : 1;
-    const shoulder = t > 0.78 ? 1 + (t - 0.78) * 1.6 : 1;
-    const k = (1 - waist * 0.14) * flare * shoulder;
-    x *= k;
-    z *= k;
+    const t = (y + height * 0.5) / height;
+    const shoulder = 1 + Math.max(0, t - 0.62) * 1.35;
+    x *= shoulder;
+    z *= 1 + Math.max(0, t - 0.7) * 0.35;
     const ang = Math.atan2(x, z);
-    const fold = Math.sin(ang * 5.5 + t * 3) * 0.014 * (1.05 - t);
+    const fold = Math.sin(ang * 4 + t * 2) * 0.012;
     const rad = Math.hypot(x, z) || 1;
     x += (x / rad) * fold;
     z += (z / rad) * fold;
@@ -366,25 +367,25 @@ function dusterShell() {
 }
 
 function coatTail(side) {
-  const geo = new THREE.PlaneGeometry(0.2, 0.46, 1, 5);
-  geo.translate(side * 0.09, -0.22, 0);
+  const geo = new THREE.PlaneGeometry(0.3, 0.78, 3, 8);
+  geo.translate(side * 0.13, -0.32, -0.02);
   const pos = geo.attributes.position;
   for (let i = 0; i < pos.count; i++) {
     const y = pos.getY(i);
-    const flare = Math.max(0, -y) / 0.46;
-    pos.setX(i, pos.getX(i) * (1 + flare * 0.45) + side * flare * 0.03);
-    pos.setZ(i, pos.getZ(i) - flare * 0.04);
+    const flare = Math.max(0, -0.05 - y) / 0.7;
+    pos.setX(i, pos.getX(i) * (1 + flare * 0.7) + side * flare * 0.05);
+    pos.setZ(i, -0.05 - flare * 0.08);
   }
   geo.computeVertexNormals();
   return geo;
 }
 
 function sleeveGeo(len) {
-  const geo = new THREE.CylinderGeometry(0.05, 0.062, len, 10, 3, true);
+  const geo = new THREE.CylinderGeometry(0.085, 0.1, len, 12, 4, true);
   const pos = geo.attributes.position;
   for (let i = 0; i < pos.count; i++) {
     const y = pos.getY(i);
-    const wrinkle = 1 + Math.sin((y / len) * 9) * 0.06;
+    const wrinkle = 1 + Math.sin((y / Math.max(0.05, len)) * 10) * 0.07;
     pos.setX(i, pos.getX(i) * wrinkle);
     pos.setZ(i, pos.getZ(i) * wrinkle);
   }
@@ -536,23 +537,23 @@ function dress(api, assets) {
     coatMat.side = THREE.DoubleSide;
     bindLeather(coatMat, "photo");
     const coat = new THREE.Mesh(dusterShell(), coatMat);
-    put(model, B("pelvis"), coat, 0, 1.08, -0.02);
-    const collar = new THREE.Mesh(new THREE.TorusGeometry(0.11, 0.028, 6, 14, Math.PI * 1.15), coatMat);
-    collar.rotation.x = Math.PI / 2.4;
+    put(model, B("pelvis"), coat, 0, 1.22, 0.02);
+    const collar = new THREE.Mesh(new THREE.TorusGeometry(0.12, 0.03, 6, 16, Math.PI * 1.2), coatMat);
+    collar.rotation.x = Math.PI / 2.35;
     collar.rotation.z = Math.PI;
-    put(model, B("spine_03"), collar, 0, 1.55, -0.02);
+    put(model, B("spine_03"), collar, 0, 1.52, 0.02);
     for (const s of [-1, 1]) {
-      const lapel = new THREE.Mesh(new THREE.BoxGeometry(0.07, 0.2, 0.018), coatMat);
-      put(model, B("spine_02"), lapel, s * 0.07, 1.34, 0.16, 0.15, s * -0.45, s * 0.35);
+      const lapel = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.22, 0.02), coatMat);
+      put(model, B("spine_02"), lapel, s * 0.08, 1.32, 0.18, 0.2, s * -0.5, s * 0.4);
       const tail = new THREE.Mesh(coatTail(s), coatMat);
-      put(model, B("pelvis"), tail, s * 0.02, 0.78, -0.08, 0.12, 0, s * 0.08);
+      put(model, B("pelvis"), tail, 0, 0.98, -0.1, 0.08, 0, 0);
       tail.userData.side = s;
     }
     api._tails = [];
     model.traverse((o) => { if (o.userData && o.userData.side) api._tails.push(o); });
     const beltMat = clothMat(0x3a2418, 0.48, "leather");
     bindLeather(beltMat, "grain");
-    const belt = new THREE.Mesh(new THREE.CylinderGeometry(0.2, 0.205, 0.05, 16, 1, true, 0.35, Math.PI * 1.75), beltMat);
+    const belt = new THREE.Mesh(new THREE.CylinderGeometry(0.24, 0.24, 0.05, 18), beltMat);
     put(model, B("spine_01"), belt, 0, 0.98, 0.02);
     const buckle = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.045, 0.02), clothMat(0xd7c08a, 0.35, "leather"));
     put(model, B("spine_01"), buckle, 0, 0.98, 0.2);
@@ -561,20 +562,25 @@ function dress(api, assets) {
       const b = new THREE.Mesh(new THREE.SphereGeometry(0.014, 8, 6), button);
       put(model, B("spine_02"), b, 0.015, 1.28 - i * 0.1, 0.2);
     }
+    model.updateMatrixWorld(true);
     for (const side of ["r", "l"]) {
       const upper = B("upperarm_" + side);
       const lower = B("lowerarm_" + side);
       if (!upper || !lower) continue;
       const a = new THREE.Vector3();
       const b = new THREE.Vector3();
+      const c = new THREE.Vector3();
       upper.getWorldPosition(a);
       lower.getWorldPosition(b);
-      const len = Math.max(0.16, a.distanceTo(b));
-      const upperSleeve = new THREE.Mesh(sleeveGeo(len * 0.92), coatMat);
-      upperSleeve.position.y = len * 0.48;
+      const hand = B("hand_" + side);
+      if (hand) hand.getWorldPosition(c);
+      const len = Math.max(0.18, a.distanceTo(b));
+      const foreLen = hand ? Math.max(0.16, b.distanceTo(c)) : len * 0.85;
+      const upperSleeve = new THREE.Mesh(sleeveGeo(len * 0.96), coatMat);
+      upperSleeve.position.y = len * 0.5;
       upper.add(upperSleeve);
-      const fore = new THREE.Mesh(sleeveGeo(len * 0.78), coatMat);
-      fore.position.y = len * 0.4;
+      const fore = new THREE.Mesh(sleeveGeo(foreLen * 0.9), coatMat);
+      fore.position.y = foreLen * 0.42;
       lower.add(fore);
       for (const mesh of [upperSleeve, fore]) {
         mesh.castShadow = true;

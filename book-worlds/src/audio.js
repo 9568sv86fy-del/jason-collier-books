@@ -193,6 +193,9 @@ export function createAudio() {
     mediaEl.setAttribute("playsinline", "");
     mediaEl.setAttribute("webkit-playsinline", "true");
     mediaEl.preload = "none";
+    mediaEl.setAttribute("aria-hidden", "true");
+    mediaEl.style.cssText = "position:absolute;width:0;height:0;opacity:0;pointer-events:none";
+    if (document.body) document.body.appendChild(mediaEl);
     return mediaEl;
   }
 
