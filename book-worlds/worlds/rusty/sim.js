@@ -3,8 +3,8 @@ import * as THREE from "three";
 import { clamp, damp, dampAngle, hypot2 } from "../../src/util.js";
 import { heightAt } from "./world.js";
 import { createFog } from "../../src/rigs.js";
-import { createHuman } from "../../src/actors.js";
-import { boss as worldBoss } from "../../bosses/rusty-stack.js";
+import { createHuman } from "../../src/actors.js?v=3";
+import { boss as worldBoss } from "../../bosses/rusty-stack.js?v=3";
 
 const SAVE_KEY = "book-worlds-rusty-stack";
 
@@ -17,13 +17,13 @@ export function createRustySim(scene, world, audio) {
   const spacey = createHuman({
     cloth: 0x6d6a3e, cloth2: 0x4a3828, pants: 0x2c3034, boots: 0x5a3a24,
     hair: 0x3a2416, skin: 0xc49474, coat: 0x6b452c,
-    goggles: true, cigar: true, gloves: true, crossBelts: true, stubble: true, messy: true,
+    goggles: true, cigar: true, gloves: true, crossBelts: true, stubble: true, messy: true, ownHair: true,
     height: 1.08, bulk: 0.9, chest: 0.98, shoulder: 0.2,
   });
   const mira = createHuman({
     cloth: 0x4e6438, cloth2: 0x3a3024, pants: 0x3e4a32, boots: 0x1a1a1a,
     hat: 0x3d4a32, newsboy: true, hair: 0x14110e, skin: 0xc48a6a,
-    sleeves: 0x6a7a48, soot: true, toolbelt: true, wrench: true,
+    sleeves: 0x6a7a48, soot: true, toolbelt: true, wrench: true, ownHair: true, coverall: true,
     height: 0.74, bulk: 0.82, chest: 0.9, shoulder: 0.18,
   });
   scene.add(keeper.root, spacey.root, mira.root);
@@ -38,7 +38,7 @@ export function createRustySim(scene, world, audio) {
     hp: 100, hpMax: 100, mp: 100, mpMax: 100, coins: 0, potions: 1,
     iframes: 0, action: "idle", actionT: 0, actionDur: 0.4,
     combo: 0, airCombo: 0, comboQueue: false, dodgeSide: 0, dodgeYaw: 0,
-    flashCd: 0, flashMax: 7, magicLock: 0, grounded: true, jumps: 0, hurt: 0,
+    flashCd: 0, flashMax: 7, magicLock: 0, spellCd: 0, spellMax: 1.2, grounded: true, jumps: 0, hurt: 0,
     guardT: 0, hitStop: 0, level: 1, xp: 0, xpNext: 36, str: 0, team: 0, teamHit: false,
   };
 
@@ -855,7 +855,8 @@ export function createRustySim(scene, world, audio) {
     return true;
   }
   function startFlash() {
-    if (player.action === "dodge" || player.action === "team" || !spend(25)) return;
+    if (player.action === "dodge" || player.action === "team" || player.spellCd > 0 || !spend(25)) return;
+    player.spellCd = player.spellMax;
     player.action = "flash";
     player.actionT = 0;
     player.actionDur = 0.42;
@@ -1057,7 +1058,9 @@ export function createRustySim(scene, world, audio) {
     return {
       player: {
         x: player.x, y: player.y, z: player.z, yaw: player.yaw, hp: player.hp, hpMax: player.hpMax,
-        mp: player.mp, mpMax: player.mpMax, coins: player.coins, potions: player.potions,
+        mp: player.mp, mpMax: player.mpMax,
+        spell: player.spellMax > 0 ? 1 - player.spellCd / player.spellMax : 1,
+        coins: player.coins, potions: player.potions,
         flash: player.mp / player.mpMax,
         combo: player.action === "attack" ? player.combo : 0,
         hits: playerHits, level: player.level, xp: player.xp, xpNext: player.xpNext, team: player.team,
@@ -1128,6 +1131,7 @@ export function createRustySim(scene, world, audio) {
     if (!flags.g1) { flags.g1 = true; speak("spacey-greet"); }
     if (!flags.g2 && playTime > 3.6) { flags.g2 = true; speak("mira-greet"); }
     player.flashCd = Math.max(0, player.flashCd - dt);
+    player.spellCd = Math.max(0, player.spellCd - dt);
     player.magicLock = Math.max(0, player.magicLock - dt);
     player.iframes = Math.max(0, player.iframes - dt);
     player.hurt = Math.max(0, player.hurt - dt * 2);
@@ -1293,18 +1297,26 @@ export function createRustySim(scene, world, audio) {
       prompt = { id: "save", label: "Save at the set" };
     }
     const storyWhole = pageCount() >= world.pages.length && !boss.alive;
-    if (storyWhole && hypot2(player.x - world.gate.x, player.z - world.gate.z) < 2.3) {
+    if (world.gate.setReady) world.gate.setReady(storyWhole);
+    const gateNear = storyWhole && hypot2(player.x - world.gate.x, player.z - world.gate.z) < 2.3;
+    if (gateNear) {
       prompt = { id: "gate", label: "Step through" };
       if (!flags.gateLine) { flags.gateLine = true; speak("spacey-gate"); }
     }
+    if (storyWhole && hypot2(player.x - world.gate.x, player.z - world.gate.z) < 1.35 && !flags.gateUsed) {
+      flags.gateUsed = true;
+      world.gate.setOpen(true);
+      events.push({ type: "gate" });
+    }
     reaction = pickReaction();
-    if (edge.flash) {
+    if (edge.flash || edge.magic) {
       if (!fireReaction()) startFlash();
     }
     if (edge.use && prompt) {
       if (prompt.id === "chest") openChest(chest);
       if (prompt.id === "save") writeSave();
-      if (prompt.id === "gate") {
+      if (prompt.id === "gate" && !flags.gateUsed) {
+        flags.gateUsed = true;
         world.gate.setOpen(true);
         events.push({ type: "gate" });
       }
@@ -1377,6 +1389,7 @@ export function createRustySim(scene, world, audio) {
     player.airCombo = 0;
     player.comboQueue = false;
     player.flashCd = 0;
+    player.spellCd = 0;
     player.magicLock = 0;
     player.hitStop = 0;
     player.guardT = 0;
@@ -1532,7 +1545,61 @@ export function createRustySim(scene, world, audio) {
     tutorSave() {},
     teaching: () => false,
     tutorStep: () => "done",
-    allies: () => allies.map((a) => ({ id: a.id, x: a.x, z: a.z })),
+    allies: () => allies.map((a) => ({ id: a.id, x: a.x, z: a.z, hp: a.hp, hpMax: a.hpMax })),
+    chests: () => world.chests.map((c) => !!c.open),
+    exitReady: () => !!(world.gate && world.gate.ready),
+    defeatForExit() {
+      boss.hp = 0;
+      boss.alive = false;
+      boss.active = true;
+      boss.state = "dead";
+      boss.t = 2;
+      flags.won = true;
+      outroArmed = false;
+      outroT = 0;
+      bossWall = false;
+      if (world.gate.setReady) world.gate.setReady(pageCount() >= world.pages.length);
+    },
+    debugStrike(opts = {}) {
+      const dist = 1.15;
+      const yaw = player.yaw || 0;
+      const x = player.x + Math.sin(yaw) * dist;
+      const z = player.z + Math.cos(yaw) * dist;
+      const e = makeEnemy("fog", x, z);
+      e.state = "strike";
+      e.t = 0.1;
+      e.didHit = false;
+      e.yaw = Math.atan2(player.x - x, player.z - z);
+      const dmg = opts.dmg || e.prof.dmg;
+      e.prof = { ...e.prof, dmg, reach: 4.2 };
+      return { id: e.id, dmg };
+    },
+    debugFoe() {
+      const dist = 3.5;
+      const x = player.x + Math.sin(player.yaw) * dist;
+      const z = player.z + Math.cos(player.yaw) * dist;
+      const e = makeEnemy("fog", x, z);
+      e.hp = e.hpMax = 90;
+      e.state = "idle";
+      return e.id;
+    },
+    foeHp(id) {
+      const e = enemies.find((foe) => foe.id === id);
+      return e ? e.hp : null;
+    },
+    continueFromSave() {
+      let data = null;
+      try { data = JSON.parse(localStorage.getItem(SAVE_KEY) || "null"); } catch { data = null; }
+      if (!data || data.v !== 1) return false;
+      applySave(data);
+      flags.dead = false;
+      player.hp = player.hpMax;
+      player.mp = player.mpMax;
+      player.iframes = 1.6;
+      player.action = "idle";
+      player.vx = player.vz = player.vy = 0;
+      return true;
+    },
     keyOn: () => true,
   };
 }

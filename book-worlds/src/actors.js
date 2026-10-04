@@ -391,6 +391,8 @@ function sleeveGeo(len) {
   }
   geo.computeVertexNormals();
   return geo;
+}
+
 function metalMat(hex, rough = 0.34) {
   const mat = clothMat(hex, rough, "leather");
   mat.metalness = 0.72;
@@ -421,20 +423,21 @@ function dressAirship(model, B, spec, crown, faceZ) {
     const g = new THREE.Group();
     const brass = metalMat(0xc6a15a, 0.3);
     const glass = new THREE.MeshStandardMaterial({
-      color: 0x8aa0a8, roughness: 0.12, metalness: 0.25, transparent: true, opacity: 0.55,
+      color: 0x9ec8d4, roughness: 0.08, metalness: 0.2, transparent: true, opacity: 0.72,
     });
     for (const s of [-1, 1]) {
-      const rim = new THREE.Mesh(new THREE.TorusGeometry(0.032, 0.006, 6, 12), brass);
-      rim.position.set(s * 0.04, 0, 0);
-      const lens = new THREE.Mesh(new THREE.CircleGeometry(0.026, 10), glass);
-      lens.position.set(s * 0.04, 0, 0.004);
+      const rim = new THREE.Mesh(new THREE.TorusGeometry(0.05, 0.01, 8, 16), brass);
+      rim.position.set(s * 0.055, 0, 0);
+      const lens = new THREE.Mesh(new THREE.CircleGeometry(0.042, 12), glass);
+      lens.position.set(s * 0.055, 0, 0.006);
       g.add(rim, lens);
     }
-    const bridge = new THREE.Mesh(new THREE.BoxGeometry(0.022, 0.008, 0.008), brass);
-    const strap = new THREE.Mesh(new THREE.BoxGeometry(0.18, 0.012, 0.012), clothMat(0x3a2a22, 0.7, "leather"));
-    strap.position.y = 0.028;
+    const bridge = new THREE.Mesh(new THREE.BoxGeometry(0.03, 0.012, 0.012), brass);
+    const strap = new THREE.Mesh(new THREE.TorusGeometry(0.13, 0.012, 6, 16), clothMat(0x3a2a22, 0.7, "leather"));
+    strap.rotation.x = Math.PI / 2;
+    strap.position.y = -0.02;
     g.add(bridge, strap);
-    put(model, B("Head"), g, 0, crown - 0.04, faceZ * 0.25, -1.05, 0, 0);
+    put(model, B("Head"), g, 0, crown + 0.01, faceZ * 0.35, -0.55, 0, 0);
   }
 
   if (spec.stubble) {
@@ -452,12 +455,45 @@ function dressAirship(model, B, spec, crown, faceZ) {
     put(model, B("Head"), group, 0.028, crown - 0.175, faceZ + 0.028, 0.15, 0.35, 1.15);
   }
 
-  if (spec.messy) {
-    const tuftM = clothMat(spec.hair || 0x3a2416, 1);
-    for (let i = 0; i < 5; i++) {
-      const tuft = new THREE.Mesh(new THREE.ConeGeometry(0.016, 0.07, 4), tuftM);
-      const a = (i - 2) * 0.32;
-      put(model, B("Head"), tuft, Math.sin(a) * 0.055, crown + 0.02, -0.02, 0.35, a, 0.25);
+  if (spec.ownHair && spec.messy) {
+    const hairM = clothMat(spec.hair || 0x3a2416, 1);
+    const cap = new THREE.Mesh(new THREE.SphereGeometry(0.14, 14, 10, 0, Math.PI * 2, 0, Math.PI * 0.58), hairM);
+    cap.scale.set(1.08, 0.72, 1.12);
+    put(model, B("Head"), cap, 0, crown - 0.01, -0.01);
+    for (let i = 0; i < 11; i++) {
+      const tuft = new THREE.Mesh(new THREE.ConeGeometry(0.028, 0.11, 5), hairM);
+      const a = (i / 11) * Math.PI * 2;
+      const lift = i % 2 === 0 ? 0.06 : 0.02;
+      put(model, B("Head"), tuft, Math.sin(a) * 0.07, crown + lift, Math.cos(a) * 0.05 - 0.02, 0.5, a, 0.2);
+    }
+    const sideburn = clothMat(spec.hair || 0x3a2416, 1);
+    for (const s of [-1, 1]) {
+      const burn = new THREE.Mesh(new THREE.BoxGeometry(0.028, 0.09, 0.02), sideburn);
+      put(model, B("Head"), burn, s * 0.09, crown - 0.12, faceZ * 0.25);
+    }
+  }
+
+  if (spec.ownHair && spec.newsboy) {
+    const bobM = clothMat(spec.hair || 0x14110e, 0.95);
+    const bob = new THREE.Mesh(new THREE.SphereGeometry(0.135, 14, 12, 0, Math.PI * 2, 0, Math.PI * 0.78), bobM);
+    bob.scale.set(1.02, 1.2, 1.05);
+    put(model, B("Head"), bob, 0, crown - 0.1, -0.01);
+    const bangs = new THREE.Mesh(new THREE.BoxGeometry(0.18, 0.045, 0.04), bobM);
+    put(model, B("Head"), bangs, 0, crown - 0.07, faceZ * 0.72);
+    for (const s of [-1, 1]) {
+      const lock = new THREE.Mesh(new THREE.BoxGeometry(0.04, 0.12, 0.03), bobM);
+      put(model, B("Head"), lock, s * 0.1, crown - 0.16, faceZ * 0.35);
+    }
+  }
+
+  if (spec.coverall) {
+    const bibM = clothMat(spec.cloth || 0x4e6438, 0.82, "cloth");
+    const bib = new THREE.Mesh(new THREE.BoxGeometry(0.3, 0.38, 0.06), bibM);
+    put(model, B("spine_02"), bib, 0, 1.18, 0.14);
+    const strapM = clothMat(0x2a2418, 0.55, "leather");
+    for (const s of [-1, 1]) {
+      const strap = new THREE.Mesh(new THREE.BoxGeometry(0.035, 0.32, 0.02), strapM);
+      put(model, B("spine_02"), strap, s * 0.09, 1.36, 0.1, 0.15, 0, s * 0.2);
     }
   }
 
@@ -508,14 +544,17 @@ function dressAirship(model, B, spec, crown, faceZ) {
     if (bone) {
       bone.getWorldPosition(grip);
       const wrench = new THREE.Group();
-      const brass = metalMat(0xc6a15a, 0.28);
-      const handle = new THREE.Mesh(new THREE.CylinderGeometry(0.012, 0.014, 0.46, 6), brass);
-      const head = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.038, 0.024), brass);
-      head.position.y = 0.23;
-      const jaw = new THREE.Mesh(new THREE.BoxGeometry(0.028, 0.02, 0.02), brass);
-      jaw.position.set(0.045, 0.23, 0);
-      wrench.add(handle, head, jaw);
-      put(model, bone, wrench, grip.x, grip.y + 0.1, grip.z, 0.45, 0.1, 0.2);
+      const brass = metalMat(0xd4b46a, 0.28);
+      const handle = new THREE.Mesh(new THREE.CylinderGeometry(0.02, 0.024, 0.78, 8), brass);
+      const head = new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.07, 0.04), brass);
+      head.position.y = 0.38;
+      const jaw = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.045, 0.036), brass);
+      jaw.position.set(0.09, 0.38, 0);
+      const jaw2 = jaw.clone();
+      jaw2.position.x = -0.09;
+      wrench.add(handle, head, jaw, jaw2);
+      wrench.scale.setScalar(1.15);
+      put(model, bone, wrench, grip.x, grip.y + 0.16, grip.z, 0.35, 0.15, 0.15);
     }
   }
 
@@ -603,7 +642,7 @@ function dress(api, assets) {
   const crown = headBox.max.y;
   const faceZ = headBox.max.z;
 
-  if (!spec.bandana) {
+  if (!spec.bandana && !spec.ownHair) {
     const hairMeshes = weldToBone(model, B("Head"), assets.hair.clone(true));
     for (const mesh of hairMeshes) mesh.material = clothMat(spec.hair || 0x3a2a22, 1);
   }

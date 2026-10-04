@@ -63,28 +63,32 @@ function canvasTex(w, h, draw) {
 
 function ironTexture() {
   return canvasTex(512, 512, (g, w, h) => {
-    g.fillStyle = "#6a564c";
+    g.fillStyle = "#6e7270";
     g.fillRect(0, 0, w, h);
     for (let y = 0; y < 4; y++) {
       for (let x = 0; x < 4; x++) {
-        const rust = ((x * 3 + y * 5) % 4) / 10;
-        g.fillStyle = `rgb(${92 + rust * 80}, ${62 - rust * 20}, ${48 - rust * 10})`;
+        const n = (x * 3 + y * 5) % 5;
+        const shade = 96 + n * 8;
+        g.fillStyle = `rgb(${shade}, ${shade + 2}, ${shade - 2})`;
         g.fillRect(x * 128 + 4, y * 128 + 4, 120, 120);
-        g.strokeStyle = "#3a2c26";
-        g.lineWidth = 3;
+        g.strokeStyle = "#3e4448";
+        g.lineWidth = 4;
         g.strokeRect(x * 128 + 6, y * 128 + 6, 116, 116);
         g.fillStyle = "#c6a15a";
-        for (const [rx, ry] of [[16, 16], [104, 16], [16, 104], [104, 104], [60, 60]]) {
+        for (const [rx, ry] of [[18, 18], [102, 18], [18, 102], [102, 102], [60, 60]]) {
           g.beginPath();
-          g.arc(x * 128 + rx, y * 128 + ry, 4.5, 0, Math.PI * 2);
+          g.arc(x * 128 + rx, y * 128 + ry, 5, 0, Math.PI * 2);
           g.fill();
+          g.strokeStyle = "#6a5430";
+          g.lineWidth = 1;
+          g.stroke();
         }
-        if ((x + y) % 2 === 0) {
-          g.strokeStyle = "rgba(90, 42, 28, 0.55)";
-          g.lineWidth = 2;
+        if (n === 0 || n === 3) {
+          g.strokeStyle = "rgba(122, 64, 36, 0.55)";
+          g.lineWidth = 3;
           g.beginPath();
-          g.moveTo(x * 128 + 20, y * 128 + 30);
-          g.lineTo(x * 128 + 100, y * 128 + 110);
+          g.moveTo(x * 128 + 24, y * 128 + 36);
+          g.lineTo(x * 128 + 96, y * 128 + 100);
           g.stroke();
         }
       }
@@ -92,22 +96,68 @@ function ironTexture() {
   });
 }
 
-function balloonTexture() {
-  const patches = ["#c4a15a", "#8c3a2a", "#3d6a62", "#6a6238", "#6a5070", "#a85a3a", "#d8c49a", "#4a5a48"];
-  return canvasTex(512, 256, (g, w, h) => {
-    g.fillStyle = "#b7a48e";
+function plankTexture() {
+  return canvasTex(512, 512, (g, w, h) => {
+    g.fillStyle = "#6a5a46";
     g.fillRect(0, 0, w, h);
-    for (let i = 0; i < 28; i++) {
-      const x = (i * 97) % (w - 70);
-      const y = (i * 53) % (h - 40);
+    const boards = 8;
+    const bh = h / boards;
+    for (let i = 0; i < boards; i++) {
+      const shade = 118 + ((i * 19) % 36);
+      g.fillStyle = `rgb(${shade + 28}, ${shade + 8}, ${shade - 22})`;
+      g.fillRect(2, i * bh + 3, w - 4, bh - 6);
+      g.strokeStyle = "rgba(70, 48, 30, 0.45)";
+      g.lineWidth = 1;
+      for (let k = 0; k < 5; k++) {
+        const y = i * bh + 10 + k * (bh / 6);
+        g.beginPath();
+        g.moveTo(4, y);
+        g.lineTo(w - 4, y + ((i + k) % 3) - 1);
+        g.stroke();
+      }
+      g.fillStyle = "#4a3c2e";
+      for (let n = 0; n < 5; n++) {
+        g.beginPath();
+        g.arc(28 + n * 112, i * bh + bh * 0.5, 3.2, 0, Math.PI * 2);
+        g.fill();
+      }
+    }
+  });
+}
+
+function balloonTexture() {
+  const patches = ["#e4c27a", "#9a3030", "#2f6a62", "#c8b060", "#5a4068", "#d07040", "#f0e2c4", "#3d5a40", "#8a6840", "#6a3038"];
+  return canvasTex(512, 256, (g, w, h) => {
+    g.fillStyle = "#d8c4a4";
+    g.fillRect(0, 0, w, h);
+    g.strokeStyle = "rgba(90, 60, 40, 0.28)";
+    g.lineWidth = 1;
+    for (let y = 0; y < h; y += 4) {
+      g.beginPath();
+      g.moveTo(0, y);
+      g.lineTo(w, y);
+      g.stroke();
+    }
+    for (let x = 0; x < w; x += 5) {
+      g.beginPath();
+      g.moveTo(x, 0);
+      g.lineTo(x, h);
+      g.stroke();
+    }
+    for (let i = 0; i < 22; i++) {
+      const pw = 70 + (i % 4) * 18;
+      const ph = 36 + (i % 3) * 14;
+      const x = (i * 83) % (w - pw);
+      const y = (i * 47) % (h - ph);
       g.fillStyle = patches[i % patches.length];
-      g.fillRect(x, y, 54 + (i % 4) * 10, 28 + (i % 3) * 8);
-      g.strokeStyle = "#3a2c24";
-      g.lineWidth = 2;
-      g.strokeRect(x, y, 54 + (i % 4) * 10, 28 + (i % 3) * 8);
-      g.setLineDash([3, 3]);
-      g.strokeStyle = "rgba(40, 24, 16, 0.7)";
-      g.strokeRect(x + 3, y + 3, 48 + (i % 4) * 10, 22 + (i % 3) * 8);
+      g.fillRect(x, y, pw, ph);
+      g.strokeStyle = "#2a1c14";
+      g.lineWidth = 3;
+      g.strokeRect(x, y, pw, ph);
+      g.setLineDash([4, 3]);
+      g.strokeStyle = "rgba(255, 236, 200, 0.85)";
+      g.lineWidth = 1.5;
+      g.strokeRect(x + 4, y + 4, pw - 8, ph - 8);
       g.setLineDash([]);
     }
   });
@@ -166,24 +216,24 @@ function skyMaterial() {
       }
       void main() {
         vec3 n = normalize(vDir);
-        vec3 zenith = vec3(0.28, 0.18, 0.36);
-        vec3 mid = vec3(0.72, 0.32, 0.28);
-        vec3 hor = vec3(0.98, 0.62, 0.36);
-        vec3 below = vec3(0.55, 0.28, 0.32);
+        vec3 zenith = vec3(0.34, 0.56, 0.86);
+        vec3 mid = vec3(0.62, 0.74, 0.90);
+        vec3 hor = vec3(0.98, 0.64, 0.40);
+        vec3 below = vec3(0.74, 0.82, 0.90);
         float h = n.y;
         vec3 col = mix(below, hor, smoothstep(-0.35, 0.02, h));
         col = mix(col, mid, smoothstep(0.0, 0.28, h));
         col = mix(col, zenith, smoothstep(0.22, 0.85, h));
         float sun = pow(max(dot(n, uSun), 0.0), 800.0);
         float glow = pow(max(dot(n, uSun), 0.0), 5.0);
-        col += vec3(1.0, 0.62, 0.32) * glow * 0.7;
-        col += vec3(1.0, 0.94, 0.8) * sun;
+        col += vec3(1.0, 0.72, 0.42) * glow * 0.45;
+        col += vec3(1.0, 0.96, 0.86) * sun;
         vec2 uv = n.xz / max(abs(n.y), 0.12);
         float c = fbm(uv * 0.28 + vec2(uTime * 0.008, 0.0));
         float cloud = smoothstep(0.48, 0.72, c);
         float belowCloud = smoothstep(-0.05, -0.28, h);
-        col = mix(col, vec3(0.96, 0.78, 0.66), cloud * smoothstep(0.02, 0.2, h) * 0.75);
-        col = mix(col, vec3(0.93, 0.55, 0.42), belowCloud * 0.65);
+        col = mix(col, vec3(0.97, 0.98, 1.0), cloud * smoothstep(0.02, 0.22, h) * 0.9);
+        col = mix(col, vec3(0.82, 0.88, 0.94), belowCloud * 0.85);
         gl_FragColor = vec4(col, 1.0);
       }
     `,
@@ -196,12 +246,12 @@ export function buildRustyWorld(scene, low) {
   const camHit = [];
   const camSphere = (x, y, z, r) => camHit.push({ x, y, z, r });
 
-  scene.fog = new THREE.FogExp2(0xc48462, low ? 0.012 : 0.0075);
-  scene.background = new THREE.Color(0xc48462);
+  scene.fog = new THREE.FogExp2(0x9aa8b8, low ? 0.011 : 0.0062);
+  scene.background = new THREE.Color(0x8eb0d4);
 
-  const hemi = new THREE.HemisphereLight(0xf0b48a, 0x6a4030, low ? 0.7 : 0.88);
+  const hemi = new THREE.HemisphereLight(0x9eb6d8, 0x8a6848, low ? 0.72 : 0.92);
   scene.add(hemi);
-  const sun = new THREE.DirectionalLight(0xffb06a, low ? 2.05 : 2.45);
+  const sun = new THREE.DirectionalLight(0xffd0a0, low ? 1.35 : 1.65);
   sun.position.set(-22, 28, -8);
   sun.castShadow = true;
   sun.shadow.mapSize.set(low ? 512 : 1024, low ? 512 : 1024);
@@ -213,7 +263,7 @@ export function buildRustyWorld(scene, low) {
   sun.shadow.normalBias = 0.05;
   sun.shadow.radius = low ? 1.2 : 2.4;
   scene.add(sun, sun.target);
-  const fill = new THREE.DirectionalLight(0x8aa0c8, 0.28);
+  const fill = new THREE.DirectionalLight(0xb7c8e0, 0.55);
   fill.position.set(16, 10, 12);
   scene.add(fill);
 
@@ -231,10 +281,9 @@ export function buildRustyWorld(scene, low) {
   const brass = new THREE.MeshStandardMaterial({ color: 0xc6a15a, roughness: 0.34, metalness: 0.74 });
   const dark = new THREE.MeshStandardMaterial({ color: 0x2a2422, roughness: 0.55, metalness: 0.4 });
   const wood = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.86, metalness: 0.02 });
-  const bark = loadRepeat(`./assets/tex/${low ? "512" : "1k"}/bark_col.jpg`, true);
-  bark.repeat.set(3, 5);
-  wood.map = bark;
-  wood.roughnessMap = loadRepeat(`./assets/tex/${low ? "512" : "1k"}/bark_rgh.jpg`, false);
+  const planks = plankTexture();
+  planks.repeat.set(2, 6);
+  wood.map = planks;
   const rockMat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.92, metalness: 0.04 });
   const rockCol = loadRepeat(`./assets/tex/${low ? "512" : "1k"}/rock_col.jpg`, true);
   rockCol.repeat.set(2, 2);
@@ -277,7 +326,16 @@ export function buildRustyWorld(scene, low) {
   stack.position.set(2.4, 1.7, -6.2);
   stack.castShadow = true;
   ship.add(stack);
+  const stack2 = new THREE.Mesh(new THREE.CylinderGeometry(0.42, 0.55, 2.6, 10), dark);
+  stack2.position.set(-2.2, 1.35, 10);
+  stack2.castShadow = true;
+  ship.add(stack2);
+  const stackBand = new THREE.Mesh(new THREE.TorusGeometry(0.58, 0.05, 6, 12), brass);
+  stackBand.rotation.x = Math.PI / 2;
+  stackBand.position.set(-2.2, 2.4, 10);
+  ship.add(stackBand);
   block(2.4, -6.2, 0.85);
+  block(-2.2, 10, 0.7);
   camSphere(2.4, 2.2, -6.2, 0.9);
   const band = new THREE.Mesh(new THREE.TorusGeometry(0.72, 0.06, 6, 12), brass);
   band.rotation.x = Math.PI / 2;
@@ -319,28 +377,27 @@ export function buildRustyWorld(scene, low) {
   }
 
   const props = new THREE.Group();
-  for (const s of [-1, 1]) {
-    const hub = new THREE.Mesh(new THREE.CylinderGeometry(0.18, 0.18, 0.2, 8), brass);
+  const addProp = (x, y, z, spin, reach) => {
+    const hub = new THREE.Mesh(new THREE.CylinderGeometry(0.2, 0.2, 0.22, 8), brass);
     hub.rotation.z = Math.PI / 2;
-    hub.position.set(s * 2.3, 0.55, -14.6);
+    hub.position.set(x, y, z);
     const blades = new THREE.Group();
     blades.position.copy(hub.position);
-    blades.userData.spin = s;
+    blades.userData.spin = spin;
     for (let b = 0; b < 4; b++) {
-      const blade = new THREE.Mesh(new THREE.BoxGeometry(0.12, 1.15, 0.22), cream);
-      blade.position.y = 0.7;
-      blade.rotation.z = (b / 4) * Math.PI * 2;
       const wrap = new THREE.Group();
       wrap.rotation.z = (b / 4) * Math.PI * 2;
-      blade.position.set(0, 0.62, 0);
-      blade.rotation.set(0, 0, 0);
+      const blade = new THREE.Mesh(new THREE.BoxGeometry(0.14, reach, 0.28), cream);
+      blade.position.set(0, reach * 0.52, 0);
       wrap.add(blade);
       blades.add(wrap);
     }
     props.add(hub, blades);
     props.userData.blades = props.userData.blades || [];
     props.userData.blades.push(blades);
-  }
+  };
+  for (const s of [-1, 1]) addProp(s * 2.3, 0.55, -14.6, s, 1.15);
+  for (const s of [-1, 1]) addProp(s * 8.55, 1.15, 6.5, s, 1.45);
   ship.add(props);
 
   const mast = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.16, 4.4, 8), dark);
@@ -461,7 +518,7 @@ export function buildRustyWorld(scene, low) {
     block(x, z, 0.4);
   }
   const crateGeo = new THREE.BoxGeometry(0.7, 0.55, 0.7);
-  for (const [x, z] of [[4.2, -8], [5.1, 3.2], [-4.4, 9]]) {
+  for (const [x, z] of [[4.2, -8], [5.1, 3.2], [-4.4, 9], [2.2, 5.4], [-3.4, 1.6], [3.6, 14]]) {
     const crate = new THREE.Mesh(crateGeo, wood);
     crate.position.set(x, 0.3, z);
     crate.castShadow = true;
@@ -682,7 +739,7 @@ export function buildRustyWorld(scene, low) {
   block(3.2, 47.2, 0.7);
   for (const [x, z] of [[-8, 52], [8, 52], [-8, 60], [8, 60]]) block(x, z, 0.7);
 
-  const cloudMat = new THREE.MeshStandardMaterial({ color: 0xf0c2a8, roughness: 1, transparent: true, opacity: 0.92 });
+  const cloudMat = new THREE.MeshStandardMaterial({ color: 0xf4f7fb, roughness: 1, transparent: true, opacity: 0.94 });
   const puffGeo = new THREE.SphereGeometry(1, 7, 5);
   const puffs = new THREE.InstancedMesh(puffGeo, cloudMat, low ? 16 : 28);
   for (let i = 0; i < puffs.count; i++) {
@@ -696,7 +753,7 @@ export function buildRustyWorld(scene, low) {
   scene.add(puffs);
   const sea = new THREE.Mesh(
     new THREE.CircleGeometry(180, low ? 16 : 28),
-    new THREE.MeshBasicMaterial({ color: 0xe09070, transparent: true, opacity: 0.55, depthWrite: false }),
+    new THREE.MeshBasicMaterial({ color: 0xd5e2ee, transparent: true, opacity: 0.72, depthWrite: false }),
   );
   sea.rotation.x = -Math.PI / 2;
   sea.position.y = -22;
@@ -723,13 +780,14 @@ export function buildRustyWorld(scene, low) {
   const steamGeo = new THREE.BufferGeometry();
   const steamPos = new Float32Array(steamCount * 3);
   for (let i = 0; i < steamCount; i++) {
-    steamPos[i * 3] = (i % 2 === 0 ? -6.2 : 6.2) + (Math.random() - 0.5) * 0.3;
-    steamPos[i * 3 + 1] = 0.5 + Math.random() * 1.4;
-    steamPos[i * 3 + 2] = -8 + Math.random() * 16;
+    const forward = i % 3 === 0;
+    steamPos[i * 3] = (forward ? -2.2 : 2.4) + (Math.random() - 0.5) * 0.55;
+    steamPos[i * 3 + 1] = 3.1 + Math.random() * 1.8;
+    steamPos[i * 3 + 2] = (forward ? 10 : -6.2) + (Math.random() - 0.5) * 0.55;
   }
   steamGeo.setAttribute("position", new THREE.BufferAttribute(steamPos, 3));
   const steam = new THREE.Points(steamGeo, new THREE.PointsMaterial({
-    color: 0xf2f2f2, size: 0.16, transparent: true, opacity: 0.45, depthWrite: false,
+    color: 0xf7f7f7, size: low ? 0.38 : 0.62, transparent: true, opacity: 0.78, depthWrite: false,
   }));
   ship.add(steam);
 
@@ -783,8 +841,9 @@ export function buildRustyWorld(scene, low) {
       humGlow.material.opacity = 0.35 + Math.sin(t * 3) * 0.25;
       const steamArr = steam.geometry.attributes.position.array;
       for (let i = 0; i < steamCount; i++) {
-        steamArr[i * 3 + 1] += dt * 0.45;
-        if (steamArr[i * 3 + 1] > 2.2) steamArr[i * 3 + 1] = 0.45;
+        steamArr[i * 3 + 1] += dt * 0.85;
+        steamArr[i * 3] += Math.sin(t + i) * dt * 0.08;
+        if (steamArr[i * 3 + 1] > 5.4) steamArr[i * 3 + 1] = 3.05;
       }
       steam.geometry.attributes.position.needsUpdate = true;
       const smokeArr = smoke.geometry.attributes.position.array;
@@ -810,14 +869,14 @@ export function buildRustyWorld(scene, low) {
       }
       stormFlash = Math.max(0, stormFlash - dt);
       storm.material.opacity = 0.38 + Math.sin(t * 0.7) * 0.06 + stormFlash * 0.35;
-      if (stormFlash > 0.6) sun.intensity = 4.2;
-      else sun.intensity = low ? 2.05 : 2.45;
+      if (stormFlash > 0.6) sun.intensity = 3.1;
+      else sun.intensity = low ? 1.35 : 1.65;
       farShip.position.x = -55 + Math.sin(t * 0.15) * 6;
       farShip.position.y = 6 + Math.sin(t * 0.4) * 0.4;
       posePages(pages, t);
       if (gate.open) gate.glow.material.opacity = 0.45 + Math.sin(t * 3) * 0.2;
       if (radio.glow) radio.glow.material.opacity = 0.35 + Math.sin(t * 3.1) * 0.3;
-      scene.fog.color.setHex(focus.z > 42 ? 0x6a6e78 : 0xc48462);
+      scene.fog.color.setHex(focus.z > 42 ? 0x6a6e78 : 0x9aa8b8);
     },
     setQuality(level) {
       const small = level === "low";
@@ -975,6 +1034,8 @@ function buildHornGate(scene, brass, dark) {
     open: false,
     x: 0,
     z: -15.2,
+    ready: false,
+    setReady(v) { this.ready = !!v; },
     setOpen(v) { this.open = !!v; glow.material.opacity = this.open ? 0.7 : 0; },
   };
 }

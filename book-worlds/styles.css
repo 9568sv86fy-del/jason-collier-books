@@ -23,7 +23,7 @@ button { font: inherit; color: inherit; }
   user-select: text;
 }
 #app { position: fixed; inset: 0; touch-action: none; }
-#view, #actions, #cmd, #stick, #settings, #settings-btn, #tutor, #rotate-hint, #party, #hud, button, canvas {
+#view, #actions, #cmd, #stick, #settings, #settings-btn, #help, #tutor, #rotate-hint, #party, #hud, button, canvas {
   touch-action: none;
   -webkit-user-select: none;
   user-select: none;
@@ -157,11 +157,25 @@ body.touch #actions { display: block; }
 #actions button[data-act="dodge"] { right: 104px; bottom: 22px; }
 #actions button[data-act="guard"] { right: 28px; bottom: 86px; }
 #actions button.mini { width: 36px; height: 36px; right: 112px; bottom: 84px; font-size: 8px; opacity: .8; }
-#keys {
-  position: absolute; left: 16px; bottom: 14px; z-index: 5;
-  font-family: var(--ui); font-size: 10px; letter-spacing: .08em; text-transform: uppercase; color: var(--muted);
+#keys { display: none; }
+#help {
+  position: absolute; left: 50%; top: 46%; transform: translate(-50%, -50%); z-index: 9;
+  width: min(32rem, calc(100% - 28px)); padding: 18px 18px 16px; pointer-events: auto;
+  background: rgba(16, 12, 8, .9); color: var(--paper);
+  border: 1px solid rgba(228, 208, 164, .55); border-radius: 14px;
 }
-body.touch #keys { display: none; }
+#help[hidden] { display: none; }
+#help .set-kicker {
+  font-family: var(--ui); font-size: 15px; letter-spacing: .14em; text-transform: uppercase; color: var(--brass);
+}
+#help p:not(.set-kicker) {
+  margin-top: 10px; font-family: var(--ui); font-size: 18px; line-height: 1.45; letter-spacing: .02em; color: var(--paper);
+}
+#help button, #settings #help-reopen {
+  display: block; width: 100%; margin-top: 14px; min-height: 48px; cursor: pointer; border-radius: 10px;
+  border: 1px solid rgba(228, 208, 164, .55); background: rgba(243, 230, 200, .82); color: #24180f;
+  font-family: var(--ui); font-size: 18px; letter-spacing: .08em; text-transform: uppercase;
+}
 #rotate-hint {
   position: relative; z-index: 7; width: fit-content; max-width: 100%; pointer-events: auto;
   margin: 8px 0 0; padding: 6px 8px 6px 12px;
@@ -515,7 +529,7 @@ body.touch.playing #subtitle { bottom: calc(168px + env(safe-area-inset-bottom))
 }
 
 #hud .bars .bar-label, #hud .bars .track { display: none; }
-#keys { bottom: auto; top: 92px; max-width: 28rem; line-height: 1.35; }
+#keys { display: none; }
 
 #party, #cmd, #gauges { display: none; }
 body.playing #party, body.playing #cmd, body.playing #gauges { display: block; }
@@ -628,10 +642,16 @@ body.playing .meta {
 }
 body.playing #obj { max-width: none; margin-top: 4px; }
 body.playing #bossbar {
+  position: static;
+  left: auto;
   top: auto;
-  bottom: calc(108px + env(safe-area-inset-bottom));
-  width: min(420px, 78vw);
+  bottom: auto;
+  transform: none;
+  width: min(440px, 100%);
+  margin: 8px 0 0;
+  text-align: left;
 }
+body.playing #bossbar span { font-size: 16px; }
 body.touch .meta { font-size: 16px; letter-spacing: .03em; }
 @media (max-height: 520px) {
   body.playing #gauges { width: 96px; height: 96px; }
@@ -654,7 +674,7 @@ body.touch #actions button[data-act="lock"],
 body.touch #actions button[data-act="flash"],
 body.touch #actions button[data-act="potion"],
 body.touch #actions button[data-act="use"] { display: none; }
-body.touch #keys { display: none; }
+#keys { display: none; }
 body.portrait #rotate-hint:not([hidden]) { display: flex; }
 .story-card.is-spoken .paper { display: none; }
 

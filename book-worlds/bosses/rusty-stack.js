@@ -56,17 +56,19 @@ const fogMat = new THREE.ShaderMaterial({
       float fres = pow(1.0 - abs(vN.z), 1.4);
       float n = noise(vP * 1.4 + vec3(0.0, uTime * 0.22, uTime * 0.08));
       float n2 = noise(vP * 3.1 - vec3(uTime * 0.28, 0.0, uTime * 0.16));
-      float alpha = (0.08 + n * 0.34 + n2 * 0.16) * (0.28 + fres) * (0.55 + uPhase * 0.22);
-      vec3 col = mix(vec3(0.32), vec3(0.86), n);
-      col = mix(col, vec3(0.62), fres * 0.45) + vec3(uHit);
-      gl_FragColor = vec4(col, clamp(alpha, 0.0, 0.7));
+      float alpha = (0.04 + n * 0.16 + n2 * 0.08) * (0.2 + fres * 0.35) * (0.35 + uPhase * 0.12);
+      vec3 col = mix(vec3(0.55), vec3(0.92), n);
+      col = mix(col, vec3(0.78), fres * 0.25) + vec3(uHit);
+      gl_FragColor = vec4(col, clamp(alpha, 0.0, 0.22));
     }
   `,
 });
 
 function metal(hex, rough, metalness) {
+  const emissive = new THREE.Color(hex);
+  emissive.multiplyScalar(0.22);
   return new THREE.MeshStandardMaterial({
-    color: hex, roughness: rough, metalness, emissive: 0x1a140e, emissiveIntensity: 0.08,
+    color: hex, roughness: rough, metalness, emissive, emissiveIntensity: 0.42,
   });
 }
 
@@ -76,11 +78,11 @@ function create() {
   rig.scale.setScalar(1.42);
   root.add(rig);
 
-  const iron = metal(0x3a3532, 0.46, 0.62);
-  const plate = metal(0x2a2724, 0.4, 0.7);
-  const brass = metal(0xc6a15a, 0.32, 0.78);
-  const cloth = new THREE.MeshStandardMaterial({ color: 0x2a2428, roughness: 0.9, metalness: 0.02, side: THREE.DoubleSide });
-  const capeMat = new THREE.MeshStandardMaterial({ color: 0x241c22, roughness: 0.88, side: THREE.DoubleSide });
+  const iron = metal(0x8a8680, 0.42, 0.68);
+  const plate = metal(0x5e5a56, 0.38, 0.74);
+  const brass = metal(0xd4b15a, 0.28, 0.82);
+  const cloth = new THREE.MeshStandardMaterial({ color: 0x4a3038, roughness: 0.9, metalness: 0.02, side: THREE.DoubleSide });
+  const capeMat = new THREE.MeshStandardMaterial({ color: 0x6a2430, roughness: 0.86, side: THREE.DoubleSide });
   const skin = new THREE.MeshStandardMaterial({ color: 0xb9a090, roughness: 0.72 });
   const faceMat = new THREE.MeshStandardMaterial({ color: 0xd4d4d4, roughness: 0.55, emissive: 0x9a9a9a, emissiveIntensity: 0.18 });
 
@@ -216,11 +218,11 @@ function create() {
   }
 
   const fogWrap = new THREE.Mesh(new THREE.SphereGeometry(0.85, 16, 12), fogMat);
-  fogWrap.scale.set(1.05, 1.25, 0.9);
-  fogWrap.position.y = 1.55;
+  fogWrap.scale.set(0.62, 0.42, 0.5);
+  fogWrap.position.y = 0.72;
   fogWrap.frustumCulled = false;
-  const fogHead = new THREE.Mesh(new THREE.SphereGeometry(0.38, 12, 10), fogMat);
-  fogHead.position.set(0, 2.35, 0.05);
+  const fogHead = new THREE.Mesh(new THREE.SphereGeometry(0.22, 12, 10), fogMat);
+  fogHead.position.set(0, 2.55, 0.12);
   fogHead.frustumCulled = false;
   rig.add(fogWrap, fogHead);
 
@@ -272,7 +274,7 @@ function create() {
       fogMat.uniforms.uPhase.value = phase;
       faceMat.emissiveIntensity = 0.12 + phase * 0.12 + (a.hit || 0) * 0.5;
       brass.emissive = brass.emissive || new THREE.Color();
-      brass.emissiveIntensity = phase >= 3 ? 0.35 : 0.08;
+      brass.emissiveIntensity = phase >= 3 ? 0.75 : 0.5;
       for (const slab of plates) {
         if (phase >= 2 && !dead && !slab.userData.dropped) slab.userData.dropped = true;
         if (slab.userData.dropped && (slab.userData.fall || 0) < 1.15) {

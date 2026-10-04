@@ -7,9 +7,9 @@ import { createNarration } from "./narration.js";
 import { createDialogue } from "./dialogue.js?v=2";
 import { EffectComposer, RenderPass, UnrealBloomPass, OutputPass, GTAOPass, ShaderPass } from "three/addons";
 import { buildWorld } from "./world.js?v=2";
-import { buildRustyWorld } from "../worlds/rusty/world.js";
-import { createRustySim } from "../worlds/rusty/sim.js";
-import { whenCastReady } from "./actors.js?v=2";
+import { buildRustyWorld } from "../worlds/rusty/world.js?v=3";
+import { createRustySim } from "../worlds/rusty/sim.js?v=3";
+import { whenCastReady } from "./actors.js?v=3";
 import { theBlank } from "../bosses/index.js";
 
 const canvas = document.getElementById("view");
@@ -342,6 +342,7 @@ function hideCard() {
   input.enabled = true;
   mode = "play";
   document.body.classList.add("playing");
+  maybeShowHelp();
 }
 
 function paintStation() {
@@ -847,7 +848,7 @@ function frame(now) {
   paintTutor(snap);
   const drain = snap.drain || 0;
   renderer.domElement.style.filter = drain > 0.02 ? `saturate(${(1 - drain * 0.94).toFixed(3)})` : "";
-  syncRotateHint();
+  syncRotateHint(snap);
   adaptQuality(raw);
   if (composer) {
     try { composer.render(); }
@@ -1075,18 +1076,57 @@ let menuSig = "";
 let menuOpen = false;
 let menuInit = false;
 let rotateDismissed = false;
+let rotateShownAt = 0;
 try { rotateDismissed = sessionStorage.getItem("bw-rotate") === "1"; } catch { /* private mode */ }
 
 function menuList() {
   return MENU[menuPane] || MENU.root;
 }
 
-function syncRotateHint() {
+function inCombat(snap) {
+  if (!snap) return false;
+  if (snap.boss && snap.boss.active && snap.boss.alive) return true;
+  const p = snap.player;
+  if (!p || !snap.enemies) return false;
+  for (const e of snap.enemies) {
+    if (!e.alive) continue;
+    const dx = (e.x || 0) - p.x;
+    const dz = (e.z || 0) - p.z;
+    if (dx * dx + dz * dz < 196) return true;
+  }
+  return false;
+}
+
+function syncRotateHint(snap) {
   const node = document.getElementById("rotate-hint");
   if (!node) return;
   const phone = document.body.classList.contains("touch") && Math.min(window.innerWidth, window.innerHeight) < 520;
-  const show = phone && window.innerHeight > window.innerWidth && document.body.classList.contains("playing") && !rotateDismissed;
-  node.hidden = !show;
+  const want = phone && window.innerHeight > window.innerWidth && document.body.classList.contains("playing") && !rotateDismissed;
+  if (want) {
+    if (!rotateShownAt) rotateShownAt = performance.now();
+    if (performance.now() - rotateShownAt > 4000) {
+      rotateDismissed = true;
+      try { sessionStorage.setItem("bw-rotate", "1"); } catch { /* ignore */ }
+    }
+  } else if (!rotateDismissed) {
+    rotateShownAt = 0;
+  }
+  const combat = inCombat(snap);
+  node.hidden = !(want && !rotateDismissed && !combat);
+}
+
+function maybeShowHelp() {
+  const panel = document.getElementById("help");
+  if (!panel) return;
+  let seen = false;
+  try { seen = localStorage.getItem("bw-help") === "1"; } catch { /* private mode */ }
+  panel.hidden = seen;
+}
+
+function dismissHelp() {
+  const panel = document.getElementById("help");
+  if (panel) panel.hidden = true;
+  try { localStorage.setItem("bw-help", "1"); } catch { /* ignore */ }
 }
 
 function renderMenu(snap) {
@@ -1210,6 +1250,17 @@ function wireSettings() {
     subToggle.checked = !subToggle.checked;
     subToggle.dispatchEvent(new Event("change"));
   });
+  document.getElementById("help-dismiss")?.addEventListener("pointerup", (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    dismissHelp();
+  });
+  document.getElementById("help-reopen")?.addEventListener("pointerup", (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const panel = document.getElementById("help");
+    if (panel) panel.hidden = false;
+  });
   subToggle?.addEventListener("change", () => {
     settings.subs = !!subToggle.checked;
     saveSettings();
@@ -1229,10 +1280,10 @@ function installEnvironment(gl, rootScene, lowQ, kind) {
   const g = c.getContext("2d");
   const grd = g.createLinearGradient(0, 0, 0, 32);
   if (kind === "stack") {
-    grd.addColorStop(0, "#1a1830");
-    grd.addColorStop(0.38, "#c45a48");
-    grd.addColorStop(0.62, "#e8a06a");
-    grd.addColorStop(1, "#6a4030");
+    grd.addColorStop(0, "#1a3358");
+    grd.addColorStop(0.42, "#7aa0c8");
+    grd.addColorStop(0.68, "#e8b07a");
+    grd.addColorStop(1, "#8a6848");
   } else {
     grd.addColorStop(0, "#1a2744");
     grd.addColorStop(0.42, "#c45a3a");
