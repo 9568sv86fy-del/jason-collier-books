@@ -16,7 +16,7 @@ Keeper’s duster, Jang’s waistcoat and bowler, Tom’s suspenders and wide ha
 
 ## Narration
 
-Announcer lines in `audio/narration/` are original recordings for this project, including the trail tutorial. Captions live in `narration.json`. Character barks live in `dialogue.json` and play from `audio/voices/<speaker>/<id>.mp3` when a take is present.
+Announcer lines in `audio/narration/` are original recordings for this project, including the trail tutorial. Captions live in `narration.json`. Jang and Tom speak the lines in `dialogue.json` from `audio/voices/jang/<id>.mp3` and `audio/voices/tom/<id>.mp3`.
 
 ## Terrain textures
 
@@ -25,5 +25,6 @@ CC0, from Poly Haven, resized JPG already used by the Old Man game and copied in
 - `forest_ground_04` → `dirt_*` (https://polyhaven.com/a/forest_ground_04), recolored in the trail into sand
 - `rock_face_03` → `rock_*` (https://polyhaven.com/a/rock_face_03)
 - `pine_bark` → `bark_*` (https://polyhaven.com/a/pine_bark), used on the wagons
+- `brown_leather` → `leather_*` (https://polyhaven.com/a/brown_leather), albedo, normal, and roughness on the duster, hats, and boots
 
 Total vendored texture set is well under 10 MB.

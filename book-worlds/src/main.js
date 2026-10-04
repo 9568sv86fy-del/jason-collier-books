@@ -1,13 +1,13 @@
 import * as THREE from "three";
-import { createAudio } from "./audio.js";
+import { createAudio } from "./audio.js?v=2";
 import { createInput } from "./input.js";
-import { createSim } from "./sim.js";
+import { createSim } from "./sim.js?v=2";
 import { damp, clamp, springAngle, angDelta } from "./util.js";
 import { createNarration } from "./narration.js";
-import { createDialogue } from "./dialogue.js";
+import { createDialogue } from "./dialogue.js?v=2";
 import { EffectComposer, RenderPass, UnrealBloomPass, OutputPass, GTAOPass, ShaderPass } from "three/addons";
-import { buildWorld } from "./world.js";
-import { whenCastReady } from "./actors.js";
+import { buildWorld } from "./world.js?v=2";
+import { whenCastReady } from "./actors.js?v=2";
 import { theBlank } from "../bosses/index.js";
 
 const canvas = document.getElementById("view");
@@ -702,7 +702,9 @@ function paintHud(snap) {
   el.lantern.style.width = `${clamp(p.flash, 0, 1) * 100}%`;
   el.coins.textContent = `${p.coins} coins`;
   el.potions.textContent = p.potions > 0 ? `Tonic ${p.potions}` : "";
-  el.pages.textContent = `Pages ${snap.pages || 0}/5`;
+  const pageWord = /page/i.test(snap.objective || "");
+  el.pages.hidden = pageWord;
+  if (!pageWord) el.pages.textContent = `Pages ${snap.pages || 0}/5`;
   const objText = document.getElementById("obj-text");
   if (objText) objText.textContent = snap.objective;
   else el.obj.textContent = snap.objective;
@@ -809,6 +811,7 @@ window.__BOOKWORLDS = {
   voice: () => ({ speaking: audio.speaking(), depth: narrate.depth() + dialogue.depth(), levels: audio.levels(), bulletin: narrate.current(), line: dialogue.active() }),
   settings: () => ({ cam: settings.cam, subs: settings.subs }),
   say: (id) => narrate.say(id),
+  bark: (id) => dialogue.say(id),
   teaching: () => sim.teaching(),
   tutorStep: () => sim.tutorStep(),
   allies: () => sim.allies(),

@@ -249,6 +249,149 @@ function clothMat(hex, rough = 0.88, kind = "cloth") {
   });
 }
 
+let leatherPromise = null;
+function leatherTextures() {
+  if (leatherPromise) return leatherPromise;
+  const low = Math.min(window.innerWidth || 800, window.innerHeight || 800) < 520;
+  const folder = low ? "512" : "1k";
+  const load = (file, srgb) => new Promise((resolve) => {
+    const url = new URL(`../assets/tex/${folder}/${file}`, import.meta.url).href;
+    const tex = new THREE.TextureLoader().load(url, () => resolve(tex), undefined, () => resolve(null));
+    tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
+    tex.anisotropy = 4;
+    tex.colorSpace = srgb ? THREE.SRGBColorSpace : THREE.NoColorSpace;
+  });
+  leatherPromise = Promise.all([
+    load("leather_col.jpg", true),
+    load("leather_nrm.jpg", false),
+    load("leather_rgh.jpg", false),
+  ]).then(([col, nrm, rgh]) => {
+    let grain = null;
+    if (col && col.image) {
+      const img = col.image;
+      const canvas = document.createElement("canvas");
+      canvas.width = img.width;
+      canvas.height = img.height;
+      const g = canvas.getContext("2d", { willReadFrequently: true });
+      g.drawImage(img, 0, 0);
+      const data = g.getImageData(0, 0, canvas.width, canvas.height);
+      const px = data.data;
+      for (let i = 0; i < px.length; i += 4) {
+        const l = px[i] * 0.3 + px[i + 1] * 0.52 + px[i + 2] * 0.18;
+        const v = 148 + l * 0.42;
+        px[i] = px[i + 1] = px[i + 2] = v;
+      }
+      g.putImageData(data, 0, 0);
+      grain = new THREE.CanvasTexture(canvas);
+      grain.wrapS = grain.wrapT = THREE.RepeatWrapping;
+      grain.colorSpace = THREE.SRGBColorSpace;
+      grain.anisotropy = 4;
+      grain.needsUpdate = true;
+    }
+    return { col, grain, nrm, rgh };
+  });
+  return leatherPromise;
+}
+
+function bindLeather(mat, mode) {
+  leatherTextures().then((pack) => {
+    if (!mat || !pack) return;
+    if (pack.nrm) mat.normalMap = pack.nrm;
+    if (pack.rgh) mat.roughnessMap = pack.rgh;
+    const scale = mode === "photo" ? 1.35 : 0.95;
+    mat.normalScale = new THREE.Vector2(scale, scale);
+    if (mode === "photo" && pack.col) {
+      mat.map = pack.col;
+      mat.color.setHex(0xffffff);
+    } else if (pack.grain) mat.map = pack.grain;
+    mat.needsUpdate = true;
+  }).catch(() => {});
+}
+
+function droopBrim(radius, droop) {
+  const geo = new THREE.CylinderGeometry(radius, radius + 0.01, 0.016, 28);
+  const pos = geo.attributes.position;
+  for (let i = 0; i < pos.count; i++) {
+    const x = pos.getX(i);
+    const y = pos.getY(i);
+    const z = pos.getZ(i);
+    const d = Math.hypot(x, z);
+    const edge = Math.max(0, (d - radius * 0.4) / Math.max(0.001, radius));
+    pos.setY(i, y - edge * edge * droop);
+  }
+  geo.computeVertexNormals();
+  return geo;
+}
+
+function creasedCrown(radius, height) {
+  const geo = new THREE.CylinderGeometry(radius * 0.92, radius + 0.02, height, 16, 4);
+  const pos = geo.attributes.position;
+  for (let i = 0; i < pos.count; i++) {
+    const y = pos.getY(i);
+    const x = pos.getX(i);
+    const z = pos.getZ(i);
+    const top = y / height + 0.5;
+    const pinch = 1 - top * 0.28;
+    pos.setX(i, x * pinch);
+    pos.setZ(i, z * (1 - top * 0.08));
+    if (top > 0.82) pos.setY(i, y - (top - 0.82) * height * 0.35);
+  }
+  geo.computeVertexNormals();
+  return geo;
+}
+
+function dusterShell() {
+  const geo = new THREE.CylinderGeometry(0.2, 0.36, 0.78, 20, 8, true, 0.42, Math.PI * 1.62);
+  const pos = geo.attributes.position;
+  for (let i = 0; i < pos.count; i++) {
+    let x = pos.getX(i);
+    let y = pos.getY(i);
+    let z = pos.getZ(i);
+    const t = (y + 0.39) / 0.78;
+    const waist = Math.exp(-((t - 0.38) * 3.1) ** 2);
+    const flare = t < 0.22 ? 1 + (0.22 - t) * 0.9 : 1;
+    const shoulder = t > 0.78 ? 1 + (t - 0.78) * 1.6 : 1;
+    const k = (1 - waist * 0.14) * flare * shoulder;
+    x *= k;
+    z *= k;
+    const ang = Math.atan2(x, z);
+    const fold = Math.sin(ang * 5.5 + t * 3) * 0.014 * (1.05 - t);
+    const rad = Math.hypot(x, z) || 1;
+    x += (x / rad) * fold;
+    z += (z / rad) * fold;
+    pos.setXYZ(i, x, y, z);
+  }
+  geo.computeVertexNormals();
+  return geo;
+}
+
+function coatTail(side) {
+  const geo = new THREE.PlaneGeometry(0.2, 0.46, 1, 5);
+  geo.translate(side * 0.09, -0.22, 0);
+  const pos = geo.attributes.position;
+  for (let i = 0; i < pos.count; i++) {
+    const y = pos.getY(i);
+    const flare = Math.max(0, -y) / 0.46;
+    pos.setX(i, pos.getX(i) * (1 + flare * 0.45) + side * flare * 0.03);
+    pos.setZ(i, pos.getZ(i) - flare * 0.04);
+  }
+  geo.computeVertexNormals();
+  return geo;
+}
+
+function sleeveGeo(len) {
+  const geo = new THREE.CylinderGeometry(0.05, 0.062, len, 10, 3, true);
+  const pos = geo.attributes.position;
+  for (let i = 0; i < pos.count; i++) {
+    const y = pos.getY(i);
+    const wrinkle = 1 + Math.sin((y / len) * 9) * 0.06;
+    pos.setX(i, pos.getX(i) * wrinkle);
+    pos.setZ(i, pos.getZ(i) * wrinkle);
+  }
+  geo.computeVertexNormals();
+  return geo;
+}
+
 export function createHuman(spec) {
   const root = new THREE.Group();
   const spin = new THREE.Group();
@@ -345,8 +488,9 @@ function dress(api, assets) {
     const bandM = clothMat(spec.hatBand || 0x3a2418, 0.55, "leather");
     const bowler = !!spec.bowler;
     const brimR = bowler ? 0.16 : (spec.wideHat ? 0.26 : 0.2);
-    const brim = new THREE.Mesh(new THREE.CylinderGeometry(brimR, brimR + 0.006, 0.014, 22), hatM);
-    brim.scale.z = bowler ? 1 : 1.15;
+    const brim = new THREE.Mesh(droopBrim(brimR, bowler ? 0.012 : spec.wideHat ? 0.055 : 0.034), hatM);
+    brim.scale.z = bowler ? 1 : spec.wideHat ? 1.22 : 1.12;
+    bindLeather(hatM, "grain");
     hat.add(brim);
     const stitch = new THREE.Mesh(new THREE.TorusGeometry(brimR * 0.92, 0.004, 4, 18), bandM);
     stitch.rotation.x = Math.PI / 2;
@@ -359,7 +503,7 @@ function dress(api, assets) {
       bowBand.position.y = 0.012;
       hat.add(crownMesh, bowBand);
     } else {
-      const crownMesh = new THREE.Mesh(new THREE.CylinderGeometry(spec.wideHat ? 0.12 : 0.1, 0.125, spec.wideHat ? 0.12 : 0.14, 16), hatM);
+      const crownMesh = new THREE.Mesh(creasedCrown(spec.wideHat ? 0.13 : 0.11, spec.wideHat ? 0.15 : 0.16), hatM);
       crownMesh.position.y = 0.07;
       crownMesh.scale.z = 1.12;
       const band = new THREE.Mesh(new THREE.CylinderGeometry(0.128, 0.13, 0.026, 16), bandM);
@@ -388,28 +532,78 @@ function dress(api, assets) {
     put(model, B("Head"), ban, 0, crown - 0.14, faceZ + 0.01);
   }
   if (spec.coat) {
-    const coatMat = clothMat(spec.coat, 0.78, "leather");
+    const coatMat = clothMat(spec.coat, 0.62, "leather");
     coatMat.side = THREE.DoubleSide;
-    const coat = new THREE.Mesh(
-      new THREE.CylinderGeometry(0.22, 0.42, 0.96, 20, 3, true, 0.45, Math.PI * 1.65),
-      coatMat,
-    );
-    const pos = coat.geometry.attributes.position;
-    for (let i = 0; i < pos.count; i++) {
-      const y = pos.getY(i);
-      pos.setX(i, pos.getX(i) + Math.sin(y * 14) * 0.012);
+    bindLeather(coatMat, "photo");
+    const coat = new THREE.Mesh(dusterShell(), coatMat);
+    put(model, B("pelvis"), coat, 0, 1.08, -0.02);
+    const collar = new THREE.Mesh(new THREE.TorusGeometry(0.11, 0.028, 6, 14, Math.PI * 1.15), coatMat);
+    collar.rotation.x = Math.PI / 2.4;
+    collar.rotation.z = Math.PI;
+    put(model, B("spine_03"), collar, 0, 1.55, -0.02);
+    for (const s of [-1, 1]) {
+      const lapel = new THREE.Mesh(new THREE.BoxGeometry(0.07, 0.2, 0.018), coatMat);
+      put(model, B("spine_02"), lapel, s * 0.07, 1.34, 0.16, 0.15, s * -0.45, s * 0.35);
+      const tail = new THREE.Mesh(coatTail(s), coatMat);
+      put(model, B("pelvis"), tail, s * 0.02, 0.78, -0.08, 0.12, 0, s * 0.08);
+      tail.userData.side = s;
     }
-    coat.geometry.computeVertexNormals();
-    put(model, B("pelvis"), coat, 0, 1.02, -0.04);
-    const button = clothMat(0xd7c08a, 0.35, "leather");
-    for (let i = 0; i < 3; i++) {
-      const b = new THREE.Mesh(new THREE.SphereGeometry(0.016, 8, 6), button);
-      put(model, B("spine_02"), b, 0.02, 1.22 - i * 0.14, 0.2);
+    api._tails = [];
+    model.traverse((o) => { if (o.userData && o.userData.side) api._tails.push(o); });
+    const beltMat = clothMat(0x3a2418, 0.48, "leather");
+    bindLeather(beltMat, "grain");
+    const belt = new THREE.Mesh(new THREE.CylinderGeometry(0.2, 0.205, 0.05, 16, 1, true, 0.35, Math.PI * 1.75), beltMat);
+    put(model, B("spine_01"), belt, 0, 0.98, 0.02);
+    const buckle = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.045, 0.02), clothMat(0xd7c08a, 0.35, "leather"));
+    put(model, B("spine_01"), buckle, 0, 0.98, 0.2);
+    const button = clothMat(0xd7c08a, 0.32, "leather");
+    for (let i = 0; i < 4; i++) {
+      const b = new THREE.Mesh(new THREE.SphereGeometry(0.014, 8, 6), button);
+      put(model, B("spine_02"), b, 0.015, 1.28 - i * 0.1, 0.2);
+    }
+    for (const side of ["r", "l"]) {
+      const upper = B("upperarm_" + side);
+      const lower = B("lowerarm_" + side);
+      if (!upper || !lower) continue;
+      const a = new THREE.Vector3();
+      const b = new THREE.Vector3();
+      upper.getWorldPosition(a);
+      lower.getWorldPosition(b);
+      const len = Math.max(0.16, a.distanceTo(b));
+      const upperSleeve = new THREE.Mesh(sleeveGeo(len * 0.92), coatMat);
+      upperSleeve.position.y = len * 0.48;
+      upper.add(upperSleeve);
+      const fore = new THREE.Mesh(sleeveGeo(len * 0.78), coatMat);
+      fore.position.y = len * 0.4;
+      lower.add(fore);
+      for (const mesh of [upperSleeve, fore]) {
+        mesh.castShadow = true;
+        mesh.frustumCulled = false;
+      }
+    }
+  }
+  if (B("foot_l") && B("foot_r") && spec.boots != null) {
+    const bootM = clothMat(spec.boots || 0x2c2118, 0.5, "leather");
+    bindLeather(bootM, "grain");
+    for (const name of ["foot_l", "foot_r"]) {
+      const shaft = new THREE.Mesh(new THREE.CylinderGeometry(0.052, 0.064, 0.18, 10, 2), bootM);
+      shaft.position.set(0, 0.1, 0.02);
+      shaft.castShadow = true;
+      shaft.frustumCulled = false;
+      B(name).add(shaft);
     }
   }
   if (spec.waistcoat) {
-    const vest = new THREE.Mesh(new THREE.BoxGeometry(0.28, 0.36, 0.1), clothMat(spec.cloth2 || 0x2c3338, 0.72));
-    put(model, B("spine_03"), vest, 0, 1.32, 0.14);
+    const vestMat = clothMat(spec.cloth2 || 0x2c3338, 0.7, "cloth");
+    const vest = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.12, 0.16, 0.4, 14, 3, true, 0.55, Math.PI * 1.45),
+      vestMat,
+    );
+    put(model, B("spine_02"), vest, 0, 1.22, 0.08);
+    for (const s of [-1, 1]) {
+      const lapel = new THREE.Mesh(new THREE.BoxGeometry(0.055, 0.16, 0.016), clothMat(spec.cloth || 0xe6d8c4, 0.75));
+      put(model, B("spine_03"), lapel, s * 0.06, 1.4, 0.14, 0.2, s * -0.4, s * 0.4);
+    }
   }
   if (spec.suspenders) {
     for (const s of [-1, 1]) {
@@ -540,6 +734,14 @@ function dress(api, assets) {
       for (const n of Object.keys(acts)) if (!LOCO.includes(n)) acts[n].timeScale = a.action === "death" ? 1 : 1;
     }
 
+    if (api._tails) {
+      const sway = Math.sin(phase * 1.6) * (moving ? 0.22 : 0.07);
+      for (const tail of api._tails) {
+        const s = tail.userData.side || 1;
+        tail.rotation.x = 0.12 + sway * s;
+        tail.rotation.z = s * (0.08 + sway * 0.35);
+      }
+    }
     mixer.update(dt);
     gesture(bones, a);
     const dodge = a.action === "dodge";

@@ -5,11 +5,17 @@ import { createCritter, softDot, trailKey } from "./rigs.js";
 const windU = { uTime: { value: 0 } };
 
 export function heightAt(x, z) {
-  let h = Math.sin(x * 0.13) * 0.1 + Math.cos(z * 0.08) * 0.07 + Math.sin((x + z) * 0.05) * 0.05;
-  const path = Math.exp(-(x * x) / 14);
-  h *= 1 - path * 0.7;
+  const ax = Math.abs(x);
+  let h = Math.sin(x * 0.07 + 0.4) * 0.9
+    + Math.cos(z * 0.032) * 0.62
+    + Math.sin(x * 0.15 - z * 0.038) * 0.38;
+  const berm = Math.exp(-((ax - 6.8) * (ax - 6.8)) / 9);
+  h += berm * (0.7 + 0.4 * Math.sin(z * 0.11 + ax));
+  const path = Math.exp(-(x * x) / 11);
+  h *= 1 - path * 0.93;
+  h += Math.sin(z * 0.085) * 0.055 * path;
   const river = Math.exp(-((z - 115) * (z - 115)) / 22);
-  h -= river * 0.38;
+  h -= river * 0.5;
   return h;
 }
 
@@ -54,10 +60,11 @@ export function buildWorld(scene, low) {
   const camHit = [];
   const camSphere = (x, y, z, r) => camHit.push({ x, y, z, r });
 
-  const ground = buildGround();
+  const ground = buildGround(low);
   ground.receiveShadow = true;
   scene.add(ground);
   dressTerrain(ground, low);
+  wagonRuts(scene);
 
   const waterMat = riverMaterial();
   const water = new THREE.Mesh(new THREE.PlaneGeometry(32, 16, low ? 16 : 28, low ? 8 : 14), waterMat);
@@ -271,8 +278,8 @@ export function buildWorld(scene, low) {
   };
 }
 
-function buildGround() {
-  const geo = new THREE.PlaneGeometry(54, 210, 40, 140);
+function buildGround(low) {
+  const geo = new THREE.PlaneGeometry(54, 210, low ? 56 : 80, low ? 168 : 210);
   geo.rotateX(-Math.PI / 2);
   const pos = geo.attributes.position;
   const colors = new Float32Array(pos.count * 3);
@@ -554,43 +561,186 @@ function sign(scene, x, z, title, sub) {
   scene.add(post, board);
 }
 
-function scatterRocks(scene, low, camSphere) {
-  const geo = new THREE.IcosahedronGeometry(1, low ? 1 : 2);
+function mergeParts(parts) {
+  let vcount = 0;
+  let icount = 0;
+  for (const g of parts) {
+    vcount += g.attributes.position.count;
+    icount += g.index ? g.index.count : g.attributes.position.count;
+  }
+  const pos = new Float32Array(vcount * 3);
+  const nrm = new Float32Array(vcount * 3);
+  const uv = new Float32Array(vcount * 2);
+  const index = new Uint32Array(icount);
+  let vo = 0;
+  let io = 0;
+  for (const g of parts) {
+    const p = g.attributes.position;
+    const n = g.attributes.normal;
+    const u = g.attributes.uv;
+    for (let i = 0; i < p.count; i++) {
+      pos[(vo + i) * 3] = p.getX(i);
+      pos[(vo + i) * 3 + 1] = p.getY(i);
+      pos[(vo + i) * 3 + 2] = p.getZ(i);
+      if (n) {
+        nrm[(vo + i) * 3] = n.getX(i);
+        nrm[(vo + i) * 3 + 1] = n.getY(i);
+        nrm[(vo + i) * 3 + 2] = n.getZ(i);
+      }
+      if (u) {
+        uv[(vo + i) * 2] = u.getX(i);
+        uv[(vo + i) * 2 + 1] = u.getY(i);
+      }
+    }
+    if (g.index) {
+      for (let i = 0; i < g.index.count; i++) index[io++] = g.index.getX(i) + vo;
+    } else {
+      for (let i = 0; i < p.count; i++) index[io++] = vo + i;
+    }
+    vo += p.count;
+  }
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute("position", new THREE.BufferAttribute(pos, 3));
+  geo.setAttribute("normal", new THREE.BufferAttribute(nrm, 3));
+  geo.setAttribute("uv", new THREE.BufferAttribute(uv, 2));
+  geo.setIndex(new THREE.BufferAttribute(index, 1));
+  return geo;
+}
+
+function displaceRock(geo, seed) {
+  const pos = geo.attributes.position;
+  const v = new THREE.Vector3();
+  for (let i = 0; i < pos.count; i++) {
+    v.fromBufferAttribute(pos, i);
+    const len = v.length() || 1;
+    const nx = v.x / len;
+    const ny = v.y / len;
+    const nz = v.z / len;
+    const lump = hash(seed * 17.3 + Math.round((nx + 2) * 8) * 13 + Math.round((nz + 2) * 8) * 7);
+    const strata = 1 + Math.sin(ny * 9 + seed) * 0.09 + Math.sin(nx * 5 + nz * 4.2) * 0.05;
+    let k = (0.58 + lump * 0.58) * strata;
+    if (ny < -0.12) k *= 0.42;
+    pos.setXYZ(i, v.x * k, v.y * k, v.z * k);
+  }
   geo.computeVertexNormals();
-  const mat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.92, metalness: 0.04 });
+  return geo;
+}
+
+function wagonRuts(scene) {
+  const mat = new THREE.MeshStandardMaterial({
+    color: 0x6a5038,
+    roughness: 1,
+    metalness: 0,
+    polygonOffset: true,
+    polygonOffsetFactor: -2,
+    polygonOffsetUnits: -2,
+  });
+  const steps = 70;
+  const z0 = -16;
+  const z1 = 112;
+  for (const side of [-1, 1]) {
+    const positions = [];
+    const uvs = [];
+    const indices = [];
+    const half = 0.14;
+    for (let i = 0; i <= steps; i++) {
+      const z = z0 + ((z1 - z0) * i) / steps;
+      const x = side * (0.48 + Math.sin(z * 0.16 + side) * 0.11 + Math.sin(z * 0.047) * 0.05);
+      const yL = heightAt(x - half, z) + 0.028;
+      const yR = heightAt(x + half, z) + 0.028;
+      positions.push(x - half, yL, z, x + half, yR, z);
+      uvs.push(0, i * 0.25, 1, i * 0.25);
+      if (i < steps) {
+        const a = i * 2;
+        indices.push(a, a + 1, a + 2, a + 1, a + 3, a + 2);
+      }
+    }
+    const geo = new THREE.BufferGeometry();
+    geo.setAttribute("position", new THREE.Float32BufferAttribute(positions, 3));
+    geo.setAttribute("uv", new THREE.Float32BufferAttribute(uvs, 2));
+    geo.setIndex(indices);
+    geo.computeVertexNormals();
+    const mesh = new THREE.Mesh(geo, mat);
+    mesh.receiveShadow = true;
+    scene.add(mesh);
+  }
+}
+
+function scatterRocks(scene, low, camSphere) {
+  const detail = low ? 1 : 2;
+  const archetypes = [0.4, 1.8, 3.3].map((seed) => displaceRock(new THREE.IcosahedronGeometry(1, detail), seed));
+  const mat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.9, metalness: 0.04 });
   dressRock(mat, low);
-  const spots = [];
-  for (let z = 24; z <= 98; z += low ? 4.2 : 2.8) {
+  const buckets = [[], [], []];
+  const push = (x, z, s, rot) => {
+    buckets[Math.abs(Math.floor(hash(rot * 9 + x) * 3)) % 3].push([x, z, s, rot]);
+  };
+  for (let z = 24; z <= 98; z += low ? 4.4 : 2.6) {
     for (const side of [-1, 1]) {
-      const jitter = hash(z * 3 + side) * 1.4;
-      const x = side * (8.4 + jitter + hash(z + side * 9) * 1.6);
-      spots.push([x, z, 1.3 + hash(z * side) * 1.8, hash(z * 13) * 6]);
-      if (!low && hash(z + 4) > 0.45) {
-        spots.push([side * (11 + hash(z * 5)), z + 1.2, 1.8 + hash(z) * 2.2, 2 + hash(z)]);
+      const jitter = hash(z * 3 + side) * 1.5;
+      const x = side * (8.6 + jitter + hash(z + side * 9) * 1.8);
+      push(x, z, 1.15 + hash(z * side) * 1.7, hash(z * 13) * 6);
+      if (!low && hash(z + 4) > 0.42) {
+        push(side * (12 + hash(z * 5)), z + 1.3, 1.6 + hash(z) * 2.1, 2 + hash(z));
       }
     }
   }
-  for (let i = 0; i < (low ? 8 : 14); i++) {
-    const a = i / 14 * Math.PI * 2;
-    spots.push([Math.cos(a) * (22 + (i % 3)), Math.sin(a) * 10 + (i % 5) * 4, 2 + (i % 4), i]);
+  for (let i = 0; i < (low ? 7 : 14); i++) {
+    const a = (i / 14) * Math.PI * 2;
+    push(Math.cos(a) * (22 + (i % 3)), Math.sin(a) * 10 + (i % 5) * 4, 1.8 + (i % 4) * 0.7, i);
   }
-  const mesh = new THREE.InstancedMesh(geo, mat, spots.length);
   const dummy = new THREE.Object3D();
   const col = new THREE.Color();
-  spots.forEach((s, i) => {
-    dummy.position.set(s[0], heightAt(s[0], s[1]) + s[2] * 0.25, s[1]);
-    dummy.scale.setScalar(s[2]);
-    dummy.rotation.set(s[3], s[3] * 0.7, s[3] * 0.3);
+  buckets.forEach((spots, bi) => {
+    if (!spots.length) return;
+    const mesh = new THREE.InstancedMesh(archetypes[bi], mat, spots.length);
+    spots.forEach((s, i) => {
+      const sc = s[2];
+      dummy.position.set(s[0], heightAt(s[0], s[1]) - sc * 0.08, s[1]);
+      dummy.scale.set(
+        sc * (0.82 + hash(s[3] + 1) * 0.45),
+        sc * (0.48 + hash(s[3] + 3) * 0.5),
+        sc * (0.75 + hash(s[3] + 5) * 0.55),
+      );
+      dummy.rotation.set(s[3] * 0.25, s[3] * 0.7, s[3] * 0.15);
+      dummy.updateMatrix();
+      mesh.setMatrixAt(i, dummy.matrix);
+      col.setHex(i % 3 === 0 ? 0xc4a080 : i % 3 === 1 ? 0xa88868 : 0x8c684c);
+      mesh.setColorAt(i, col);
+      if (camSphere) camSphere(s[0], heightAt(s[0], s[1]) + sc * 0.28, s[1], sc * 0.72);
+    });
+    mesh.instanceMatrix.needsUpdate = true;
+    if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
+    mesh.castShadow = !low;
+    mesh.receiveShadow = true;
+    scene.add(mesh);
+  });
+  scatterStones(scene, low);
+}
+
+function scatterStones(scene, low) {
+  const geo = displaceRock(new THREE.IcosahedronGeometry(0.22, 0), 5.1);
+  const mat = new THREE.MeshStandardMaterial({ color: 0xc4aa88, roughness: 0.96, metalness: 0.02 });
+  dressRock(mat, true);
+  const n = low ? 42 : 96;
+  const mesh = new THREE.InstancedMesh(geo, mat, n);
+  const dummy = new THREE.Object3D();
+  for (let i = 0; i < n; i++) {
+    const z = -10 + (i * 89.3) % 128;
+    const side = i % 2 === 0 ? -1 : 1;
+    const span = z > 22 && z < 96 ? 2.2 : 3.4;
+    let x = side * (span + hash(i * 2.3) * 6.5);
+    if (Math.abs(x) < 1.15) x = side * 1.6;
+    const sc = 0.35 + hash(i + 8) * 0.7;
+    dummy.position.set(x, heightAt(x, z) + sc * 0.04, z);
+    dummy.scale.set(sc, sc * (0.45 + hash(i) * 0.4), sc * (0.8 + hash(i + 2) * 0.4));
+    dummy.rotation.set(hash(i) * 3, hash(i + 1) * 6, hash(i + 3));
     dummy.updateMatrix();
     mesh.setMatrixAt(i, dummy.matrix);
-    col.setHex(i % 3 === 0 ? 0xc4a080 : i % 3 === 1 ? 0xa88868 : 0x8c684c);
-    mesh.setColorAt(i, col);
-    if (camSphere) camSphere(s[0], heightAt(s[0], s[1]) + s[2] * 0.35, s[1], s[2] * 0.82);
-  });
+  }
   mesh.instanceMatrix.needsUpdate = true;
-  if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
-  mesh.castShadow = !low;
   mesh.receiveShadow = true;
+  mesh.castShadow = false;
   scene.add(mesh);
 }
 
@@ -617,29 +767,66 @@ function scatterYucca(scene, low) {
   }
 }
 
+function mesaGeo(r, h, seg, seed) {
+  const pts = [
+    new THREE.Vector2(r * 1.16, 0),
+    new THREE.Vector2(r * 1.02, h * 0.14),
+    new THREE.Vector2(r * 0.88, h * 0.26),
+    new THREE.Vector2(r * 0.76, h * 0.4),
+    new THREE.Vector2(r * 0.72, h * 0.68),
+    new THREE.Vector2(r * 0.7, h * 0.88),
+    new THREE.Vector2(r * 0.56, h * 0.98),
+    new THREE.Vector2(0.02, h * 0.98),
+  ];
+  const geo = new THREE.LatheGeometry(pts, seg);
+  const pos = geo.attributes.position;
+  for (let i = 0; i < pos.count; i++) {
+    const x = pos.getX(i);
+    const y = pos.getY(i);
+    const z = pos.getZ(i);
+    const rad = Math.hypot(x, z) || 1;
+    const yN = y / h;
+    const n = hash(seed + i * 0.37);
+    const ridge = Math.sin(Math.atan2(x, z) * 6 + seed) * r * 0.045 * (yN < 0.9 ? 1 : 0.15);
+    const k = 1 + (n - 0.5) * (yN < 0.92 ? 0.07 : 0.02);
+    pos.setXYZ(i, x * k + (x / rad) * ridge, y, z * k + (z / rad) * ridge);
+  }
+  geo.computeVertexNormals();
+  const uv = geo.attributes.uv;
+  if (uv) {
+    for (let i = 0; i < uv.count; i++) uv.setXY(i, uv.getX(i) * 3.2, uv.getY(i) * 2.2);
+    uv.needsUpdate = true;
+  }
+  return geo;
+}
+
 function mesas(scene, camSphere) {
-  const stone = new THREE.MeshStandardMaterial({ color: 0xc48a62, roughness: 0.9, metalness: 0.03 });
-  const cap = new THREE.MeshStandardMaterial({ color: 0xd8b088, roughness: 0.86, metalness: 0.02 });
+  const stone = new THREE.MeshStandardMaterial({ color: 0xd2a078, roughness: 0.9, metalness: 0.03 });
   dressRock(stone, true);
-  dressRock(cap, true);
-  const spots = [[-28, 30, 10, 7], [30, 55, 12, 8], [-32, 80, 9, 6], [26, 100, 11, 7], [-24, 120, 8, 5]];
-  const far = [[-58, 16, 18, 12], [62, 48, 20, 13], [-64, 74, 16, 11], [58, 108, 18, 12], [-50, 138, 14, 10]];
-  const haze = new THREE.MeshStandardMaterial({ color: 0xd7c8b6, roughness: 1, metalness: 0 });
+  const spots = [[-28, 30, 11, 7], [30, 55, 13, 8], [-32, 80, 10, 6.2], [26, 100, 12, 7], [-24, 120, 8.5, 5.2]];
+  const far = [[-62, 12, 20, 13], [68, 46, 22, 14], [-70, 72, 18, 12], [64, 112, 20, 13], [-54, 142, 16, 11]];
+  const farther = [[-96, -6, 30, 18], [104, 36, 34, 20], [-92, 88, 28, 16], [108, 128, 32, 18]];
+  const haze = new THREE.MeshStandardMaterial({ color: 0xd8c6b0, roughness: 1, metalness: 0 });
+  const hazeFar = new THREE.MeshStandardMaterial({ color: 0xe7d8c8, roughness: 1, metalness: 0 });
+  for (const [x, z, h, r] of farther) {
+    const m = new THREE.Mesh(mesaGeo(r, h, 8, x * 0.1), hazeFar);
+    m.position.set(x, h * 0.12, z);
+    m.castShadow = false;
+    m.receiveShadow = false;
+    scene.add(m);
+  }
   for (const [x, z, h, r] of far) {
-    const m = new THREE.Mesh(new THREE.CylinderGeometry(r * 0.7, r * 1.05, h, 8, 1), haze);
-    m.position.set(x, h * 0.28, z);
+    const m = new THREE.Mesh(mesaGeo(r, h, 10, z * 0.2), haze);
+    m.position.set(x, h * 0.18, z);
     m.castShadow = false;
     m.receiveShadow = false;
     scene.add(m);
   }
   for (const [x, z, h, r] of spots) {
-    const m = new THREE.Mesh(new THREE.CylinderGeometry(r * 0.72, r, h, 12, 1), stone);
-    m.position.set(x, h * 0.35, z);
+    const m = new THREE.Mesh(mesaGeo(r, h, 16, x + z), stone);
+    m.position.set(x, h * 0.22, z);
     m.castShadow = true;
     m.receiveShadow = true;
-    const top = new THREE.Mesh(new THREE.CylinderGeometry(r * 0.74, r * 0.7, 0.55, 12), cap);
-    top.position.y = h * 0.5;
-    m.add(top);
     scene.add(m);
     if (camSphere) camSphere(x, h * 0.45, z, r * 0.85);
   }
@@ -944,10 +1131,10 @@ function skyMaterial() {
       void main() {
         vec3 n = normalize(vDir);
         float h = clamp(n.y * 0.5 + 0.5, 0.0, 1.0);
-        vec3 zenith = vec3(0.16, 0.22, 0.42);
-        vec3 mid = vec3(0.72, 0.34, 0.28);
-        vec3 hor = vec3(0.98, 0.72, 0.46);
-        vec3 ground = vec3(0.45, 0.28, 0.18);
+        vec3 zenith = vec3(0.24, 0.38, 0.66);
+        vec3 mid = vec3(0.90, 0.46, 0.30);
+        vec3 hor = vec3(1.0, 0.73, 0.46);
+        vec3 ground = vec3(0.48, 0.30, 0.18);
         vec3 col = mix(ground, hor, smoothstep(-0.08, 0.08, n.y));
         col = mix(col, mid, smoothstep(0.02, 0.28, n.y));
         col = mix(col, zenith, smoothstep(0.25, 0.85, n.y));
@@ -960,6 +1147,12 @@ function skyMaterial() {
         float c = fbm(uv * 0.35 + vec2(uTime * 0.012, uTime * 0.004));
         float cloud = smoothstep(0.52, 0.74, c) * smoothstep(0.05, 0.22, n.y) * plane;
         col = mix(col, vec3(0.98, 0.94, 0.9), cloud * 0.72);
+        float dust = smoothstep(0.18, -0.05, n.y) * smoothstep(-0.28, 0.06, n.y);
+        col = mix(col, vec3(0.92, 0.62, 0.38), dust * 0.42);
+        float wisp = noise(uv * 1.55 + vec2(2.4, -uTime * 0.01));
+        wisp += 0.45 * noise(uv * 3.05 + vec2(-uTime * 0.006, 1.7));
+        float cirrus = smoothstep(0.62, 0.9, wisp) * smoothstep(0.36, 0.74, n.y);
+        col = mix(col, vec3(1.0, 0.94, 0.88), cirrus * 0.34);
         gl_FragColor = vec4(col, 1.0);
       }
     `,
@@ -1031,21 +1224,68 @@ function dressWood(mat, low) {
   mat.color.setHex(0xffffff);
 }
 
+function sageBrushGeo() {
+  const lobes = [
+    [0, 0.26, 0, 0.36, 0.2, 0.32],
+    [0.28, 0.18, 0.06, 0.26, 0.15, 0.22],
+    [-0.24, 0.2, -0.05, 0.24, 0.14, 0.2],
+    [0.05, 0.32, -0.2, 0.2, 0.13, 0.18],
+  ];
+  return mergeParts(lobes.map(([x, y, z, sx, sy, sz]) => {
+    const g = new THREE.SphereGeometry(1, 6, 4);
+    g.scale(sx, sy, sz);
+    g.translate(x, y, z);
+    return g;
+  }));
+}
+
+function cactusGeo(arm) {
+  const parts = [];
+  const trunk = new THREE.CylinderGeometry(0.13, 0.17, 1.2, 8);
+  trunk.translate(0, 0.6, 0);
+  parts.push(trunk);
+  const a = new THREE.CylinderGeometry(0.055, 0.07, 0.46, 6);
+  a.rotateZ(arm);
+  a.translate(Math.sign(arm) * 0.2, 0.74, 0);
+  parts.push(a);
+  const b = new THREE.CylinderGeometry(0.05, 0.065, 0.34, 6);
+  b.rotateZ(-arm * 0.65);
+  b.translate(-Math.sign(arm) * 0.15, 0.92, 0.03);
+  parts.push(b);
+  return mergeParts(parts);
+}
+
+function grassTuftGeo() {
+  const parts = [];
+  for (let i = 0; i < 3; i++) {
+    const p = new THREE.PlaneGeometry(0.28, 0.46, 1, 2);
+    p.translate(0, 0.23, 0);
+    p.rotateY((i / 3) * Math.PI);
+    const pos = p.attributes.position;
+    for (let v = 0; v < pos.count; v++) {
+      const y = pos.getY(v);
+      pos.setX(v, pos.getX(v) * (1 - y * 0.35));
+    }
+    parts.push(p);
+  }
+  const geo = mergeParts(parts);
+  geo.computeVertexNormals();
+  return geo;
+}
+
 function scatterPlants(scene, low) {
-  const sageGeo = new THREE.SphereGeometry(0.35, 7, 5);
-  sageGeo.scale(1.4, 0.55, 1.1);
-  const sageMat = new THREE.MeshStandardMaterial({ color: 0x8a8f62, roughness: 0.95, metalness: 0 });
-  windSway(sageMat, 0.18);
-  const sageN = low ? 64 : 170;
-  const sage = new THREE.InstancedMesh(sageGeo, sageMat, sageN);
+  const sageMat = new THREE.MeshStandardMaterial({ color: 0x8d9464, roughness: 0.95, metalness: 0 });
+  windSway(sageMat, 0.16);
+  const sageN = low ? 56 : 150;
+  const sage = new THREE.InstancedMesh(sageBrushGeo(), sageMat, sageN);
   const dummy = new THREE.Object3D();
   for (let i = 0; i < sageN; i++) {
     const z = -8 + (i * 137.5) % 140;
     const side = i % 2 === 0 ? -1 : 1;
-    const span = z > 22 && z < 96 ? 5.2 : 7.5;
-    const x = side * (span + hash(i * 3.1) * 4.5);
-    dummy.position.set(x, heightAt(x, z) + 0.18, z);
-    dummy.scale.setScalar(0.55 + hash(i + 4) * 0.9);
+    const span = z > 22 && z < 96 ? 4.6 : 6.8;
+    const x = side * (span + hash(i * 3.1) * 5.2);
+    dummy.position.set(x, heightAt(x, z), z);
+    dummy.scale.setScalar(0.7 + hash(i + 4) * 0.85);
     dummy.rotation.y = hash(i * 9) * 6;
     dummy.updateMatrix();
     sage.setMatrixAt(i, dummy.matrix);
@@ -1054,39 +1294,41 @@ function scatterPlants(scene, low) {
   sage.receiveShadow = true;
   scene.add(sage);
 
-  const cacGeo = new THREE.CylinderGeometry(0.12, 0.14, 1.15, 7);
-  const cacMat = new THREE.MeshStandardMaterial({ color: 0x6e8a48, roughness: 0.8, metalness: 0.02 });
-  const cacN = low ? 8 : 18;
-  const cac = new THREE.InstancedMesh(cacGeo, cacMat, cacN);
-  for (let i = 0; i < cacN; i++) {
-    const z = 4 + i * 7.4;
-    const side = i % 2 === 0 ? -1 : 1;
-    const x = side * (z > 22 && z < 96 ? 6.2 : 10 + (i % 3));
-    dummy.position.set(x, heightAt(x, z) + 0.55, z);
-    dummy.scale.set(1, 0.8 + hash(i) * 0.7, 1);
-    dummy.rotation.set(0, 0, 0);
-    dummy.updateMatrix();
-    cac.setMatrixAt(i, dummy.matrix);
-  }
-  cac.instanceMatrix.needsUpdate = true;
-  cac.castShadow = !low;
-  scene.add(cac);
-
-  const blade = new THREE.PlaneGeometry(0.18, 0.42);
-  blade.translate(0, 0.21, 0);
-  const grassMat = new THREE.MeshStandardMaterial({
-    color: 0xb7a15a, roughness: 1, metalness: 0, side: THREE.DoubleSide,
+  const cacMat = new THREE.MeshStandardMaterial({ color: 0x6e8a48, roughness: 0.78, metalness: 0.02 });
+  const cacN = low ? 10 : 16;
+  const arms = [0.85, -0.7];
+  arms.forEach((arm, ai) => {
+    const count = ai === 0 ? Math.ceil(cacN / 2) : Math.floor(cacN / 2);
+    const cac = new THREE.InstancedMesh(cactusGeo(arm), cacMat, count);
+    for (let i = 0; i < count; i++) {
+      const k = i * 2 + ai;
+      const z = 6 + k * 7.2;
+      const side = k % 2 === 0 ? -1 : 1;
+      const x = side * (z > 22 && z < 96 ? 6.4 : 9.5 + (k % 3));
+      dummy.position.set(x, heightAt(x, z), z);
+      dummy.scale.set(1, 0.85 + hash(k) * 0.55, 1);
+      dummy.rotation.set(0, hash(k + 2) * 6, 0);
+      dummy.updateMatrix();
+      cac.setMatrixAt(i, dummy.matrix);
+    }
+    cac.instanceMatrix.needsUpdate = true;
+    cac.castShadow = !low;
+    scene.add(cac);
   });
-  windSway(grassMat, 0.55);
-  const gN = low ? 90 : 240;
-  const grass = new THREE.InstancedMesh(blade, grassMat, gN);
+
+  const grassMat = new THREE.MeshStandardMaterial({
+    color: 0xc4ae62, roughness: 1, metalness: 0, side: THREE.DoubleSide,
+  });
+  windSway(grassMat, 0.5);
+  const gN = low ? 72 : 200;
+  const grass = new THREE.InstancedMesh(grassTuftGeo(), grassMat, gN);
   for (let i = 0; i < gN; i++) {
     const z = -6 + (i * 97.3) % 132;
-    let x = (hash(i * 1.7) - 0.5) * (z > 24 && z < 96 ? 12 : 22);
-    if (Math.abs(x) < 0.9) x = x < 0 ? -1.5 : 1.5;
+    let x = (hash(i * 1.7) - 0.5) * (z > 24 && z < 96 ? 13 : 24);
+    if (Math.abs(x) < 0.85) x = x < 0 ? -1.4 : 1.4;
     dummy.position.set(x, heightAt(x, z), z);
     dummy.rotation.y = hash(i * 2) * Math.PI;
-    dummy.scale.setScalar(0.7 + hash(i + 2) * 0.8);
+    dummy.scale.setScalar(0.75 + hash(i + 2) * 0.85);
     dummy.updateMatrix();
     grass.setMatrixAt(i, dummy.matrix);
   }

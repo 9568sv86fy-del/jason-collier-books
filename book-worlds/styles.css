@@ -597,14 +597,47 @@ body.touch.playing #cmd { width: auto; }
 body.touch.playing #cmd:not(.is-collapsed) { width: min(15rem, 62vw); }
 body.touch.playing #cmd button,
 body.touch.playing #cmd .cmd-tab { min-height: 48px; font-size: 16px; }
-body.touch.playing #gauges {
-  top: calc(4px + env(safe-area-inset-top));
-  left: 4px; right: auto; bottom: auto;
-  width: 128px; height: 128px;
+body.playing #g-lv-mini { display: none; }
+body.playing #gauges {
+  top: calc(6px + env(safe-area-inset-top));
+  left: calc(4px + env(safe-area-inset-left));
+  right: auto; bottom: auto;
+  width: 112px; height: 112px;
   transform: none;
 }
-body.touch .bars { margin-left: 132px; max-width: none; }
+body.playing #party {
+  top: calc(8px + env(safe-area-inset-top));
+  left: calc(122px + env(safe-area-inset-left));
+  right: calc(52px + env(safe-area-inset-right));
+  width: auto;
+}
+body.playing #hud.on {
+  padding: calc(124px + env(safe-area-inset-top)) 12px 0 12px;
+}
+body.playing .bars { margin-left: 0; max-width: none; }
+body.playing .meta {
+  flex-wrap: nowrap; gap: 10px;
+  font-size: 16px; letter-spacing: .03em;
+  white-space: nowrap;
+}
+body.playing #obj { max-width: none; margin-top: 4px; }
+body.playing #bossbar { top: var(--hud-clear, 168px); }
 body.touch .meta { font-size: 16px; letter-spacing: .03em; }
+@media (max-height: 520px) {
+  body.playing #gauges { width: 96px; height: 96px; }
+  body.playing #g-hp { font-size: 16px; top: 44px; left: 16px; }
+  body.playing #g-mp { font-size: 15px; top: 34px; left: 52px; }
+  body.playing #g-lv { font-size: 15px; top: 68px; left: 16px; }
+  body.playing #party {
+    display: flex; flex-wrap: wrap; gap: 2px 14px;
+    left: calc(108px + env(safe-area-inset-left));
+  }
+  body.playing #party p { margin-top: 0; min-width: 9.2rem; }
+  body.playing #hud.on {
+    padding: calc(8px + env(safe-area-inset-top)) 12px 0 calc(112px + env(safe-area-inset-left));
+  }
+  body.playing .bars { padding-top: 34px; }
+}
 body.touch #actions button { font-size: 11px; }
 body.touch #actions button.big { font-size: 12px; }
 body.touch #actions button[data-act="lock"],
@@ -617,16 +650,17 @@ body.portrait #rotate-hint:not([hidden]) { display: flex; }
 
 #settings-btn {
   position: absolute; right: calc(8px + env(safe-area-inset-right));
-  top: calc(86px + env(safe-area-inset-top)); z-index: 7;
-  min-width: 48px; min-height: 44px; padding: 0 10px; cursor: pointer;
-  background: rgba(16, 12, 8, .32); color: var(--paper);
-  border: 1px solid rgba(228, 208, 164, .4); border-radius: 10px;
-  font-family: var(--ui); font-size: 13px; letter-spacing: .12em; text-transform: uppercase;
+  top: calc(6px + env(safe-area-inset-top)); z-index: 7;
+  width: 40px; height: 40px; min-width: 40px; min-height: 40px; padding: 0;
+  display: grid; place-items: center; cursor: pointer;
+  background: rgba(16, 12, 8, .45); color: var(--paper);
+  border: 1px solid rgba(228, 208, 164, .45); border-radius: 50%;
 }
+#settings-btn svg { display: block; }
 #settings-btn[hidden] { display: none; }
 #settings {
   position: absolute; right: calc(8px + env(safe-area-inset-right));
-  top: calc(136px + env(safe-area-inset-top)); z-index: 8;
+  top: calc(52px + env(safe-area-inset-top)); z-index: 8;
   width: min(240px, 78vw); padding: 10px 10px 12px;
   background: rgba(16, 12, 8, .5); color: var(--paper);
   border: 1px solid rgba(228, 208, 164, .4); border-radius: 12px;
