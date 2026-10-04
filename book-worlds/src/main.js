@@ -1,7 +1,7 @@
 import * as THREE from "three";
 import { createAudio } from "./audio.js?v=2";
 import { createInput } from "./input.js?v=3";
-import { createSim } from "./sim.js?v=3";
+import { createSim } from "./sim.js?v=4";
 import { damp, clamp, springAngle, angDelta } from "./util.js";
 import { createNarration } from "./narration.js";
 import { createDialogue } from "./dialogue.js?v=2";
@@ -10,7 +10,7 @@ import { buildWorld } from "./world.js?v=3";
 import { buildRustyWorld } from "../worlds/rusty/world.js?v=4";
 import { createRustySim } from "../worlds/rusty/sim.js?v=4";
 import { whenCastReady } from "./actors.js?v=3";
-import { theBlank } from "../bosses/index.js";
+import { theBlank } from "../bosses/index.js?v=3";
 
 const canvas = document.getElementById("view");
 const app = document.getElementById("app");

@@ -4,7 +4,7 @@
 //   lines {jang, tom, lasso, win}, objective {waiting, fighting, thinning(left)},
 //   create() -> { root, update(dt, {moving, state, hit}) }
 import { boss as californiaTrail } from "./california-trail.js";
-import { boss as rustyStack } from "./rusty-stack.js";
+import { boss as rustyStack } from "./rusty-stack.js?v=3";
 export { theBlank } from "./the-blank.js";
 
 const bosses = {

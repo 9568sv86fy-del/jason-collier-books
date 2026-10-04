@@ -2,8 +2,8 @@ import * as THREE from "three";
 import { clamp, damp, dampAngle, hypot2 } from "./util.js";
 import { halfWidth, heightAt } from "./world.js?v=3";
 import { createFog, handbillMesh } from "./rigs.js";
-import { createHuman } from "./actors.js?v=2";
-import { bossFor } from "../bosses/index.js";
+import { createHuman } from "./actors.js?v=3";
+import { bossFor } from "../bosses/index.js?v=3";
 
 const worldBoss = bossFor("california-trail");
 
