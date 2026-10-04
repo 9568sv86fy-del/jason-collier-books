@@ -2198,5 +2198,7 @@ export function createSim(scene, world, audio) {
     tutorSave,
     teaching: () => tutorialOn,
     tutorStep: () => tutorStep,
+    allies: () => allies.map((a) => ({ id: a.id, x: a.x, z: a.z })),
+    keyOn: () => !!(keeper.keyMesh && keeper.keyMesh.visible),
   };
 }

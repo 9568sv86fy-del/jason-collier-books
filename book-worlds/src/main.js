@@ -729,6 +729,8 @@ window.__BOOKWORLDS = {
   say: (id) => narrate.say(id),
   teaching: () => sim.teaching(),
   tutorStep: () => sim.tutorStep(),
+  allies: () => sim.allies(),
+  keyOn: () => sim.keyOn(),
   skipLesson: () => sim.skipLesson(),
   tutorSave: () => sim.tutorSave(),
 };
