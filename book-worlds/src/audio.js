@@ -344,6 +344,7 @@ export function createAudio() {
       ensureWind();
       ensureMusic();
     }
+  }
 
   function lock() {
     let release;

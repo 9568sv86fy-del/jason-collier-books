@@ -557,6 +557,7 @@ function dressAirship(model, B, spec, crown, faceZ) {
       put(model, bone, wrench, grip.x, grip.y + 0.16, grip.z, 0.35, 0.15, 0.15);
     }
   }
+}
 
 export function createHuman(spec) {
   const root = new THREE.Group();
