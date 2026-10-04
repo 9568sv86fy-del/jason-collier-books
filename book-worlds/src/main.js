@@ -4,7 +4,9 @@ import { createInput } from "./input.js";
 import { createSim } from "./sim.js";
 import { damp, dampAngle, clamp } from "./util.js";
 import { createNarration } from "./narration.js";
+import { EffectComposer, RenderPass, UnrealBloomPass, OutputPass } from "three/addons";
 import { buildWorld } from "./world.js";
+import { whenCastReady } from "./actors.js";
 import { theBlank } from "../bosses/index.js";
 
 const canvas = document.getElementById("view");
@@ -15,8 +17,9 @@ renderer.outputColorSpace = THREE.SRGBColorSpace;
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
 renderer.toneMappingExposure = 1.12;
 renderer.shadowMap.enabled = true;
+// r186 folds the old PCFSoft kernel into PCFShadowMap; light.shadow.radius softens it.
 renderer.shadowMap.type = THREE.PCFShadowMap;
-renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, low ? 1.25 : 1.6));
+renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, low ? 1.15 : 1.5));
 
 const scene = new THREE.Scene();
 const camera = new THREE.PerspectiveCamera(52, 1, 0.12, 400);
@@ -25,7 +28,13 @@ const audio = createAudio();
 const world = buildWorld(scene, low);
 const sim = createSim(scene, world, audio);
 const input = createInput(app);
-const narrate = createNarration();
+const narrate = createNarration(audio);
+window.addEventListener("pointerdown", () => audio.unlock(), true);
+
+installEnvironment(renderer, scene, low);
+const composer = low ? null : makeComposer(renderer, scene, camera);
+let castReady = false;
+whenCastReady().then(() => { castReady = true; });
 
 const flashLight = new THREE.PointLight(0xffe6b8, 0, 16, 1.5);
 scene.add(flashLight);
@@ -49,7 +58,9 @@ let blankTimer = 0;
 let blankVoiceTimer = 0;
 let ready = false;
 let camYaw = 0.25;
-let camPitch = 0.42;
+let camPitch = 0.38;
+let camManual = 0;
+let camChase = 0;
 const camPos = new THREE.Vector3(0, 3, -10);
 const lookAt = new THREE.Vector3();
 let flashI = 0;
@@ -80,6 +91,11 @@ const el = {
   bossFill: document.getElementById("boss-fill"),
   pips: document.getElementById("pips"),
   prompt: document.getElementById("prompt"),
+  tutor: document.getElementById("tutor"),
+  tutorText: document.getElementById("tutor-text"),
+  tutorHint: document.getElementById("tutor-hint"),
+  tutorAct: document.getElementById("tutor-act"),
+  tutorSkip: document.getElementById("tutor-skip"),
   reticle: document.getElementById("reticle"),
   bubbles: document.getElementById("bubbles"),
   floaters: document.getElementById("floats"),
@@ -372,6 +388,11 @@ document.getElementById("dial-next").addEventListener("click", () => setStation(
 el.knob.addEventListener("click", () => setStation(station + 1, true));
 el.tune.addEventListener("click", () => tryTune());
 window.addEventListener("keydown", (e) => {
+  if (e.key === "Escape" && mode === "play" && sim.teaching()) {
+    e.preventDefault();
+    sim.skipLesson();
+    return;
+  }
   if (mode !== "hub" || transitioning) return;
   if (e.key === "ArrowRight" || e.key === "ArrowDown") {
     e.preventDefault();
@@ -392,7 +413,11 @@ el.btn.addEventListener("click", () => {
     camPitch = 0.42;
     sim.begin({ restore: !start });
     hideCard();
-    narrate.say("enter");
+    if (sim.teaching()) {
+      camYaw = 0;
+      camPitch = 0.36;
+      narrate.say("tutor-arrive");
+    } else narrate.say("enter");
   } else if (mode === "dead") {
     sim.revive();
     hideCard();
@@ -443,9 +468,12 @@ function resize() {
   const w = window.innerWidth;
   const h = window.innerHeight;
   renderer.setSize(w, h, false);
+  if (composer) composer.setSize(w, h);
   camera.aspect = w / Math.max(1, h);
   camera.updateProjectionMatrix();
-  document.body.classList.toggle("touch", w < 820 || navigator.maxTouchPoints > 0 || matchMedia("(pointer: coarse)").matches);
+  const coarse = navigator.maxTouchPoints > 0 || matchMedia("(pointer: coarse)").matches;
+  document.body.classList.toggle("touch", coarse || w < 820 || h < 500);
+  document.body.classList.toggle("portrait", h > w);
 }
 window.addEventListener("resize", resize);
 resize();
@@ -481,9 +509,12 @@ function frame(now) {
     camPitch = 0.4;
   } else {
     const look = input.consumeLook();
-    camYaw -= look.dx * 0.005;
-    camPitch = clamp(camPitch + look.dy * 0.003, 0.2, 1.05);
+    if (Math.abs(look.dx) + Math.abs(look.dy) > 0.4) camManual = 0.9;
+    // Drag right turns the view right: yaw down swings lookDir toward screen-right.
+    camYaw -= look.dx * 0.0048;
+    camPitch = clamp(camPitch + look.dy * 0.0032, 0.16, 1.05);
   }
+  camManual = Math.max(0, camManual - raw);
 
   const step = 1 / 60;
   let left = raw;
@@ -496,41 +527,54 @@ function frame(now) {
     fresh = false;
     left -= dt;
     guard++;
-    if (snap.lock && mode === "play") {
+  }
+
+  if (mode === "play" && playing && snap) {
+    if (snap.player.speed > 0.45) camChase = 0.9;
+    else camChase = Math.max(0, camChase - raw);
+    if (snap.events.some((ev) => ev.type === "recenter")) {
+      camYaw = snap.player.yaw;
+      camPitch = 0.38;
+      camManual = 0;
+      camChase = 0;
+    } else if (snap.lock) {
       const ang = Math.atan2(snap.lock.x - snap.player.x, snap.lock.z - snap.player.z);
-      camYaw = dampAngle(camYaw, ang, 5, dt);
+      camYaw = dampAngle(camYaw, ang, 4.2, raw);
+    } else if (camManual <= 0 && camChase > 0) {
+      const err = Math.atan2(Math.sin(snap.player.yaw - camYaw), Math.cos(snap.player.yaw - camYaw));
+      const rate = 2.6 + Math.min(2.4, Math.abs(err) * 1.15);
+      camYaw = dampAngle(camYaw, snap.player.yaw, rate, raw);
     }
   }
 
-  let dist = 6.3;
-  let lookX = snap.player.x;
-  let lookY = snap.player.y + 1.35;
-  let lookZ = snap.player.z;
+  const lookDirX = Math.sin(camYaw);
+  const lookDirZ = Math.cos(camYaw);
+  const rightX = -Math.cos(camYaw);
+  const rightZ = Math.sin(camYaw);
+  let dist = 5.05 + camPitch * 1.25;
+  let lift = 1.62 + camPitch * 1.55;
+  const shoulder = 0.46;
+  let lookX = snap.player.x + lookDirX * 1.55 + rightX * 0.12;
+  let lookY = snap.player.y + 1.38;
+  let lookZ = snap.player.z + lookDirZ * 1.55 + rightZ * 0.12;
   if (snap.lock && mode === "play") {
     const dx = snap.lock.x - snap.player.x;
     const dz = snap.lock.z - snap.player.z;
     const sep = Math.hypot(dx, dz);
-    dist = clamp(6.4 + sep * 0.28, 6.4, 10.5);
-    lookX = snap.player.x + dx * 0.38;
-    lookZ = snap.player.z + dz * 0.38;
-    lookY = snap.player.y + 1.25;
+    dist = clamp(5.3 + sep * 0.24, 5.2, 9.6);
+    lookX = snap.player.x + dx * 0.4;
+    lookZ = snap.player.z + dz * 0.4;
+    lookY = (snap.player.y + 1.3 + snap.lock.y) * 0.5;
   }
-  const horiz = Math.cos(camPitch * 0.55) * dist;
-  const lift = 1.7 + Math.sin(camPitch) * 2.1;
-  let cx = snap.player.x - Math.sin(camYaw) * horiz;
-  let cz = snap.player.z - Math.cos(camYaw) * horiz;
-  const half = Math.abs(cz) > 0 ? (function () {
-    const z = cz;
-    if (z < 20) return 17;
-    if (z < 28) return 17 - (z - 20) * 1.2;
-    if (z < 96) return 6.4;
-    return 14;
-  })() : 17;
-  if (Math.abs(cx) > half) cx = Math.sign(cx) * half;
-  const bob = Math.sin(now / 1000 * 1.6) * 0.015;
-  camPos.x = damp(camPos.x, cx, 5.5, raw);
-  camPos.y = damp(camPos.y, snap.player.y + lift + bob, 5.5, raw);
-  camPos.z = damp(camPos.z, cz, 5.5, raw);
+  const cx = snap.player.x - lookDirX * dist + rightX * shoulder;
+  const cz = snap.player.z - lookDirZ * dist + rightZ * shoulder;
+  const cy = snap.player.y + lift;
+  const bob = Math.sin(now / 1000 * 1.6) * 0.012;
+  camPos.x = damp(camPos.x, cx, 6.2, raw);
+  camPos.y = damp(camPos.y, cy + bob, 6.2, raw);
+  camPos.z = damp(camPos.z, cz, 6.2, raw);
+  const focus = new THREE.Vector3(snap.player.x, snap.player.y + 1.2, snap.player.z);
+  camPos.copy(world.pullCamera(focus, camPos));
   shake = Math.max(0, shake - raw);
   lookAt.set(lookX, lookY, lookZ);
   camera.position.copy(camPos);
@@ -565,10 +609,13 @@ function frame(now) {
   }
 
   paintHud(snap);
+  paintTutor(snap);
   const drain = snap.drain || 0;
   renderer.domElement.style.filter = drain > 0.02 ? `saturate(${(1 - drain * 0.94).toFixed(3)})` : "";
-  renderer.render(scene, camera);
-  if (!ready) {
+  syncRotateHint();
+  if (composer) composer.render();
+  else renderer.render(scene, camera);
+  if (!ready && castReady) {
     ready = true;
     el.boot.classList.add("gone");
     window.__BOOKWORLDS.ready = true;
@@ -671,6 +718,21 @@ window.__BOOKWORLDS = {
   team: () => sim.team(),
   reaction: () => sim.reaction(),
   lockId: () => sim.lockId(),
+  camera: () => ({ yaw: camYaw, pitch: camPitch, x: camera.position.x, y: camera.position.y, z: camera.position.z }),
+  skinned: () => {
+    let n = 0;
+    scene.traverse((o) => { if (o.isSkinnedMesh) n++; });
+    return n;
+  },
+  project: (x, y, z) => project(x, y, z),
+  voice: () => ({ speaking: audio.speaking(), depth: narrate.depth(), levels: audio.levels(), bulletin: narrate.current() }),
+  say: (id) => narrate.say(id),
+  teaching: () => sim.teaching(),
+  tutorStep: () => sim.tutorStep(),
+  allies: () => sim.allies(),
+  keyOn: () => sim.keyOn(),
+  skipLesson: () => sim.skipLesson(),
+  tutorSave: () => sim.tutorSave(),
 };
 
 function setRing(id, radius, pct) {
@@ -680,6 +742,30 @@ function setRing(id, radius, pct) {
   node.style.strokeDasharray = String(circ);
   node.style.strokeDashoffset = String(circ * (1 - clamp(pct, 0, 1)));
 }
+
+function paintTutor(snap) {
+  const node = el.tutor;
+  if (!node) return;
+  const tutor = snap && snap.tutor;
+  const show = !!(tutor && mode === "play");
+  node.hidden = !show;
+  document.body.classList.toggle("tutor-lock", !!(show && tutor.step === "lock"));
+  if (!show) return;
+  el.tutorText.textContent = tutor.text;
+  const touch = document.body.classList.contains("touch");
+  el.tutorHint.textContent = touch ? tutor.hintTouch : tutor.hintKey;
+  if (tutor.act) {
+    el.tutorAct.hidden = false;
+    el.tutorAct.textContent = tutor.act;
+  } else el.tutorAct.hidden = true;
+}
+
+el.tutorSkip.addEventListener("click", () => {
+  if (mode === "play" && sim.teaching()) sim.skipLesson();
+});
+el.tutorAct.addEventListener("click", () => {
+  if (mode === "play") sim.tutorSave();
+});
 
 function paintParty(snap) {
   const rows = snap.party || [];
@@ -716,21 +802,45 @@ const MENU = {
 let menuPane = "root";
 let menuIndex = 0;
 let menuSig = "";
+let menuOpen = false;
+let menuInit = false;
+let rotateDismissed = false;
+try { rotateDismissed = sessionStorage.getItem("bw-rotate") === "1"; } catch { /* private mode */ }
 
 function menuList() {
   return MENU[menuPane] || MENU.root;
 }
 
+function syncRotateHint() {
+  const node = document.getElementById("rotate-hint");
+  if (!node) return;
+  const phone = document.body.classList.contains("touch") && Math.min(window.innerWidth, window.innerHeight) < 520;
+  const show = phone && window.innerHeight > window.innerWidth && document.body.classList.contains("playing") && !rotateDismissed;
+  node.hidden = !show;
+}
+
 function renderMenu(snap) {
   const node = document.getElementById("cmd");
   if (!node) return;
+  if (!menuInit) {
+    menuOpen = !document.body.classList.contains("touch");
+    menuInit = true;
+  }
   const list = menuList();
   menuIndex = (menuIndex % list.length + list.length) % list.length;
   const p = snap && snap.player;
-  const sig = `${menuPane}|${menuIndex}|${p ? p.potions : 0}|${p ? Math.ceil(p.mp) : 0}|${p ? Math.floor(p.team || 0) : 0}|${mode}`;
+  node.classList.toggle("is-collapsed", !menuOpen);
+  if (!menuOpen) {
+    const sig = `closed|${mode}`;
+    if (sig === menuSig) return;
+    menuSig = sig;
+    node.innerHTML = `<button type="button" class="cmd-tab" data-cmd="toggle">Commands</button>`;
+    return;
+  }
+  const sig = `${menuPane}|${menuIndex}|${p ? p.potions : 0}|${p ? Math.ceil(p.mp) : 0}|${p ? Math.floor(p.team || 0) : 0}|${mode}|open`;
   if (sig === menuSig) return;
   menuSig = sig;
-  node.innerHTML = `<p class="cmd-kicker">${menuPane === "root" ? "Commands" : menuPane}</p>` + list.map((item, i) => {
+  node.innerHTML = `<button type="button" class="cmd-tab" data-cmd="toggle"><span>${menuPane === "root" ? "Commands" : menuPane}</span><small>hide</small></button>` + list.map((item, i) => {
     let note = "";
     let disabled = false;
     if (item.cost) note = String(item.cost);
@@ -744,6 +854,11 @@ function renderMenu(snap) {
 }
 
 function activateMenu(id) {
+  if (id === "toggle") {
+    menuOpen = !menuOpen;
+    menuSig = "";
+    return;
+  }
   if (id === "magic" || id === "items" || id === "special") {
     menuPane = id;
     menuIndex = 0;
@@ -762,6 +877,12 @@ function activateMenu(id) {
   else if (id === "mend") input.press("mend");
   else if (id === "tonic") input.press("potion");
   else if (id === "team") input.press("special");
+  if (document.body.classList.contains("touch")) {
+    menuOpen = false;
+    menuPane = "root";
+    menuIndex = 0;
+    menuSig = "";
+  }
 }
 
 document.getElementById("cmd").addEventListener("click", (e) => {
@@ -772,6 +893,44 @@ document.getElementById("cmd").addEventListener("click", (e) => {
   activateMenu(btn.getAttribute("data-cmd"));
   menuSig = "";
 });
+
+document.getElementById("rotate-dismiss")?.addEventListener("click", (e) => {
+  e.preventDefault();
+  e.stopPropagation();
+  rotateDismissed = true;
+  try { sessionStorage.setItem("bw-rotate", "1"); } catch { /* ignore */ }
+  syncRotateHint();
+});
+
+function installEnvironment(gl, rootScene, lowQ) {
+  const c = document.createElement("canvas");
+  c.width = 64;
+  c.height = 32;
+  const g = c.getContext("2d");
+  const grd = g.createLinearGradient(0, 0, 0, 32);
+  grd.addColorStop(0, "#1a2744");
+  grd.addColorStop(0.42, "#c45a3a");
+  grd.addColorStop(0.68, "#f0b67a");
+  grd.addColorStop(1, "#8a5a38");
+  g.fillStyle = grd;
+  g.fillRect(0, 0, 64, 32);
+  const tex = new THREE.CanvasTexture(c);
+  tex.mapping = THREE.EquirectangularReflectionMapping;
+  tex.colorSpace = THREE.SRGBColorSpace;
+  const pm = new THREE.PMREMGenerator(gl);
+  rootScene.environment = pm.fromEquirectangular(tex).texture;
+  rootScene.environmentIntensity = lowQ ? 0.38 : 0.52;
+  tex.dispose();
+  pm.dispose();
+}
+
+function makeComposer(gl, rootScene, cam) {
+  const post = new EffectComposer(gl);
+  post.addPass(new RenderPass(rootScene, cam));
+  post.addPass(new UnrealBloomPass(new THREE.Vector2(window.innerWidth, window.innerHeight), 0.16, 0.42, 0.98));
+  post.addPass(new OutputPass());
+  return post;
+}
 
 window.addEventListener("wheel", (e) => {
   if (mode !== "play" || !playing) return;

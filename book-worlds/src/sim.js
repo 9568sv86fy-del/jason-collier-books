@@ -1,7 +1,8 @@
 import * as THREE from "three";
 import { clamp, damp, dampAngle, hypot2 } from "./util.js";
 import { halfWidth, heightAt } from "./world.js";
-import { createHuman, createFog, handbillMesh } from "./rigs.js";
+import { createFog, handbillMesh } from "./rigs.js";
+import { createHuman } from "./actors.js";
 import { bossFor } from "../bosses/index.js";
 
 const worldBoss = bossFor("california-trail");
@@ -49,13 +50,13 @@ export function createSim(scene, world, audio) {
   });
   const jang = createHuman({
     cloth: 0xe6d8c4, cloth2: 0x2c3338, pants: 0x3e4650, boots: 0x241c16,
-    hat: 0x2a2420, hatTilt: -0.22, hatPitch: 0.12, hatBand: 0x6a2430,
+    hat: 0x2a2420, hatTilt: -0.18, hatPitch: 0.04, hatBand: 0x6a2430, bowler: true, waistcoat: true,
     hair: 0x1c1612, skin: 0xc99570, mustache: true, sharp: true, neckerchief: 0x7a2430,
     bills: true, height: 0.9, bulk: 0.92, chest: 0.96, shoulder: 0.21,
   });
   const tom = createHuman({
     cloth: 0x6d7e8a, cloth2: 0x8a5a3c, pants: 0x5a4634, boots: 0x2a2018,
-    hat: 0x6a5340, hatTilt: 0.08, hair: 0x4a3428, skin: 0xd7a888,
+    hat: 0x6a5340, hatTilt: 0.06, wideHat: true, hair: 0x4a3428, skin: 0xd7a888,
     suspenders: true, scratch: true, roundFace: true, sleeves: 0xc4a888,
     height: 1.12, bulk: 1.18, chest: 1.28, shoulder: 0.28,
   });
@@ -81,13 +82,39 @@ export function createSim(scene, world, audio) {
   let bossWall = true;
   const flags = {};
   const events = [];
+  const TUTOR_KEY = "book-worlds-tutorial";
+  const MEET = { jang: { x: -2.2, z: -28, yaw: Math.PI }, tom: { x: 2.3, z: -27.4, yaw: Math.PI } };
+  let tutorialOn = false;
+  let partyJoined = true;
+  let tutorStep = "done";
+  let tutorSaid = "";
+  let tutorMoved = 0;
+  let tutorLooked = false;
+  let tutorRecenter = false;
+  let tutorJumped = false;
+  let tutorDodged = false;
+  let tutorCombo = false;
+  let tutorLocked = false;
+  let tutorGuarded = false;
+  let tutorFlashed = false;
+  let tutorMended = false;
+  let tutorDrank = false;
+  let tutorSaved = false;
+  let tutorMagic = 0;
+  let practiceT = 1.2;
+  let practiceHit = 0;
+  let partyTomT = 0;
+  let stepCam = 0;
+  function tutorialCleared() {
+    try { return localStorage.getItem(TUTOR_KEY) === "1"; } catch { return false; }
+  }
   const bills = [];
   const enemies = [];
   const orbs = [];
   let seq = 1;
   const arenas = [
     {
-      id: "camp", minZ: -40, maxZ: 24, wave: 0, active: false, cleared: false,
+      id: "camp", minZ: 10, maxZ: 24, wave: 0, active: false, cleared: false,
       waves: [
         [{ kind: "fog", x: 0.2, z: 11 }, { kind: "fog", x: 1.7, z: 12.6 }],
         [{ kind: "bandit", x: -3.2, z: 8 }, { kind: "fog", x: 3.4, z: 14 }],
@@ -235,7 +262,7 @@ export function createSim(scene, world, audio) {
     const dx = e.x - (src ? src.x : player.x);
     const dz = e.z - (src ? src.z : player.z);
     const l = hypot2(dx, dz) || 1;
-    const shove = (e.kind === "boss" ? 0.4 : 1.15) + (opts.knock || 0);
+    const shove = (e.kind === "boss" ? 0.4 : e.kind === "dummy" ? 0.12 : 1.15) + (opts.knock || 0);
     e.x += (dx / l) * shove;
     e.z += (dz / l) * shove;
     events.push({ type: "dmg", x: e.x, y: 1.6, z: e.z, n: Math.round(dealt) });
@@ -251,13 +278,14 @@ export function createSim(scene, world, audio) {
       e.t = 0;
       e.stunFor = Math.max(e.stunFor, 0.35);
     }
+    if (e.kind === "dummy" && !src && player.combo >= 3) tutorCombo = true;
     if (e.hp <= 0) {
       e.hp = 0;
       e.alive = false;
       e.state = "dead";
       e.t = 0;
-      dropLoot(e);
-      grantXp(e.kind === "boss" ? 90 : (e.prof ? e.prof.xp : 20));
+      if (e.kind !== "dummy") dropLoot(e);
+      grantXp(e.kind === "boss" ? 90 : e.kind === "dummy" ? 2 : (e.prof ? e.prof.xp : 20));
       if (e.kind === "boss") {
         audio.roar();
         flags.won = true;
@@ -298,10 +326,12 @@ export function createSim(scene, world, audio) {
           attacker.stunFor = 0.7;
         }
         player.team = Math.min(100, player.team + 12);
+        if (attacker && attacker.kind === "practice") tutorGuarded = true;
         return;
       }
       amount = Math.max(1, Math.round(amount * 0.22));
       audio.guard();
+      if (attacker && attacker.kind === "practice") tutorGuarded = true;
     }
     player.hp = Math.max(0, player.hp - amount);
     player.iframes = 0.55;
@@ -328,10 +358,11 @@ export function createSim(scene, world, audio) {
     return dot > minDot;
   }
 
-  function nearest(x, z, max) {
+  function nearest(x, z, max, dummies = false) {
     let best = null;
     let bestD = max;
     for (const e of living()) {
+      if (e.kind === "dummy" && !dummies) continue;
       const d = hypot2(e.x - x, e.z - z);
       if (d < bestD) { bestD = d; best = e; }
     }
@@ -344,9 +375,19 @@ export function createSim(scene, world, audio) {
 
   function updateEnemy(e, dt) {
     if (!e.alive) {
+      if (e.kind === "dummy") return;
       e.t += dt;
-      e.rig.root.position.y = heightAt(e.x, e.z) - Math.min(1.2, e.t) * 0.8;
-      e.rig.root.rotation.x = Math.min(1.2, e.t);
+      e.rig.update(dt, {
+        speed: 0, air: false, action: "death", actionT: Math.min(1, e.t / 0.85),
+        combo: 0, look: 0, hurt: 0, dodgeSide: 0, hit: 0, tele: false, strike: false,
+      });
+      if (e.rig.skinned) {
+        e.rig.root.position.y = heightAt(e.x, e.z);
+        e.rig.root.rotation.x = 0;
+      } else {
+        e.rig.root.position.y = heightAt(e.x, e.z) - Math.min(1.2, e.t) * 0.8;
+        e.rig.root.rotation.x = Math.min(1.2, e.t);
+      }
       fadePatches(e, dt, 0);
       if (e.t > 1.3) e.rig.root.visible = false;
       if (e.portal) {
@@ -356,6 +397,11 @@ export function createSim(scene, world, audio) {
           e.portal = null;
         }
       }
+      return;
+    }
+    if (e.kind === "dummy") {
+      e.rig.root.position.set(e.x, heightAt(e.x, e.z), e.z);
+      e.rig.root.rotation.y = Math.PI;
       return;
     }
     const dx = player.x - e.x;
@@ -573,8 +619,34 @@ export function createSim(scene, world, audio) {
   }
 
   function updateAllies(dt, camYaw) {
+    if (!partyJoined) {
+      for (const a of allies) {
+        const dx = player.x - a.x;
+        const dz = player.z - a.z;
+        if (hypot2(dx, dz) < 9) a.yaw = dampAngle(a.yaw, Math.atan2(dx, dz), 6, dt);
+        const y = heightAt(a.x, a.z);
+        a.rig.root.position.set(a.x, y, a.z);
+        a.rig.root.rotation.y = a.yaw;
+        a.rig.update(dt, { speed: 0, action: "idle", actionT: 0, combo: 0, air: false, hurt: 0, look: 0, dodgeSide: 0 });
+      }
+      return;
+    }
     allyHold = Math.max(0, allyHold - dt);
     for (const a of allies) {
+      if (tutorialOn && tutorStep === "guard" && a.id === "tom") {
+        if (a.anim !== "idle") {
+          a.animT += dt / 0.4;
+          if (a.animT >= 1) a.anim = "idle";
+        }
+        const y = heightAt(a.x, a.z);
+        a.rig.root.position.set(a.x, y, a.z);
+        a.rig.root.rotation.y = a.yaw;
+        a.rig.update(dt, {
+          speed: 0, air: false, action: a.anim, actionT: a.animT,
+          combo: 0, look: 0, hurt: a.hurt, dodgeSide: 0,
+        });
+        continue;
+      }
       const fx = Math.sin(player.yaw);
       const fz = Math.cos(player.yaw);
       const rx = Math.cos(player.yaw);
@@ -807,8 +879,8 @@ export function createSim(scene, world, audio) {
     const edge = input.pull();
     const axes = input.axes();
     playTime += dt;
-    if (!flags.g1) { flags.g1 = true; speak("jang", LINES.jang.greet); }
-    if (!flags.g2 && playTime > 3.8) { flags.g2 = true; speak("tom", LINES.tom.greet); }
+    if (!flags.g1 && partyJoined && !tutorialOn) { flags.g1 = true; speak("jang", LINES.jang.greet); }
+    if (!flags.g2 && partyJoined && !tutorialOn && playTime > 3.8) { flags.g2 = true; speak("tom", LINES.tom.greet); }
     player.flashCd = Math.max(0, player.flashCd - dt);
     player.magicLock = Math.max(0, player.magicLock - dt);
     player.iframes = Math.max(0, player.iframes - dt);
@@ -822,8 +894,9 @@ export function createSim(scene, world, audio) {
     if (mag > 0.05) {
       const nx = axes.strafe / mag;
       const nz = axes.fwd / mag;
-      wishX = Math.sin(camYaw) * nz + Math.cos(camYaw) * nx;
-      wishZ = Math.cos(camYaw) * nz - Math.sin(camYaw) * nx;
+      // Screen-right is (-cos(yaw), sin(yaw)) with this orbit. Positive strafe must use that, not its opposite.
+      wishX = Math.sin(camYaw) * nz - Math.cos(camYaw) * nx;
+      wishZ = Math.cos(camYaw) * nz + Math.sin(camYaw) * nx;
     }
     const airChain = player.airCombo > 0 || !player.grounded;
     const chainMax = airChain ? 3 : 4;
@@ -845,6 +918,12 @@ export function createSim(scene, world, audio) {
     }
     if (edge.potion) drink();
     if (edge.lock) toggleLock();
+    if (edge.recenter) {
+      events.push({ type: "recenter" });
+      tutorRecenter = true;
+    }
+    if (edge.jump) tutorJumped = true;
+    if (edge.dodge) tutorDodged = true;
     if (edge.cycle) cycleLock(1);
     if (edge.devil) startDevil();
     if (edge.mend) startMend();
@@ -889,11 +968,12 @@ export function createSim(scene, world, audio) {
 
     player.x += player.vx * dt;
     player.z += player.vz * dt;
-    const resolved = world.resolve(player.x, player.z, 0.38, boss.alive && boss.active ? [{ x: boss.x, z: boss.z, r: 1.15 }] : null);
+    const resolved = world.resolve(player.x, player.z, 0.38, boss.alive && boss.active ? [{ x: boss.x, z: boss.z, r: 1.15 }] : null, player.y);
     player.x = resolved.x;
     player.z = resolved.z;
     if (!circus && player.z > 103.2) player.z = 103.2;
     if (bossWall && boss.alive && player.z > 123) player.z = 123;
+    if (tutorialOn && player.z > 5.8) player.z = 5.8;
     clampArenas();
 
     player.vy -= 28 * dt;
@@ -1032,7 +1112,11 @@ export function createSim(scene, world, audio) {
     if (step && step.step && player.grounded) audio.step();
 
     const got = pageCount();
-    let objective = `Brain fogs are eating the pages. Gather them. ${got}/5`;
+    updateTutorial(dt, camYaw, edge);
+
+    let objective = tutorialOn
+      ? "Dawn at the edge of the book. Learn the road before the gray arrives."
+      : `Brain fogs are eating the pages. Gather them. ${got}/5`;
     if (!flags.rout && player.z > 70 && player.z < 92 && boss.alive) objective = "Lure the bandits under the swinging rope.";
     if (!circus && player.z > 90) objective = "Push both wagons into the river. Stage the floating circus.";
     if (circus && boss.alive && !boss.active) objective = worldBoss.objective.waiting;
@@ -1054,7 +1138,7 @@ export function createSim(scene, world, audio) {
   }
   function toggleLock() {
     if (lockTarget && lockTarget.alive) { lockTarget = null; return; }
-    lockTarget = nearest(player.x, player.z, 18);
+    lockTarget = nearest(player.x, player.z, 18, true);
   }
 
   function cycleLock(dir) {
@@ -1135,6 +1219,10 @@ export function createSim(scene, world, audio) {
     player.flashCd = 0.4;
     audio.flash();
     events.push({ type: "flash", x: player.x, z: player.z });
+    if (world.town && hypot2(world.town.barn.x - player.x, world.town.barn.z - player.z) < 7) {
+      world.town.lightBarn();
+      tutorFlashed = true;
+    }
     for (const e of living()) {
       const d = hypot2(e.x - player.x, e.z - player.z);
       const rad = e.kind === "boss" ? 5.2 : 4.3;
@@ -1181,6 +1269,7 @@ export function createSim(scene, world, audio) {
     if (player.action === "dodge") return;
     if (player.hp >= player.hpMax && allies.every((a) => a.hp >= a.hpMax)) return;
     if (!spend(30)) return;
+    tutorMended = true;
     player.hp = Math.min(player.hpMax, player.hp + 36);
     for (const a of allies) a.hp = Math.min(a.hpMax, a.hp + 22);
     audio.heal();
@@ -1216,6 +1305,7 @@ export function createSim(scene, world, audio) {
   function drink() {
     if (player.potions <= 0 || player.hp >= player.hpMax) return;
     player.potions -= 1;
+    tutorDrank = true;
     player.hp = Math.min(player.hpMax, player.hp + 42);
     audio.heal();
     events.push({ type: "dmg", x: player.x, y: 1.8, z: player.z, n: "+HP" });
@@ -1390,6 +1480,11 @@ export function createSim(scene, world, audio) {
 
   function wipeEnemies() {
     for (const e of enemies) {
+      if (e.kind === "dummy") {
+        e.alive = false;
+        e.rig.root.visible = false;
+        continue;
+      }
       scene.remove(e.rig.root);
       if (e.portal) scene.remove(e.portal);
     }
@@ -1420,6 +1515,7 @@ export function createSim(scene, world, audio) {
     };
     try { localStorage.setItem(SAVE_KEY, JSON.stringify(data)); } catch { /* private mode */ }
     audio.heal();
+    tutorSaved = true;
     events.push({ type: "save" });
     events.push({ type: "dmg", x: player.x, y: 1.8, z: player.z, n: "Saved" });
     speak("jang", LINES.jang.save);
@@ -1465,6 +1561,15 @@ export function createSim(scene, world, audio) {
         world.chests[i].lid.rotation.x = -1.15;
       }
     });
+    const progressed = player.z > 8
+      || (data.pages && data.pages.length)
+      || data.circus
+      || data.bossDead
+      || (data.arenas && data.arenas.length)
+      || (data.chests && data.chests.some(Boolean))
+      || (data.level && data.level > 1);
+    if (!tutorialOn || progressed) finishTutorial(false);
+    else resumeAtFog();
   }
 
   function idlePresentation(dt) {
@@ -1489,7 +1594,7 @@ export function createSim(scene, world, audio) {
 
   function colorDrain() {
     let drain = 0;
-    const sources = enemies.filter((e) => e.alive);
+    const sources = enemies.filter((e) => e.alive && e.kind !== "dummy");
     if (boss.alive) sources.push(boss);
     for (const e of sources) {
       const d = hypot2(e.x - player.x, e.z - player.z);
@@ -1499,6 +1604,377 @@ export function createSim(scene, world, audio) {
       drain = Math.max(drain, t);
     }
     return drain;
+  }
+
+  const LESSONS = {
+    move: {
+      line: "tutor-move",
+      text: "The road is quiet. Walk it, look around, then put the view back behind you.",
+      hintKey: "WASD move · drag the mouse to look · C behind you",
+      hintTouch: "Left thumb moves · drag the right side to look · Cam",
+    },
+    obstacles: {
+      line: "tutor-obstacles",
+      text: "Jump the logs. Dodge is the step around a rock that will not move.",
+      hintKey: "Space jump · Shift dodge",
+      hintTouch: "Jump · Dodge",
+    },
+    party: {
+      line: "tutor-party",
+      text: "Two men by the wagons have a story and no guide. Walk over.",
+      hintKey: "Walk up to Jang and Tom",
+      hintTouch: "Walk up to Jang and Tom",
+    },
+    key: {
+      line: "tutor-key",
+      text: "The trail key is on the crate. It is a saber if you pick it up.",
+      hintKey: "Walk up to the key",
+      hintTouch: "Walk up to the key",
+    },
+    combo: {
+      line: "tutor-combo",
+      text: "The hay is a patient opponent. Land a three-hit combo.",
+      hintKey: "J, J, J",
+      hintTouch: "Attack, Attack, Attack",
+    },
+    lock: {
+      line: "tutor-lock",
+      text: "Choose one bale and keep it. Lock on, then look away. It stays chosen.",
+      hintKey: "Q lock",
+      hintTouch: "Lock",
+    },
+    guard: {
+      line: "tutor-guard",
+      text: "Tom swings like a lesson. Guard it. A quick guard is a parry.",
+      hintKey: "Hold G",
+      hintTouch: "Hold Guard",
+    },
+    magic: {
+      line: "tutor-magic",
+      text: "The barn is dark. Open Commands, then Magic, then Lantern Flash.",
+      hintKey: "F near the barn, or the command menu",
+      hintTouch: "Commands → Magic → Lantern Flash",
+    },
+    save: {
+      line: "tutor-save",
+      text: "The radio at the edge of camp remembers the set.",
+      hintKey: "E at the radio",
+      hintTouch: "Stand at the radio and save",
+    },
+    fog: {
+      line: "tutor-fog",
+      text: "Three small fogs at the edge of town. The canyon stays shut until they go.",
+      hintKey: "J attack",
+      hintTouch: "Attack",
+    },
+  };
+
+  function tutorBanner() {
+    if (!tutorialOn || tutorStep === "done" || !LESSONS[tutorStep]) return null;
+    const lesson = LESSONS[tutorStep];
+    let text = lesson.text;
+    if (tutorStep === "move") {
+      const bits = [];
+      if (tutorMoved < 3) bits.push("walk");
+      if (!tutorLooked) bits.push("look");
+      if (!tutorRecenter) bits.push("recenter");
+      if (bits.length && bits.length < 3) text = "Still to do: " + bits.join(", ") + ".";
+    } else if (tutorStep === "magic" && tutorMagic === 1) {
+      text = "Someone is a little short on color. Trail Mend, from the Magic list.";
+    } else if (tutorStep === "magic" && tutorMagic === 2) {
+      text = "A tonic finishes the job. Items, then Tonic.";
+    }
+    return {
+      step: tutorStep,
+      text,
+      hintKey: tutorMagic === 1 ? "3, or Commands → Magic → Trail Mend" : tutorMagic === 2 ? "1, or Commands → Items → Tonic" : lesson.hintKey,
+      hintTouch: tutorMagic === 1 ? "Commands → Magic → Trail Mend" : tutorMagic === 2 ? "Commands → Items → Tonic" : lesson.hintTouch,
+      act: tutorStep === "save" && world.radio && hypot2(world.radio.x - player.x, world.radio.z - player.z) < 2.2 ? "Save the set" : null,
+    };
+  }
+
+  function sayLesson(id) {
+    if (tutorSaid === id) return;
+    tutorSaid = id;
+    events.push({ type: "bulletin", id });
+  }
+
+  function spawnDummies() {
+    if (!world.town) return;
+    for (const d of world.town.dummies) {
+      if (enemies.some((e) => e.dummyRef === d)) continue;
+      d.root.visible = true;
+      d.root.rotation.set(0, Math.PI, 0);
+      d.root.position.set(d.x, heightAt(d.x, d.z), d.z);
+      enemies.push({
+        id: "e" + (seq++), kind: "dummy", dummyRef: d, rig: { root: d.root, update() { return { step: false }; }, skinned: false },
+        prof: { hp: 80, radius: 0.6, speed: 0, tele: 9, lunge: 0, reach: 0, dmg: 0, xp: 2, flash: 0 },
+        x: d.x, z: d.z, yaw: Math.PI, y: 0,
+        hp: 80, hpMax: 80, radius: 0.6,
+        state: "idle", t: 0, alive: true, hit: 0, didHit: false,
+        speed: 0, stunFor: 0, homeX: d.x, homeZ: d.z, pendulum: false, routed: false,
+        rise: 0, arena: null, portal: null,
+      });
+    }
+  }
+
+  function clearLessonFoes() {
+    for (const e of enemies) {
+      if (e.kind === "dummy") {
+        e.alive = false;
+        e.rig.root.visible = false;
+        continue;
+      }
+      if (!e.tutorial) continue;
+      e.alive = false;
+      e.rig.root.visible = false;
+      scene.remove(e.rig.root);
+      if (e.portal) scene.remove(e.portal);
+    }
+  }
+
+  function finishTutorial(announce) {
+    const was = tutorialOn;
+    tutorialOn = false;
+    tutorStep = "done";
+    partyJoined = true;
+    keeper.setKey(true);
+    if (world.town) {
+      world.town.open();
+      if (world.town.key) world.town.key.visible = false;
+    }
+    clearLessonFoes();
+    try { localStorage.setItem(TUTOR_KEY, "1"); } catch { /* private mode */ }
+    if (announce && was && !flags.enterSaid) {
+      flags.enterSaid = true;
+      events.push({ type: "bulletin", id: "enter" });
+    }
+  }
+
+  function advanceTutor(next) {
+    tutorStep = next;
+    tutorSaid = "";
+    stepCam = 0;
+    if (next === "obstacles") {
+      tutorJumped = false;
+      tutorDodged = false;
+    }
+    if (next === "combo") tutorCombo = false;
+    if (next === "lock") {
+      tutorLocked = false;
+      lockTarget = null;
+    }
+    if (next === "guard") tutorGuarded = false;
+    if (next === "magic") {
+      tutorMagic = 0;
+      tutorFlashed = false;
+      tutorMended = false;
+      tutorDrank = false;
+    }
+    if (next === "save") tutorSaved = false;
+    if (next === "fog") {
+      allyHold = 3.2;
+      const spots = [[-1.5, 0.4], [1.6, 1.1], [0.2, 2.4]];
+      for (const [x, z] of spots) {
+        const e = makeEnemy("fog", x, z);
+        e.tutorial = true;
+        e.hp = e.hpMax = 16;
+        e.prof = { ...e.prof, hp: 16, dmg: 4, speed: 1.7, xp: 6 };
+        enemies.push(e);
+      }
+    }
+    if (next === "done") finishTutorial(true);
+  }
+
+  function skipLesson() {
+    if (!tutorialOn) return;
+    const order = ["move", "obstacles", "party", "key", "combo", "lock", "guard", "magic", "save", "fog"];
+    const i = order.indexOf(tutorStep);
+    if (tutorStep === "party") joinParty();
+    if (tutorStep === "key") {
+      keeper.setKey(true);
+      if (world.town) world.town.key.visible = false;
+    }
+    if (tutorStep === "fog" || i < 0 || i === order.length - 1) {
+      finishTutorial(true);
+      return;
+    }
+    advanceTutor(order[i + 1]);
+  }
+
+  function joinParty() {
+    if (partyJoined) return;
+    partyJoined = true;
+    flags.g1 = true;
+    flags.g2 = true;
+    events.push({ type: "say", who: "jang", text: "You walked in during a true story. We can pencil you in. I am Jang." });
+    partyTomT = 3.4;
+  }
+
+  function updateTutorial(dt, camYaw, edge) {
+    if (partyTomT > 0) {
+      partyTomT -= dt;
+      if (partyTomT <= 0) events.push({ type: "say", who: "tom", text: "Tom. My neck itched, then you arrived. That was the audition." });
+    }
+    if (!tutorialOn) return;
+    if (player.hp < 28 && tutorStep !== "fog") player.hp = 60;
+    const lesson = LESSONS[tutorStep];
+    if (lesson && !(tutorStep === "magic" && tutorMagic > 0)) sayLesson(lesson.line);
+    const dx = player.x - (updateTutorial.px || player.x);
+    const dz = player.z - (updateTutorial.pz || player.z);
+    tutorMoved += Math.hypot(dx, dz);
+    updateTutorial.px = player.x;
+    updateTutorial.pz = player.z;
+    if (!stepCam) stepCam = camYaw;
+    const turn = Math.atan2(Math.sin(camYaw - stepCam), Math.cos(camYaw - stepCam));
+    if (Math.abs(turn) > 0.45) tutorLooked = true;
+    if (lockTarget && lockTarget.alive && lockTarget.kind === "dummy") tutorLocked = true;
+
+    if (tutorStep === "move" && tutorMoved > 3 && tutorLooked && tutorRecenter) advanceTutor("obstacles");
+    else if (tutorStep === "obstacles" && tutorJumped && tutorDodged) advanceTutor("party");
+    else if (tutorStep === "party") {
+      const near = allies.some((a) => hypot2(a.x - player.x, a.z - player.z) < 3.3);
+      if (near) {
+        joinParty();
+        advanceTutor("key");
+      }
+    } else if (tutorStep === "key") {
+      const k = world.town && world.town.key;
+      if (k && hypot2(k.position.x - player.x, k.position.z - player.z) < 1.35) {
+        k.visible = false;
+        keeper.setKey(true);
+        advanceTutor("combo");
+      }
+    } else if (tutorStep === "combo" && tutorCombo) advanceTutor("lock");
+    else if (tutorStep === "lock" && tutorLocked) advanceTutor("guard");
+    else if (tutorStep === "guard") {
+      const tom = allies[1];
+      const fx = Math.sin(player.yaw);
+      const fz = Math.cos(player.yaw);
+      tom.x = damp(tom.x, player.x + fx * 1.9, 8, dt);
+      tom.z = damp(tom.z, player.z + fz * 1.9, 8, dt);
+      const placed = world.resolve(tom.x, tom.z, 0.35);
+      tom.x = placed.x;
+      tom.z = placed.z;
+      tom.yaw = Math.atan2(player.x - tom.x, player.z - tom.z);
+      const dist = hypot2(tom.x - player.x, tom.z - player.z);
+      practiceT -= dt;
+      if (practiceHit > 0) {
+        practiceHit -= dt;
+        if (practiceHit <= 0 && dist < 2.7) hurtPlayer(4, tom.x, tom.z, { kind: "practice", alive: false });
+      } else if (practiceT <= 0 && dist < 4.2) {
+        practiceT = 2.6;
+        practiceHit = 0.45;
+        tom.anim = "shove";
+        tom.animT = 0;
+      }
+      if (tutorGuarded) advanceTutor("magic");
+    } else if (tutorStep === "magic") {
+      if (tutorMagic === 0 && tutorFlashed) {
+        tutorMagic = 1;
+        if (player.hp > 68) player.hp = 62;
+        if (player.mp < 40) player.mp = 40;
+        events.push({ type: "bulletin", id: "tutor-mend" });
+        tutorSaid = "tutor-mend";
+      } else if (tutorMagic === 1 && tutorMended) {
+        tutorMagic = 2;
+        if (player.potions < 1) player.potions = 1;
+        if (player.hp > 70) player.hp = 64;
+        events.push({ type: "bulletin", id: "tutor-tonic" });
+        tutorSaid = "tutor-tonic";
+      } else if (tutorMagic === 2 && tutorDrank) advanceTutor("save");
+    } else if (tutorStep === "save" && tutorSaved) advanceTutor("fog");
+    else if (tutorStep === "fog") {
+      const left = enemies.some((e) => e.tutorial && e.alive);
+      if (!left && enemies.some((e) => e.tutorial)) finishTutorial(true);
+    }
+    if (tutorStep === "save" && edge && edge.use && world.radio && hypot2(world.radio.x - player.x, world.radio.z - player.z) < 1.8) {
+      /* writeSave already runs from the prompt handler before this */
+    }
+    void edge;
+  }
+
+  function resetTutorFlags() {
+    tutorSaid = "";
+    tutorMoved = 0;
+    tutorLooked = false;
+    tutorRecenter = false;
+    tutorJumped = false;
+    tutorDodged = false;
+    tutorCombo = false;
+    tutorLocked = false;
+    tutorGuarded = false;
+    tutorFlashed = false;
+    tutorMended = false;
+    tutorDrank = false;
+    tutorSaved = false;
+    tutorMagic = 0;
+    practiceT = 1.2;
+    practiceHit = 0;
+    partyTomT = 0;
+    stepCam = 0;
+    updateTutorial.px = undefined;
+    updateTutorial.pz = undefined;
+  }
+
+  function parkAllies(spots) {
+    allies.forEach((a, i) => {
+      const s = spots[i];
+      a.x = s.x;
+      a.z = s.z;
+      a.yaw = s.yaw;
+      a.cd = 1.2;
+      a.anim = "idle";
+      a.animT = 0;
+      a.hp = a.hpMax;
+      a.hurt = 0;
+    });
+  }
+
+  function settleOpening() {
+    resetTutorFlags();
+    if (tutorialCleared()) {
+      tutorialOn = false;
+      tutorStep = "done";
+      partyJoined = true;
+      keeper.setKey(true);
+      if (world.town) {
+        world.town.open();
+        if (world.town.key) world.town.key.visible = false;
+        for (const d of world.town.dummies) d.root.visible = false;
+      }
+      return;
+    }
+    tutorialOn = true;
+    partyJoined = false;
+    tutorStep = "move";
+    player.x = 0;
+    player.z = -50;
+    player.y = heightAt(0, -50);
+    player.yaw = 0;
+    player.vx = player.vz = player.vy = 0;
+    keeper.setKey(false);
+    parkAllies([MEET.jang, MEET.tom]);
+    if (world.town) {
+      world.town.close();
+      if (world.town.key) world.town.key.visible = true;
+    }
+    spawnDummies();
+  }
+
+  function resumeAtFog() {
+    partyJoined = true;
+    keeper.setKey(true);
+    if (world.town && world.town.key) world.town.key.visible = false;
+    clearLessonFoes();
+    advanceTutor("fog");
+  }
+
+  function tutorSave() {
+    if (!tutorialOn || tutorStep !== "save") return false;
+    if (!world.radio || hypot2(world.radio.x - player.x, world.radio.z - player.z) > 2.2) return false;
+    writeSave();
+    return true;
   }
 
   function snapshot(camYaw, prompt, objective) {
@@ -1513,6 +1989,7 @@ export function createSim(scene, world, audio) {
         hits: playerHits,
         level: player.level, xp: player.xp, xpNext: player.xpNext, team: player.team,
         action: player.action, guarding: player.action === "guard",
+        speed: Math.hypot(player.vx, player.vz),
       },
       party: allies.map((a) => ({ id: a.id, name: a.name, hp: a.hp, hpMax: a.hpMax })),
       reaction: reaction ? { id: reaction.id, label: reaction.label } : null,
@@ -1534,6 +2011,7 @@ export function createSim(scene, world, audio) {
       pages: pageCount(),
       circus,
       objective: objective || "Brain fogs are eating the pages.",
+      tutor: tutorBanner(),
       drain: colorDrain(),
       events,
       camYaw,
@@ -1676,6 +2154,7 @@ export function createSim(scene, world, audio) {
         w.mesh.position.set(w.x, heightAt(w.x, w.z), w.z);
         w.mesh.rotation.z = 0;
       }
+      settleOpening();
     },
     skipToGate(withPages = true) {
       settleCircus();
@@ -1715,5 +2194,11 @@ export function createSim(scene, world, audio) {
     boss,
     bossName: worldBoss.name,
     hits: () => playerHits,
+    skipLesson,
+    tutorSave,
+    teaching: () => tutorialOn,
+    tutorStep: () => tutorStep,
+    allies: () => allies.map((a) => ({ id: a.id, x: a.x, z: a.z })),
+    keyOn: () => !!(keeper.keyMesh && keeper.keyMesh.visible),
   };
 }
