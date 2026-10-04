@@ -2,9 +2,10 @@ import * as THREE from "three";
 import { createAudio } from "./audio.js";
 import { createInput } from "./input.js";
 import { createSim } from "./sim.js";
-import { damp, dampAngle, clamp } from "./util.js";
+import { damp, clamp, springAngle, angDelta } from "./util.js";
 import { createNarration } from "./narration.js";
-import { EffectComposer, RenderPass, UnrealBloomPass, OutputPass } from "three/addons";
+import { createDialogue } from "./dialogue.js";
+import { EffectComposer, RenderPass, UnrealBloomPass, OutputPass, GTAOPass, ShaderPass } from "three/addons";
 import { buildWorld } from "./world.js";
 import { whenCastReady } from "./actors.js";
 import { theBlank } from "../bosses/index.js";
@@ -15,7 +16,7 @@ const low = Math.min(window.innerWidth, window.innerHeight) < 520;
 const renderer = new THREE.WebGLRenderer({ canvas, antialias: !low, powerPreference: "high-performance" });
 renderer.outputColorSpace = THREE.SRGBColorSpace;
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
-renderer.toneMappingExposure = 1.12;
+renderer.toneMappingExposure = low ? 1.08 : 1.16;
 renderer.shadowMap.enabled = true;
 // r186 folds the old PCFSoft kernel into PCFShadowMap; light.shadow.radius softens it.
 renderer.shadowMap.type = THREE.PCFShadowMap;
@@ -29,10 +30,50 @@ const world = buildWorld(scene, low);
 const sim = createSim(scene, world, audio);
 const input = createInput(app);
 const narrate = createNarration(audio);
+const dialogue = createDialogue(audio);
+const SETTINGS_KEY = "bw-settings";
+const CAM_PRESET = {
+  slow: { max: 90 * Math.PI / 180, omega: 1.2, drag: 0.7 },
+  normal: { max: 105 * Math.PI / 180, omega: 1.8, drag: 1 },
+  fast: { max: 120 * Math.PI / 180, omega: 2.4, drag: 1.22 },
+};
+function defaultCam() {
+  const coarse = navigator.maxTouchPoints > 0 || matchMedia("(pointer: coarse)").matches;
+  const small = Math.min(window.innerWidth, window.innerHeight) < 700;
+  return coarse || small ? "slow" : "normal";
+}
+const settings = { cam: defaultCam(), subs: false };
+try {
+  const saved = JSON.parse(localStorage.getItem(SETTINGS_KEY) || "null");
+  if (saved && CAM_PRESET[saved.cam]) settings.cam = saved.cam;
+  if (saved && typeof saved.subs === "boolean") settings.subs = saved.subs;
+} catch { /* private mode */ }
+function saveSettings() {
+  try { localStorage.setItem(SETTINGS_KEY, JSON.stringify({ cam: settings.cam, subs: settings.subs })); } catch { /* ignore */ }
+}
+document.body.classList.toggle("subs", settings.subs);
 window.addEventListener("pointerdown", () => audio.unlock(), true);
 
+const GRADE = {
+  uniforms: { tDiffuse: { value: null } },
+  vertexShader: `varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }`,
+  fragmentShader: `
+    uniform sampler2D tDiffuse;
+    varying vec2 vUv;
+    void main() {
+      vec3 c = texture2D(tDiffuse, vUv).rgb;
+      float l = dot(c, vec3(0.30, 0.52, 0.18));
+      c = (c - 0.5) * 1.08 + 0.5;
+      c = mix(c, c * vec3(1.12, 0.94, 0.78), smoothstep(0.55, 0.05, l) * 0.42);
+      c.r += 0.025; c.g += 0.006; c.b -= 0.018;
+      c = mix(c, vec3(l), -0.06);
+      gl_FragColor = vec4(clamp(c, 0.0, 1.0), 1.0);
+    }
+  `,
+};
+
 installEnvironment(renderer, scene, low);
-const composer = low ? null : makeComposer(renderer, scene, camera);
+let composer = low ? null : makeComposer(renderer, scene, camera);
 let castReady = false;
 whenCastReady().then(() => { castReady = true; });
 
@@ -59,15 +100,16 @@ let blankVoiceTimer = 0;
 let ready = false;
 let camYaw = 0.25;
 let camPitch = 0.38;
+let camYawVel = 0;
 let camManual = 0;
-let camChase = 0;
+let camFace = 0.25;
+let camFaceWait = 0;
+let camRecenter = 0;
 const camPos = new THREE.Vector3(0, 3, -10);
 const lookAt = new THREE.Vector3();
 let flashI = 0;
 let shockK = 0;
 let shake = 0;
-let bubble = null;
-let bubbleT = 0;
 const floats = [];
 const v = new THREE.Vector3();
 
@@ -97,7 +139,8 @@ const el = {
   tutorAct: document.getElementById("tutor-act"),
   tutorSkip: document.getElementById("tutor-skip"),
   reticle: document.getElementById("reticle"),
-  bubbles: document.getElementById("bubbles"),
+  tag: document.getElementById("tag"),
+  subtitle: document.getElementById("subtitle"),
   floaters: document.getElementById("floats"),
   flash: document.getElementById("flash"),
   hurt: document.getElementById("hurt"),
@@ -190,6 +233,8 @@ function showCard(id) {
   el.body.textContent = c.body;
   el.btn.textContent = c.btn;
   el.hint.hidden = !c.hint;
+  el.body.hidden = false;
+  el.card.classList.remove("is-spoken");
   el.card.hidden = false;
   el.card.dataset.card = id;
   playing = false;
@@ -199,14 +244,15 @@ function showCard(id) {
 }
 function showPage(id, n) {
   const c = PAGES[id];
-  const spoken = narrate.line("page-" + id) || c.body;
   mode = "page";
   el.script.textContent = c.script;
   el.kicker.textContent = `Story page  ·  ${n} of 5`;
   el.title.textContent = c.title;
-  el.body.textContent = spoken;
+  el.body.textContent = "";
+  el.body.hidden = true;
   el.btn.textContent = "Tuck it back";
   el.hint.hidden = true;
+  el.card.classList.add("is-spoken");
   el.card.hidden = false;
   el.card.dataset.card = "page";
   playing = false;
@@ -486,12 +532,6 @@ function project(x, y, z) {
   return { x: (v.x * 0.5 + 0.5) * r.width, y: (-v.y * 0.5 + 0.5) * r.height };
 }
 
-function say(who, text) {
-  bubble = { who, text };
-  bubbleT = 3.6;
-  el.bubbles.hidden = false;
-}
-
 function addFloat(x, y, z, text, coin) {
   const node = document.createElement("span");
   node.className = coin ? "floater coin" : "floater";
@@ -509,10 +549,19 @@ function frame(now) {
     camPitch = 0.4;
   } else {
     const look = input.consumeLook();
-    if (Math.abs(look.dx) + Math.abs(look.dy) > 0.4) camManual = 0.9;
+    const preset = CAM_PRESET[settings.cam] || CAM_PRESET.slow;
+    const touch = document.body.classList.contains("touch");
+    if (Math.abs(look.dx) + Math.abs(look.dy) > 0.4) {
+      camManual = 1.15;
+      camYawVel = 0;
+      camRecenter = 0;
+      camFaceWait = 0.6;
+    }
+    const drag = (touch ? 0.00205 : 0.0042) * preset.drag;
+    const dragY = (touch ? 0.00145 : 0.003) * preset.drag;
     // Drag right turns the view right: yaw down swings lookDir toward screen-right.
-    camYaw -= look.dx * 0.0048;
-    camPitch = clamp(camPitch + look.dy * 0.0032, 0.16, 1.05);
+    camYaw -= look.dx * drag;
+    camPitch = clamp(camPitch + look.dy * dragY, 0.16, 1.05);
   }
   camManual = Math.max(0, camManual - raw);
 
@@ -530,21 +579,37 @@ function frame(now) {
   }
 
   if (mode === "play" && playing && snap) {
-    if (snap.player.speed > 0.45) camChase = 0.9;
-    else camChase = Math.max(0, camChase - raw);
+    const preset = CAM_PRESET[settings.cam] || CAM_PRESET.slow;
+    const face = snap.player.yaw;
+    const turned = Math.abs(angDelta(camFace, face));
+    if (turned > 0.28) {
+      camFace = face;
+      camFaceWait = 0.6;
+    } else camFaceWait = Math.max(0, camFaceWait - raw);
+    const err = angDelta(camYaw, face);
+    const towardCam = Math.abs(err) > (100 * Math.PI) / 180;
+    const moving = snap.player.speed > 0.55;
     if (snap.events.some((ev) => ev.type === "recenter")) {
-      camYaw = snap.player.yaw;
-      camPitch = 0.38;
+      camRecenter = 0.4;
       camManual = 0;
-      camChase = 0;
+      camFaceWait = 0;
+      camFace = face;
+    }
+    let sprung = null;
+    if (camRecenter > 0) {
+      camRecenter = Math.max(0, camRecenter - raw);
+      sprung = springAngle(camYaw, camYawVel, face, 6.5, raw, 150 * Math.PI / 180);
+      camPitch = damp(camPitch, 0.38, 5, raw);
     } else if (snap.lock) {
       const ang = Math.atan2(snap.lock.x - snap.player.x, snap.lock.z - snap.player.z);
-      camYaw = dampAngle(camYaw, ang, 4.2, raw);
-    } else if (camManual <= 0 && camChase > 0) {
-      const err = Math.atan2(Math.sin(snap.player.yaw - camYaw), Math.cos(snap.player.yaw - camYaw));
-      const rate = 2.6 + Math.min(2.4, Math.abs(err) * 1.15);
-      camYaw = dampAngle(camYaw, snap.player.yaw, rate, raw);
+      sprung = springAngle(camYaw, camYawVel, ang, preset.omega * 1.15, raw, preset.max);
+    } else if (!towardCam && moving && camManual <= 0 && camFaceWait <= 0) {
+      sprung = springAngle(camYaw, camYawVel, face, preset.omega, raw, preset.max);
     }
+    if (sprung) {
+      camYaw = sprung.angle;
+      camYawVel = sprung.vel;
+    } else camYawVel *= Math.exp(-5 * raw);
   }
 
   const lookDirX = Math.sin(camYaw);
@@ -569,10 +634,9 @@ function frame(now) {
   const cx = snap.player.x - lookDirX * dist + rightX * shoulder;
   const cz = snap.player.z - lookDirZ * dist + rightZ * shoulder;
   const cy = snap.player.y + lift;
-  const bob = Math.sin(now / 1000 * 1.6) * 0.012;
-  camPos.x = damp(camPos.x, cx, 6.2, raw);
-  camPos.y = damp(camPos.y, cy + bob, 6.2, raw);
-  camPos.z = damp(camPos.z, cz, 6.2, raw);
+  camPos.x = damp(camPos.x, cx, 5.2, raw);
+  camPos.y = damp(camPos.y, cy, 5.2, raw);
+  camPos.z = damp(camPos.z, cz, 5.2, raw);
   const focus = new THREE.Vector3(snap.player.x, snap.player.y + 1.2, snap.player.z);
   camPos.copy(world.pullCamera(focus, camPos));
   shake = Math.max(0, shake - raw);
@@ -594,7 +658,7 @@ function frame(now) {
   } else shock.material.opacity = 0;
 
   for (const ev of snap.events) {
-    if (ev.type === "say") say(ev.who, ev.text);
+    if (ev.type === "say") dialogue.say(ev.id);
     else if (ev.type === "dmg") addFloat(ev.x, ev.y, ev.z, ev.n, ev.coin);
     else if (ev.type === "hurt") shake = Math.max(shake, 0.35);
     else if (ev.type === "hit") shake = Math.max(shake, ev.heavy ? 0.55 : 0.26);
@@ -613,8 +677,15 @@ function frame(now) {
   const drain = snap.drain || 0;
   renderer.domElement.style.filter = drain > 0.02 ? `saturate(${(1 - drain * 0.94).toFixed(3)})` : "";
   syncRotateHint();
-  if (composer) composer.render();
-  else renderer.render(scene, camera);
+  adaptQuality(raw);
+  if (composer) {
+    try { composer.render(); }
+    catch (err) {
+      console.warn("Post stack disabled.", err);
+      composer = null;
+      renderer.render(scene, camera);
+    }
+  } else renderer.render(scene, camera);
   if (!ready && castReady) {
     ready = true;
     el.boot.classList.add("gone");
@@ -632,7 +703,18 @@ function paintHud(snap) {
   el.coins.textContent = `${p.coins} coins`;
   el.potions.textContent = p.potions > 0 ? `Tonic ${p.potions}` : "";
   el.pages.textContent = `Pages ${snap.pages || 0}/5`;
-  el.obj.textContent = snap.objective;
+  const objText = document.getElementById("obj-text");
+  if (objText) objText.textContent = snap.objective;
+  else el.obj.textContent = snap.objective;
+  if (mode === "play" && el.hud) {
+    const hudBottom = el.hud.getBoundingClientRect().bottom;
+    const party = document.getElementById("party");
+    const partyBottom = party ? party.getBoundingClientRect().bottom : 0;
+    const clear = Math.ceil(Math.max(hudBottom, partyBottom) + 14);
+    document.documentElement.style.setProperty("--hud-clear", clear + "px");
+  }
+  const setBtn = document.getElementById("settings-btn");
+  if (setBtn) setBtn.hidden = mode !== "play";
   el.pips.innerHTML = [1, 2, 3, 4].map((i) => `<i class="${p.combo >= i ? "on" : ""}"></i>`).join("");
   setRing("hp-ring", 40, p.hp / p.hpMax);
   setRing("mp-ring", 28, (p.mp ?? p.hp) / (p.mpMax || p.hpMax));
@@ -670,16 +752,15 @@ function paintHud(snap) {
   } else el.reticle.hidden = true;
   el.hurt.style.opacity = String(Math.max(0, (p.hp < 35 ? 0.18 : 0) + (shake > 0 ? 0.25 : 0)));
 
-  bubbleT -= 0.016;
-  if (bubble && bubbleT > 0) {
-    const head = snap.heads[bubble.who];
-    const pt = head && project(head.x, head.y, head.z);
+  const line = dialogue.active();
+  if (line && el.tag && mode === "play") {
+    const head = snap.heads[line.speaker];
+    const pt = head && project(head.x, head.y + 0.35, head.z);
     if (pt) {
-      el.bubbles.hidden = false;
-      el.bubbles.style.transform = `translate(${pt.x}px, ${pt.y}px)`;
-      el.bubbles.innerHTML = `<b>${bubble.who === "jang" ? "Jang" : "Tom"}</b><span>${bubble.text}</span>`;
-    }
-  } else el.bubbles.hidden = true;
+      el.tag.hidden = false;
+      el.tag.style.transform = `translate(${pt.x}px, ${pt.y}px) translate(-50%, -100%)`;
+    } else el.tag.hidden = true;
+  } else if (el.tag) el.tag.hidden = true;
 
   for (let i = floats.length - 1; i >= 0; i--) {
     const f = floats[i];
@@ -725,7 +806,8 @@ window.__BOOKWORLDS = {
     return n;
   },
   project: (x, y, z) => project(x, y, z),
-  voice: () => ({ speaking: audio.speaking(), depth: narrate.depth(), levels: audio.levels(), bulletin: narrate.current() }),
+  voice: () => ({ speaking: audio.speaking(), depth: narrate.depth() + dialogue.depth(), levels: audio.levels(), bulletin: narrate.current(), line: dialogue.active() }),
+  settings: () => ({ cam: settings.cam, subs: settings.subs }),
   say: (id) => narrate.say(id),
   teaching: () => sim.teaching(),
   tutorStep: () => sim.tutorStep(),
@@ -751,7 +833,7 @@ function paintTutor(snap) {
   node.hidden = !show;
   document.body.classList.toggle("tutor-lock", !!(show && tutor.step === "lock"));
   if (!show) return;
-  el.tutorText.textContent = tutor.text;
+  el.tutorText.textContent = "";
   const touch = document.body.classList.contains("touch");
   el.tutorHint.textContent = touch ? tutor.hintTouch : tutor.hintKey;
   if (tutor.act) {
@@ -760,10 +842,10 @@ function paintTutor(snap) {
   } else el.tutorAct.hidden = true;
 }
 
-el.tutorSkip.addEventListener("click", () => {
+el.tutorSkip.addEventListener("pointerup", () => {
   if (mode === "play" && sim.teaching()) sim.skipLesson();
 });
-el.tutorAct.addEventListener("click", () => {
+el.tutorAct.addEventListener("pointerup", () => {
   if (mode === "play") sim.tutorSave();
 });
 
@@ -885,7 +967,7 @@ function activateMenu(id) {
   }
 }
 
-document.getElementById("cmd").addEventListener("click", (e) => {
+document.getElementById("cmd").addEventListener("pointerup", (e) => {
   const btn = e.target.closest("[data-cmd]");
   if (!btn || mode !== "play") return;
   e.preventDefault();
@@ -894,13 +976,63 @@ document.getElementById("cmd").addEventListener("click", (e) => {
   menuSig = "";
 });
 
-document.getElementById("rotate-dismiss")?.addEventListener("click", (e) => {
+document.getElementById("rotate-dismiss")?.addEventListener("pointerup", (e) => {
   e.preventDefault();
   e.stopPropagation();
   rotateDismissed = true;
   try { sessionStorage.setItem("bw-rotate", "1"); } catch { /* ignore */ }
   syncRotateHint();
 });
+
+function wireSettings() {
+  const btn = document.getElementById("settings-btn");
+  const panel = document.getElementById("settings");
+  const speeds = document.getElementById("cam-speed");
+  const subToggle = document.getElementById("sub-toggle");
+  if (!btn || !panel) return;
+  const paint = () => {
+    document.body.classList.toggle("subs", settings.subs);
+    if (subToggle) subToggle.checked = settings.subs;
+    if (speeds) {
+      for (const node of speeds.querySelectorAll("[data-speed]")) {
+        node.classList.toggle("is-on", node.getAttribute("data-speed") === settings.cam);
+      }
+    }
+  };
+  paint();
+  btn.addEventListener("pointerup", (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    panel.hidden = !panel.hidden;
+  });
+  speeds?.addEventListener("pointerup", (e) => {
+    const node = e.target.closest("[data-speed]");
+    if (!node) return;
+    e.preventDefault();
+    e.stopPropagation();
+    const id = node.getAttribute("data-speed");
+    if (!CAM_PRESET[id]) return;
+    settings.cam = id;
+    saveSettings();
+    paint();
+  });
+  subToggle?.addEventListener("pointerdown", (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    subToggle.checked = !subToggle.checked;
+    subToggle.dispatchEvent(new Event("change"));
+  });
+  subToggle?.addEventListener("change", () => {
+    settings.subs = !!subToggle.checked;
+    saveSettings();
+    paint();
+    const cur = narrate.current();
+    const bar = document.getElementById("bulletin");
+    if (!bar) return;
+    if (settings.subs && cur) bar.hidden = false;
+    else if (!settings.subs && bar.dataset.force !== "1") bar.hidden = true;
+  });
+}
 
 function installEnvironment(gl, rootScene, lowQ) {
   const c = document.createElement("canvas");
@@ -927,9 +1059,31 @@ function installEnvironment(gl, rootScene, lowQ) {
 function makeComposer(gl, rootScene, cam) {
   const post = new EffectComposer(gl);
   post.addPass(new RenderPass(rootScene, cam));
-  post.addPass(new UnrealBloomPass(new THREE.Vector2(window.innerWidth, window.innerHeight), 0.16, 0.42, 0.98));
+  try {
+    const ao = new GTAOPass(rootScene, cam, window.innerWidth, window.innerHeight);
+    ao.blendIntensity = 0.42;
+    if (ao.updateGtaoMaterial) ao.updateGtaoMaterial({ samples: 8, radius: 0.28, thickness: 0.6, scale: 0.85 });
+    post.addPass(ao);
+    post.ao = ao;
+  } catch (err) {
+    console.warn("Ambient occlusion skipped.", err);
+  }
+  post.addPass(new UnrealBloomPass(new THREE.Vector2(window.innerWidth, window.innerHeight), 0.14, 0.4, 0.96));
+  post.addPass(new ShaderPass(GRADE));
   post.addPass(new OutputPass());
   return post;
+}
+
+let qualityDrop = 0;
+function adaptQuality(dt) {
+  if (dt > 0.034) qualityDrop += 1;
+  else qualityDrop = Math.max(0, qualityDrop - 1);
+  if (qualityDrop < 45) return;
+  qualityDrop = 0;
+  const ratio = renderer.getPixelRatio();
+  if (ratio > 1) renderer.setPixelRatio(1);
+  if (composer && composer.ao) composer.ao.enabled = false;
+  if (world.setQuality) world.setQuality("low");
 }
 
 window.addEventListener("wheel", (e) => {
@@ -956,4 +1110,5 @@ window.addEventListener("keydown", (e) => {
   }
 });
 
+wireSettings();
 requestAnimationFrame(frame);

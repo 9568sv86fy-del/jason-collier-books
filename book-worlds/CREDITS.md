@@ -16,7 +16,7 @@ Keeper’s duster, Jang’s waistcoat and bowler, Tom’s suspenders and wide ha
 
 ## Narration
 
-Announcer lines in `audio/narration/` are original recordings for this project. Captions live in `narration.json`.
+Announcer lines in `audio/narration/` are original recordings for this project, including the trail tutorial. Captions live in `narration.json`. Character barks live in `dialogue.json` and play from `audio/voices/<speaker>/<id>.mp3` when a take is present.
 
 ## Terrain textures
 

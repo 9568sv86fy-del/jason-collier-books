@@ -19,10 +19,10 @@ export const boss = {
     win: "The hunt is over. I will not be putting that on a handbill.",
   },
   objective: {
-    waiting: "The wagons are afloat. The Blank Bear is waiting in the ford.",
-    fighting: "The Blank Bear is erasing the pages. Break it.",
+    waiting: "Bear at the ford",
+    fighting: "Break the bear",
     thinning(left) {
-      return `The bear is fog again. The book still wants ${left} page${left === 1 ? "" : "s"}.`;
+      return left === 1 ? "1 page left" : `${left} pages left`;
     },
   },
   create,
@@ -55,11 +55,14 @@ const bearFog = new THREE.ShaderMaterial({
       return mix(mix(mix(a,b,f.x), mix(c,d,f.x), f.y), mix(mix(e,f2,f.x), mix(g,h,f.x), f.y), f.z);
     }
     void main() {
-      float fres = pow(1.0 - abs(vN.z), 1.5);
+      float fres = pow(1.0 - abs(vN.z), 1.35);
       float n = noise(vP * 1.6 + vec3(0.0, uTime * 0.25, uTime * 0.1));
-      float alpha = (0.08 + n * 0.28) * (0.35 + fres) ;
-      vec3 col = mix(vec3(0.55), vec3(0.86), n) + vec3(uHit);
-      gl_FragColor = vec4(col, clamp(alpha, 0.0, 0.55));
+      float n2 = noise(vP * 3.4 - vec3(uTime * 0.3, 0.0, uTime * 0.18));
+      float core = smoothstep(1.1, 0.2, length(vP));
+      float alpha = (0.06 + n * 0.32 + n2 * 0.18) * (0.25 + fres) * mix(0.55, 1.3, core);
+      vec3 col = mix(vec3(0.38), vec3(0.9), n);
+      col = mix(col, vec3(0.7), fres * 0.4) + vec3(uHit);
+      gl_FragColor = vec4(col, clamp(alpha, 0.0, 0.62));
     }
   `,
 });

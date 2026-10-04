@@ -473,13 +473,17 @@ const fogShader = {
                  mix(mix(n001, n101, f.x), mix(n011, n111, f.x), f.y), f.z);
     }
     void main() {
-      float fres = pow(1.0 - abs(vN.z), 1.7);
-      float n = noise(vLocal * 2.4 + vec3(0.0, uTime * 0.35, uTime * 0.12));
-      float n2 = noise(vLocal * 5.5 - vec3(uTime * 0.45, 0.0, uTime * 0.2));
-      float alpha = (0.12 + n * 0.42 + n2 * 0.22) * (0.28 + fres * 0.95) * uFade;
-      vec3 col = mix(vec3(0.42, 0.43, 0.45), vec3(0.78, 0.79, 0.8), n);
+      float fres = pow(1.0 - abs(dot(vN, vec3(0.0, 0.0, 1.0))), 1.35);
+      float n = noise(vLocal * 2.1 + vec3(0.0, uTime * 0.32, uTime * 0.1));
+      float n2 = noise(vLocal * 4.8 - vec3(uTime * 0.4, uTime * 0.15, 0.0));
+      float n3 = noise(vLocal * 1.1 + vec3(uTime * 0.08, 0.0, uTime * 0.05));
+      float core = smoothstep(0.95, 0.15, length(vLocal));
+      float alpha = (0.08 + n * 0.34 + n2 * 0.2 + n3 * 0.16) * (0.22 + fres * 0.9) * uFade;
+      alpha = mix(alpha * 0.45, alpha * 1.35, core);
+      vec3 col = mix(vec3(0.32, 0.33, 0.36), vec3(0.86, 0.87, 0.88), n);
+      col = mix(col, vec3(0.62, 0.64, 0.68), fres * 0.55);
       col += vec3(0.55) * uHit;
-      gl_FragColor = vec4(col, clamp(alpha, 0.0, 0.78));
+      gl_FragColor = vec4(col, clamp(alpha, 0.0, 0.72));
     }
   `,
 };
@@ -510,7 +514,7 @@ export function createFog(opts = {}) {
     { p: [0.05, tall ? 1.55 : 1.15, 0.02], s: [0.28, tall ? 0.42 : 0.3, 0.24] },
     { p: [0, tall ? 0.45 : 0.32, 0], s: [0.5, 0.22, 0.36] },
   ];
-  for (let shell = 0; shell < 3; shell++) {
+  for (let shell = 0; shell < 4; shell++) {
     for (const v of volumes) {
       const mat = fogMat();
       mat.uniforms.uFade.value = 0.55 + shell * 0.18;
