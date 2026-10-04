@@ -367,7 +367,7 @@ export function createHuman(spec) {
     return { head: tmp.clone(), step: moving && s * c < 0 && Math.sin(phase - dt * 4) * Math.cos(phase - dt * 4) > 0 };
   }
 
-  return { root, update, hand: RA.hand, glow: spec._glow || null, neck };
+  return { root, update, hand: RA.hand, glow: spec._glow || null, neck, key };
 }
 
 function setRot(obj, x, y, z, lambda, dt) {

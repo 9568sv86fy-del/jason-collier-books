@@ -1,6 +1,6 @@
 import * as THREE from "three";
 import { clamp, hash, lerp } from "./util.js";
-import { createCritter, softDot } from "./rigs.js";
+import { createCritter, softDot, trailKey } from "./rigs.js";
 
 export function heightAt(x, z) {
   let h = Math.sin(x * 0.13) * 0.1 + Math.cos(z * 0.08) * 0.07 + Math.sin((x + z) * 0.05) * 0.05;
@@ -128,6 +128,7 @@ export function buildWorld(scene, low) {
 
   const dust = ambientDust(low ? 80 : 160);
   scene.add(dust);
+  const town = buildTown(scene, obstacles, block);
 
   const barrels = new THREE.Group();
   for (const [x, z] of [[-2.2, -1.4], [-2.6, -0.6], [5.2, 3.4]]) {
@@ -147,6 +148,7 @@ export function buildWorld(scene, low) {
     floats,
     rope,
     radio,
+    town,
     gate,
     fire,
     sun,
@@ -173,6 +175,8 @@ export function buildWorld(scene, low) {
       ship.rotation.z = Math.sin(t * 0.4) * 0.03;
       water.position.y = heightAt(0, 115) + 0.2 + Math.sin(t * 1.4) * 0.02;
       skyMat.uniforms.uTime.value = t;
+      const calm = focus.z < 7;
+      scene.fog.color.setHex(calm ? 0xe7b48a : 0xc4845a);
       if (gate.open) {
         gate.glow.material.opacity = 0.35 + Math.sin(t * 3) * 0.15;
       }
@@ -225,14 +229,15 @@ export function buildWorld(scene, low) {
       if (out.y < floorY) out.y = floorY;
       return out;
     },
-    resolve(x, z, radius, extra) {
+    resolve(x, z, radius, extra, feetY = null) {
       let px = x;
-      let pz = clamp(z, -10, 129.2);
+      let pz = clamp(z, -56, 129.2);
       for (let n = 0; n < 2; n++) {
         const half = halfWidth(pz) - radius;
         px = clamp(px, -half, half);
         const all = extra ? obstacles.concat(extra) : obstacles;
         for (const o of all) {
+          if (o.low && (feetY == null || feetY > heightAt(o.x, o.z) + 0.55)) continue;
           let dx = px - o.x;
           let dz = pz - o.z;
           const d = Math.hypot(dx, dz);
@@ -251,7 +256,7 @@ export function buildWorld(scene, low) {
 }
 
 function buildGround() {
-  const geo = new THREE.PlaneGeometry(54, 158, 50, 110);
+  const geo = new THREE.PlaneGeometry(54, 210, 40, 140);
   geo.rotateX(-Math.PI / 2);
   const pos = geo.attributes.position;
   const colors = new Float32Array(pos.count * 3);
@@ -260,18 +265,20 @@ function buildGround() {
   const rock = new THREE.Color(0.72, 0.66, 0.6);
   const wet = new THREE.Color(0.58, 0.52, 0.44);
   const camp = new THREE.Color(1.02, 0.88, 0.7);
+  const dawn = new THREE.Color(1.08, 0.9, 0.7);
   const tmp = new THREE.Color();
   for (let i = 0; i < pos.count; i++) {
     const x = pos.getX(i);
     const lz = pos.getZ(i);
-    const z = lz + 60;
+    const z = lz + 34;
     pos.setZ(i, z);
     pos.setY(i, heightAt(x, z));
     const pathK = Math.exp(-(x * x) / 16);
     const riverK = Math.exp(-((z - 115) * (z - 115)) / 28);
     const campK = Math.exp(-(x * x + (z - 1) * (z - 1)) / 220);
+    const dawnK = z < -6 ? clamp((-6 - z) / 28, 0, 0.55) : 0;
     const canyonK = z > 24 && z < 98 ? 0.45 : 0;
-    tmp.copy(base).lerp(path, pathK * 0.65).lerp(camp, campK * 0.35).lerp(rock, canyonK * (1 - pathK)).lerp(wet, riverK * 0.7);
+    tmp.copy(base).lerp(path, pathK * 0.65).lerp(camp, campK * 0.35).lerp(rock, canyonK * (1 - pathK)).lerp(wet, riverK * 0.7).lerp(dawn, dawnK);
     const n = (hash(i + Math.floor(x * 3) * 13) - 0.5) * 0.08;
     colors[i * 3] = clamp(tmp.r + n, 0, 1.2);
     colors[i * 3 + 1] = clamp(tmp.g + n * 0.7, 0, 1.2);
@@ -602,6 +609,153 @@ function mesas(scene, camSphere) {
     scene.add(m);
     if (camSphere) camSphere(x, h * 0.45, z, r * 0.85);
   }
+}
+
+function buildTown(scene, obstacles, block) {
+  const wood = new THREE.MeshStandardMaterial({ color: 0x7a5234, roughness: 0.84, metalness: 0.02 });
+  const canvas = new THREE.MeshStandardMaterial({ color: 0xe7d3ae, roughness: 0.9, metalness: 0 });
+  const dark = new THREE.MeshStandardMaterial({ color: 0x2a2118, roughness: 0.8, metalness: 0.05 });
+  const hayMat = new THREE.MeshStandardMaterial({ color: 0xc6a15a, roughness: 0.96, metalness: 0 });
+  const group = new THREE.Group();
+  scene.add(group);
+
+  const tent = (x, z, rot) => {
+    const g = new THREE.Group();
+    const cloth = new THREE.Mesh(new THREE.ConeGeometry(1.35, 1.5, 4), canvas);
+    cloth.position.y = 0.9;
+    cloth.rotation.y = Math.PI / 4;
+    cloth.castShadow = true;
+    const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.04, 1.7, 5), dark);
+    pole.position.y = 0.85;
+    g.add(cloth, pole);
+    g.position.set(x, heightAt(x, z), z);
+    g.rotation.y = rot;
+    group.add(g);
+    block(x, z, 0.9);
+  };
+  tent(-6.5, -46, 0.4);
+  tent(6.2, -44, -0.5);
+  tent(-5.4, -30, 0.2);
+
+  sign(scene, -3.2, -48.5, "EDGE OF THE BOOK", "Dawn. Color intact.");
+
+  const logs = [];
+  for (const x of [-4.6, -2.3, 0, 2.3, 4.6]) {
+    const log = new THREE.Mesh(new THREE.CylinderGeometry(0.22, 0.24, 1.7, 8), wood);
+    log.rotation.z = Math.PI / 2;
+    log.position.set(x, heightAt(x, -37) + 0.24, -37);
+    log.castShadow = true;
+    group.add(log);
+    const o = { x, z: -37, r: 0.72, low: true };
+    obstacles.push(o);
+    logs.push(o);
+  }
+  const boulder = new THREE.Mesh(new THREE.DodecahedronGeometry(0.85, 0), dark);
+  boulder.position.set(-5.6, heightAt(-5.6, -33.5) + 0.55, -33.5);
+  boulder.castShadow = true;
+  group.add(boulder);
+  block(-5.6, -33.5, 0.95);
+
+  const crate = new THREE.Mesh(new THREE.BoxGeometry(0.7, 0.55, 0.7), wood);
+  crate.position.set(0.3, heightAt(0.3, -22) + 0.28, -22);
+  crate.castShadow = true;
+  group.add(crate);
+  block(0.3, -22, 0.45);
+  const key = trailKey();
+  key.position.set(0.3, heightAt(0.3, -22) + 0.7, -22);
+  key.rotation.y = 0.6;
+  group.add(key);
+
+  const dummies = [];
+  for (const x of [-2.1, 0.2, 2.3]) {
+    const root = new THREE.Group();
+    const bale = new THREE.Mesh(new THREE.CylinderGeometry(0.42, 0.46, 0.72, 10), hayMat);
+    bale.rotation.z = Math.PI / 2;
+    bale.position.y = 0.55;
+    bale.castShadow = true;
+    const post = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.06, 1.35, 6), wood);
+    post.position.y = 0.7;
+    const cap = new THREE.Mesh(new THREE.SphereGeometry(0.16, 8, 6), canvas);
+    cap.position.y = 1.35;
+    root.add(bale, post, cap);
+    const z = -16;
+    root.position.set(x, heightAt(x, z), z);
+    root.visible = false;
+    group.add(root);
+    dummies.push({ root, x, z });
+  }
+
+  const barn = new THREE.Group();
+  const wall = new THREE.MeshStandardMaterial({ color: 0x6a4330, roughness: 0.88 });
+  const shell = new THREE.Mesh(new THREE.BoxGeometry(4.2, 2.6, 3.4), wall);
+  shell.position.y = 1.3;
+  shell.castShadow = true;
+  const roof = new THREE.Mesh(new THREE.ConeGeometry(3.1, 1.2, 4), dark);
+  roof.position.y = 3.05;
+  roof.rotation.y = Math.PI / 4;
+  roof.castShadow = true;
+  const door = new THREE.Mesh(
+    new THREE.PlaneGeometry(1.3, 1.8),
+    new THREE.MeshBasicMaterial({ color: 0x140e0c }),
+  );
+  door.position.set(0, 0.95, 1.72);
+  const lamp = new THREE.PointLight(0xffc56a, 0, 9, 1.4);
+  lamp.position.set(0, 2.1, 0.4);
+  const windowMat = new THREE.MeshStandardMaterial({ color: 0x2a241c, emissive: 0x000000, emissiveIntensity: 0, roughness: 0.4 });
+  const win = new THREE.Mesh(new THREE.PlaneGeometry(0.7, 0.5), windowMat);
+  win.position.set(1.15, 1.7, 1.72);
+  barn.add(shell, roof, door, lamp, win);
+  const bx = 8.2;
+  const bz = -18;
+  barn.position.set(bx, heightAt(bx, bz), bz);
+  group.add(barn);
+  block(bx, bz, 1.7);
+
+  const gate = new THREE.Group();
+  gate.visible = false;
+  const railMat = new THREE.MeshStandardMaterial({ color: 0x8a6844, roughness: 0.8 });
+  for (const x of [-6, -3, 0, 3, 6]) {
+    const post = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.1, 1.4, 6), wood);
+    post.position.set(x, 0.7, 0);
+    post.castShadow = true;
+    gate.add(post);
+  }
+  const rail = new THREE.Mesh(new THREE.BoxGeometry(13, 0.08, 0.08), railMat);
+  rail.position.y = 0.9;
+  gate.add(rail);
+  const gz = 6.6;
+  gate.position.set(0, heightAt(0, gz), gz);
+  group.add(gate);
+  sign(scene, 2.4, 5.2, "CANYON ROAD", "Closed until the edge is quiet");
+  const gateObs = [];
+
+  return {
+    key,
+    dummies,
+    barn: { lamp, windowMat, x: bx, z: bz },
+    open() {
+      gate.visible = false;
+      for (const o of gateObs) {
+        const i = obstacles.indexOf(o);
+        if (i >= 0) obstacles.splice(i, 1);
+      }
+      gateObs.length = 0;
+    },
+    close() {
+      gate.visible = true;
+      if (gateObs.length) return;
+      for (let x = -6.5; x <= 6.5; x += 1.4) {
+        const o = { x, z: gz, r: 0.8 };
+        obstacles.push(o);
+        gateObs.push(o);
+      }
+    },
+    lightBarn() {
+      lamp.intensity = 7;
+      windowMat.emissive.setHex(0xffc56a);
+      windowMat.emissiveIntensity = 0.8;
+    },
+  };
 }
 
 function buildRadio(scene) {

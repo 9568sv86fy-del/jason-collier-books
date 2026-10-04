@@ -91,6 +91,11 @@ const el = {
   bossFill: document.getElementById("boss-fill"),
   pips: document.getElementById("pips"),
   prompt: document.getElementById("prompt"),
+  tutor: document.getElementById("tutor"),
+  tutorText: document.getElementById("tutor-text"),
+  tutorHint: document.getElementById("tutor-hint"),
+  tutorAct: document.getElementById("tutor-act"),
+  tutorSkip: document.getElementById("tutor-skip"),
   reticle: document.getElementById("reticle"),
   bubbles: document.getElementById("bubbles"),
   floaters: document.getElementById("floats"),
@@ -383,6 +388,11 @@ document.getElementById("dial-next").addEventListener("click", () => setStation(
 el.knob.addEventListener("click", () => setStation(station + 1, true));
 el.tune.addEventListener("click", () => tryTune());
 window.addEventListener("keydown", (e) => {
+  if (e.key === "Escape" && mode === "play" && sim.teaching()) {
+    e.preventDefault();
+    sim.skipLesson();
+    return;
+  }
   if (mode !== "hub" || transitioning) return;
   if (e.key === "ArrowRight" || e.key === "ArrowDown") {
     e.preventDefault();
@@ -403,7 +413,11 @@ el.btn.addEventListener("click", () => {
     camPitch = 0.42;
     sim.begin({ restore: !start });
     hideCard();
-    narrate.say("enter");
+    if (sim.teaching()) {
+      camYaw = 0;
+      camPitch = 0.36;
+      narrate.say("tutor-arrive");
+    } else narrate.say("enter");
   } else if (mode === "dead") {
     sim.revive();
     hideCard();
@@ -595,6 +609,7 @@ function frame(now) {
   }
 
   paintHud(snap);
+  paintTutor(snap);
   const drain = snap.drain || 0;
   renderer.domElement.style.filter = drain > 0.02 ? `saturate(${(1 - drain * 0.94).toFixed(3)})` : "";
   syncRotateHint();
@@ -712,6 +727,10 @@ window.__BOOKWORLDS = {
   project: (x, y, z) => project(x, y, z),
   voice: () => ({ speaking: audio.speaking(), depth: narrate.depth(), levels: audio.levels(), bulletin: narrate.current() }),
   say: (id) => narrate.say(id),
+  teaching: () => sim.teaching(),
+  tutorStep: () => sim.tutorStep(),
+  skipLesson: () => sim.skipLesson(),
+  tutorSave: () => sim.tutorSave(),
 };
 
 function setRing(id, radius, pct) {
@@ -721,6 +740,30 @@ function setRing(id, radius, pct) {
   node.style.strokeDasharray = String(circ);
   node.style.strokeDashoffset = String(circ * (1 - clamp(pct, 0, 1)));
 }
+
+function paintTutor(snap) {
+  const node = el.tutor;
+  if (!node) return;
+  const tutor = snap && snap.tutor;
+  const show = !!(tutor && mode === "play");
+  node.hidden = !show;
+  document.body.classList.toggle("tutor-lock", !!(show && tutor.step === "lock"));
+  if (!show) return;
+  el.tutorText.textContent = tutor.text;
+  const touch = document.body.classList.contains("touch");
+  el.tutorHint.textContent = touch ? tutor.hintTouch : tutor.hintKey;
+  if (tutor.act) {
+    el.tutorAct.hidden = false;
+    el.tutorAct.textContent = tutor.act;
+  } else el.tutorAct.hidden = true;
+}
+
+el.tutorSkip.addEventListener("click", () => {
+  if (mode === "play" && sim.teaching()) sim.skipLesson();
+});
+el.tutorAct.addEventListener("click", () => {
+  if (mode === "play") sim.tutorSave();
+});
 
 function paintParty(snap) {
   const rows = snap.party || [];

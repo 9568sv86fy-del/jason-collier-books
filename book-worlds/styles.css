@@ -528,6 +528,34 @@ body.playing #party, body.playing #cmd, body.playing #gauges { display: block; }
   animation: bw-blink 0.7s steps(1) infinite;
   letter-spacing: .04em;
 }
+#tutor {
+  position: absolute; left: 50%; top: calc(64px + env(safe-area-inset-top));
+  transform: translateX(-50%); z-index: 7; width: min(26rem, 88vw);
+  padding: .45rem .7rem .5rem; pointer-events: none; text-align: center;
+  background: rgba(16, 12, 8, .42); color: var(--paper);
+  border: 1px solid rgba(228, 208, 164, .4); border-radius: 12px;
+}
+#tutor[hidden] { display: none; }
+#tutor-kicker {
+  font-family: var(--ui); font-size: 9px; letter-spacing: .18em; text-transform: uppercase; color: var(--brass);
+}
+#tutor-text {
+  margin-top: 2px; font-family: var(--serif); font-style: italic; font-size: 15px; line-height: 1.25;
+  text-shadow: 0 1px 2px #000;
+}
+#tutor-hint {
+  margin-top: 2px; font-family: var(--ui); font-size: 10px; letter-spacing: .08em; text-transform: uppercase; color: var(--muted);
+}
+#tutor-actions { display: flex; justify-content: center; gap: 8px; margin-top: 6px; }
+#tutor-actions button {
+  pointer-events: auto; min-height: 32px; padding: 0 12px; border-radius: 999px; cursor: pointer;
+  border: 1px solid rgba(228, 208, 164, .55); background: rgba(243, 230, 200, .82); color: #24180f;
+  font-family: var(--ui); font-size: 10px; letter-spacing: .12em; text-transform: uppercase;
+}
+#tutor-actions #tutor-skip { background: transparent; color: var(--paper); }
+body.touch.tutor-lock #actions button[data-act="lock"] {
+  display: block; left: -4px; top: -6px;
+}
 
 #gauges {
   position: absolute; right: 8px; bottom: calc(8px + env(safe-area-inset-bottom)); z-index: 6;

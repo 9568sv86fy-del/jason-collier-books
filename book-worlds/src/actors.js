@@ -170,8 +170,10 @@ export function createHuman(spec) {
     skinned: false,
     update() { return { step: false }; },
     _fail() {
-      const cap = createCapsule(spec);
+      const cap = createCapsule({ ...spec, key: api._keyOn !== false });
       spin.add(cap.root);
+      api.keyMesh = cap.key || null;
+      if (api.keyMesh) api.keyMesh.visible = api._keyOn !== false;
       api.hand = cap.hand;
       api.glow = cap.glow;
       api.neck = cap.neck;
@@ -179,6 +181,12 @@ export function createHuman(spec) {
     },
     _spec: spec,
     _spin: spin,
+    _keyOn: true,
+    keyMesh: null,
+    setKey(on) {
+      api._keyOn = !!on;
+      if (api.keyMesh) api.keyMesh.visible = api._keyOn;
+    },
   };
   if (assetsReady) dress(api, assetsReady);
   else {
@@ -297,6 +305,8 @@ function dress(api, assets) {
     const key = trailKey();
     key.scale.setScalar(0.7);
     put(model, B("hand_r"), key, grip.x, grip.y, grip.z, -0.95, 0.25, 0.35);
+    api.keyMesh = key;
+    key.visible = api._keyOn !== false;
     api.hand = B("hand_r");
   }
   if (spec.club) {

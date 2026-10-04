@@ -10,5 +10,18 @@
   { "id": "scene-circus", "text": "We take you to the river. The crossing is scrambled. Those wagons have to float before this picture can go on." },
   { "id": "boss", "text": "Stand by for the ford. The bear from the hunt has fused with a Nonimaginaire. It is trying to erase the pages." },
   { "id": "restored", "text": "The pages are back in the book. Color returns to the signal. We return you now to your regular program." },
-  { "id": "blank-next", "text": "The next station is next." }
+  { "id": "blank-next", "text": "The next station is next." },
+  { "id": "tutor-arrive", "text": "Dawn on the edge of the book. The color is still in the grass. A keeper has the road to himself." },
+  { "id": "tutor-move", "text": "Walk the road. Turn your head. When the view gets in front of you, put it back behind." },
+  { "id": "tutor-obstacles", "text": "A log in the lane, a rock beside it. Jump the low one. Step around the tall one." },
+  { "id": "tutor-party", "text": "Two men are selling a story at the wagons. They have decided you are the plot." },
+  { "id": "tutor-key", "text": "The trail key is waiting. It is a saber, if you ask it kindly." },
+  { "id": "tutor-combo", "text": "Hay remembers a punch. String three of them together." },
+  { "id": "tutor-lock", "text": "Pick a target and keep it. The hay does not mind being chosen." },
+  { "id": "tutor-guard", "text": "Tom would like to swing at you. He calls this teaching. Meet it with a guard." },
+  { "id": "tutor-magic", "text": "The barn has gone dim. Open the command menu. Lantern Flash lights a dark room." },
+  { "id": "tutor-mend", "text": "Trail Mend puts a little color back in a person. Someone here is short on it." },
+  { "id": "tutor-tonic", "text": "A tonic, if the mend was not enough. Drink it. The book can spare one." },
+  { "id": "tutor-save", "text": "The radio remembers the set. Leave the story a place to return to." },
+  { "id": "tutor-fog", "text": "Gray at the edge of town. Three small fogs. The canyon opens when they go." }
 ]
